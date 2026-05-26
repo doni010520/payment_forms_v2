@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Consultar protocolo · FESF-SUS</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  /* V286: consulta pública com slide-in entry + protocolo input central destacado */
+  body{background:linear-gradient(135deg, #5B5499 0%, #4FA590 100%); min-height:100vh; padding:40px 20px;display:flex;align-items:flex-start;justify-content:center}
+  .wrap{background:#fff;padding:40px;border-radius:16px;width:620px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.25), 0 4px 12px rgba(0,0,0,.08);animation:consultaIn .3s cubic-bezier(.16,.84,.44,1)}
+  @keyframes consultaIn{from{transform:translateY(16px) scale(.98);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+  .brand{display:flex;align-items:center;gap:14px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+  .brand-mark{width:46px;height:46px;background:var(--primary);color:#fff;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;letter-spacing:.5px;box-shadow:0 2px 8px rgba(91,84,153,.3)}
+  h1{font-size:24px;margin:0 0 8px;font-weight:700;letter-spacing:-.01em}
+  .lead{color:var(--muted);font-size:13.5px;margin:0 0 24px;line-height:1.55}
+  /* Protocolo input central com fundo destacado + ring no focus */
+  .protocolo-input{font-family:ui-monospace,monospace;font-size:18px;text-transform:uppercase;letter-spacing:2px;text-align:center;padding:14px 16px;font-weight:600;background:var(--surface-2)}
+  .protocolo-input:focus{background:var(--surface);box-shadow:0 0 0 4px rgba(91,84,153,.15)}
+  /* Resultado: ok verde / erro vermelho com border-left + animação slide */
+  .resultado{margin-top:24px;padding:20px;border-radius:12px;animation:resultadoIn .25s ease-out;box-shadow:0 1px 2px rgba(20,20,30,.04)}
+  @keyframes resultadoIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .resultado.ok{background:var(--accent-soft);border-left:4px solid var(--accent)}
+  .resultado.erro{background:var(--danger-soft);border-left:4px solid var(--danger)}
+  .ts-status{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-mark">FESF</div>
+    <div><strong>Portal de Pagamentos</strong><div class="muted" style="font-size:12px">Consulta pública de protocolo</div></div>
+  </div>
+
+  <h1>Consultar status de envio</h1>
+  <p class="lead">Se você enviou documentação à FESF e recebeu um número de protocolo, pode acompanhar o status aqui sem precisar fazer login.</p>
+
+  <form id="form-consulta">
+    <div class="field">
+      <label>Número de protocolo</label>
+      <input id="protocolo" class="protocolo-input" placeholder="HECC-0001-1234" required>
+      <p class="muted" style="font-size:11.5px;margin:6px 0 0">Formato: <code>UNIDADE-NNNN-NNNN</code> (você recebeu ao finalizar o envio)</p>
+    </div>
+    <button class="primary" type="submit" style="width:100%;padding:11px;font-weight:600;font-size:14px">Consultar</button>
+  </form>
+
+  <div id="resultado" style="display:none"></div>
+
+  <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border);text-align:center;font-size:13px">
+    <a href="/app/login.html">← Voltar ao login</a>
+  </div>
+</div>
+
+<script type="module">
+import { api, brl, dataBR, statusLabel } from '/app/api.js';
+
+// V238 fix C1: pré-preenche o input com ?protocolo= da query string e auto-consulta.
+(function autoFillProtocolo() {
+  const qs = new URLSearchParams(location.search);
+  const p = qs.get('protocolo');
+  if (p) {
+    const input = document.getElementById('protocolo');
+    if (input) {
+      input.value = p.toUpperCase();
+      // Auto-submit após o DOM estar pronto
+      window.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('form-consulta').requestSubmit();
+      });
+    }
+  }
+})();
+
+document.getElementById('form-consulta').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const proto = document.getElementById('protocolo').value.trim().toUpperCase();
+  const r = document.getElementById('resultado');
+  r.style.display = '';
+  r.className = '';
+  r.innerHTML = '<div class="muted" style="text-align:center;padding:20px">Consultando…</div>';
+  try {
+    const { envio } = await api.consultaPublicaProtocolo(proto);
+    r.className = 'resultado ok';
+    r.innerHTML = `
+      <h3 style="margin:0 0 12px;font-size:16px">Protocolo encontrado</h3>
+      <div class="ts-status">
+        <code style="font-family:ui-monospace,monospace;background:#fff;padding:4px 10px;border-radius:4px;font-weight:700">${envio.protocolo}</code>
+        <span class="pill ${envio.status}">${statusLabel(envio.status)}</span>
+      </div>
+      <table style="width:100%;margin-top:10px">
+        <tr><td style="padding:6px 0;border:none"><strong>Unidade:</strong></td><td style="padding:6px 0;border:none">${envio.unidade_sigla} · ${envio.unidade_nome}</td></tr>
+        <tr><td style="padding:6px 0;border:none"><strong>Modalidade:</strong></td><td style="padding:6px 0;border:none">${envio.modalidade_nome}</td></tr>
+        <tr><td style="padding:6px 0;border:none"><strong>Competência:</strong></td><td style="padding:6px 0;border:none">${envio.competencia}</td></tr>
+        <tr><td style="padding:6px 0;border:none"><strong>Valor:</strong></td><td style="padding:6px 0;border:none;font-family:ui-monospace,monospace">${brl(envio.valor_centavos)}</td></tr>
+        <tr><td style="padding:6px 0;border:none"><strong>NF:</strong></td><td style="padding:6px 0;border:none">${envio.numero_nf || '—'}</td></tr>
+        <tr><td style="padding:6px 0;border:none"><strong>Enviado em:</strong></td><td style="padding:6px 0;border:none">${dataBR(envio.criado_em)}</td></tr>
+        <tr><td style="padding:6px 0;border:none"><strong>Última atualização:</strong></td><td style="padding:6px 0;border:none">${new Date(envio.atualizado_em).toLocaleString('pt-BR')}</td></tr>
+      </table>
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn primary" href="/app/recibo.html?protocolo=${encodeURIComponent(envio.protocolo)}" style="padding:8px 14px;font-size:13px;font-weight:600">🖨 Ver recibo oficial</a>
+      </div>
+      <p style="margin-top:14px;font-size:11.5px;color:var(--muted)">Por privacidade, esta consulta pública não expõe documentos nem dados do fornecedor. Para detalhes completos, faça login ou contate a unidade FESF.</p>
+    `;
+  } catch (err) {
+    r.className = 'resultado erro';
+    // Diferencia 404 (protocolo nao existe) de outros erros (rede, rate-limit etc)
+    const msg = /404|nao encontrado|not found/i.test(err.message || '')
+      ? '<strong>Protocolo não encontrado</strong><p>Verifique o número e tente novamente. Se persistir, contate a unidade FESF que recebeu seu envio.</p>'
+      : `<strong>Erro na consulta</strong><p>${err.message || 'tente novamente em instantes'}</p>`;
+    r.innerHTML = msg;
+  }
+});
+</script>
+</body>
+</html>

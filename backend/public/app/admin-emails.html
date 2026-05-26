@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E-mails do sistema · FESF Sede</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  /* V283: email rows com hover roxo + tipo chip + transição */
+  .email-row{display:grid;grid-template-columns:160px 1fr 1fr 100px 90px;gap:14px;padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px;align-items:center;cursor:pointer;transition:background .12s ease}
+  .email-row:hover:not([style*=background]){background:rgba(91,84,153,.03)}
+  .email-row.lido{opacity:.6}
+  .email-row .quando{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted);font-weight:500}
+  .email-row .dest{font-weight:600;color:var(--text)}
+  .email-row .ass{color:var(--text-2);font-size:12.5px;line-height:1.4}
+  /* Tipo chip com bg primary-soft */
+  .email-row .tipo{font-size:10px;text-transform:uppercase;color:var(--primary-2);font-weight:700;letter-spacing:.6px;background:var(--primary-soft);padding:3px 8px;border-radius:5px;display:inline-block}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div><strong>FESF Sede · E-mails do Sistema</strong><span class="muted" style="font-size:11px;display:block">Log de mensagens enviadas (simulado)</span></div>
+  </div>
+  <div class="tabs">
+    <a href="/app/admin.html">Dashboard</a>
+    <a href="/app/admin-pagamentos.html">Pagamentos</a>
+    <a href="/app/admin-unidades.html">Unidades</a>
+    <a href="/app/admin-fornecedores.html">Fornecedores</a>
+    <a href="/app/admin-usuarios.html">Usuários</a>
+    <a href="/app/admin-relatorios.html">Relatórios</a>
+    <a href="/app/admin-auditoria.html">Auditoria</a>
+    <a class="active">E-mails</a>
+    <a href="/app/admin-smtp.html">SMTP</a>
+    <a href="/app/admin-status.html">Status</a>
+    <a href="/app/admin-api.html">API</a>
+    <a href="/app/admin-config.html">Configurações</a>
+  </div>
+  <div class="userbox">
+    <div><strong id="userNome">—</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · Admin</span></div>
+    <div class="avatar" id="userAvatar">—</div>
+    <button onclick="sair()">Sair</button>
+  </div>
+</nav>
+
+<div class="page">
+  <!-- V238 fix A2/A3: título e badge no mesmo header (sem overlap em viewports estreitos) + texto SMTP fica
+       dinâmico com base no estado real (smtp_enabled), em vez de afirmar "modo simulador" sempre. -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px">
+    <h1 style="margin:0">E-mails do sistema</h1>
+    <span id="smtp-pill" class="pill" style="background:#e8e3d3;color:#604a16;font-size:11.5px;padding:4px 10px;border-radius:14px;font-weight:600">SMTP: carregando…</span>
+  </div>
+  <p class="muted">Log de todos os e-mails gerados a fornecedores, operadores e administradores. Aqui mantemos um registro auditável do conteúdo, independente de envio real.</p>
+
+  <div id="alert-smtp" class="alert info" style="display:none"></div>
+
+  <div class="card">
+    <div class="filters">
+      <input type="search" id="f-destinatario" placeholder="Buscar por destinatário..." style="min-width:240px">
+      <select id="f-tipo">
+        <option value="">Todos os tipos</option>
+        <option value="novo_envio">Novo envio</option>
+        <option value="retificacao_solicitada">Retificação solicitada</option>
+        <option value="envio_aprovado">Envio aprovado</option>
+        <option value="envio_rejeitado">Envio rejeitado</option>
+        <option value="lembrete_enviado">Lembrete</option>
+        <option value="pendencia_sem_resposta">Pendência sem resposta</option>
+        <option value="pendencia_atrasada">Pendência atrasada</option>
+        <option value="sistema">Sistema (genérico)</option>
+      </select>
+      <button onclick="carregar()">Aplicar</button>
+      <button onclick="exportarCSV()" title="Baixar CSV com os mesmos filtros aplicados">⬇ CSV</button>
+      <span id="contador" class="muted" style="margin-left:auto"></span>
+    </div>
+
+    <div id="lista" style="margin-top:14px">
+      <div class="email-row" style="background:var(--surface-2);font-weight:600;cursor:default;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px">
+        <div>Quando</div><div>Destinatário</div><div>Assunto</div><div>Tipo</div><div></div>
+      </div>
+      <div id="rows"></div>
+    </div>
+
+    <div style="text-align:center;margin-top:14px">
+      <button id="btn-mais" onclick="maisRegistros()" style="display:none">Carregar mais</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de visualizacao do email -->
+<div class="modal-bg" id="modal-email">
+  <div class="modal" style="width:680px">
+    <h2 id="email-assunto">—</h2>
+    <p class="sub" id="email-meta">—</p>
+    <div style="background:var(--surface-2);padding:14px 18px;border-radius:8px;margin-top:14px;font-family:Georgia, serif;font-size:13.5px;white-space:pre-wrap;line-height:1.6" id="email-corpo">—</div>
+    <div class="actions"><button type="button" onclick="fecharModal('modal-email')">Fechar</button></div>
+  </div>
+</div>
+
+<script type="module">
+import { api, requireSession, clearSession, toast, statusLabel} from '/app/api.js';
+const usuario = requireSession();
+if (!usuario || usuario.papel !== 'admin_fesf') location.href = '/app/login.html';
+document.getElementById('userNome').textContent = usuario.nome;
+document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+
+// V238 fix A3: pill SMTP + alert dinâmico com base no estado real (api.obterSmtp).
+(async () => {
+  try {
+    const { config } = await api.obterSmtp();
+    const pill   = document.getElementById('smtp-pill');
+    const alerta = document.getElementById('alert-smtp');
+    if (config && config.enabled && config.host) {
+      pill.textContent = 'SMTP: ativo';
+      pill.style.background = '#dff4d6'; pill.style.color = '#2e6b1a'; pill.style.borderColor = '#b8df9e';
+      alerta.style.display = '';
+      alerta.className = 'alert info';
+      alerta.innerHTML = `<strong>📨 SMTP ativo:</strong> os e-mails são enviados via <code>${config.host}:${config.port}</code> e ficam registrados aqui para auditoria.`;
+    } else {
+      pill.textContent = 'SMTP: simulator';
+      pill.style.background = '#f4e4d6'; pill.style.color = '#8a4a1a'; pill.style.borderColor = '#d8b89e';
+      alerta.style.display = '';
+      alerta.className = 'alert info';
+      alerta.innerHTML = `<strong>📧 Modo simulator:</strong> os e-mails são apenas registrados aqui (não saem por SMTP). Para ativar envio real, configure <a href="/app/admin-smtp.html">SMTP</a>.`;
+    }
+  } catch (e) {
+    // Sem permissão / endpoint indisponível — esconde pill e alerta para não poluir
+    const pill = document.getElementById('smtp-pill'); if (pill) pill.style.display = 'none';
+  }
+})();
+window.abrirModal = id => document.getElementById(id).classList.add('open');
+window.fecharModal = id => document.getElementById(id).classList.remove('open');
+document.querySelectorAll('.modal-bg').forEach(bg => bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); }));
+
+let offset = 0;
+const PAGE = 50;
+
+async function carregar(reset = true) {
+  if (reset) offset = 0;
+  const filtros = {
+    destinatario: document.getElementById('f-destinatario').value || null,
+    tipo: document.getElementById('f-tipo').value || null,
+    limit: PAGE, offset,
+  };
+  try {
+    const { emails, total } = await api.listarEmails(filtros);
+    document.getElementById('contador').textContent = `${total} e-mail(s) no log`;
+    const rows = emails.map(e => `
+      <div class="email-row ${e.visualizado ? 'lido' : ''}" data-id="${e.id}">
+        <div class="quando">${new Date(e.criado_em).toLocaleString('pt-BR')}</div>
+        <div class="dest">${e.destinatario}</div>
+        <div class="ass">${e.assunto}</div>
+        <div class="tipo">${statusLabel(e.tipo)}</div>
+        <div>${e.visualizado ? '<span class="muted">lido</span>' : '<span class="pill rejeitado">novo</span>'}</div>
+      </div>
+    `).join('');
+    if (reset) document.getElementById('rows').innerHTML = rows;
+    else document.getElementById('rows').insertAdjacentHTML('beforeend', rows);
+    offset += emails.length;
+    document.getElementById('btn-mais').style.display = offset < total ? '' : 'none';
+    document.querySelectorAll('#rows .email-row').forEach(el => el.addEventListener('click', () => abrirEmail(Number(el.dataset.id))));
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+}
+window.carregar = carregar;
+window.maisRegistros = () => carregar(false);
+
+// V211 — debounce do filtro de destinatario (evita 1 request por tecla)
+let destTimer = null;
+document.getElementById('f-destinatario').addEventListener('input', () => {
+  clearTimeout(destTimer);
+  destTimer = setTimeout(() => carregar(), 350);
+});
+document.getElementById('f-tipo').addEventListener('change', () => carregar());
+
+// V211 — Export CSV reusando o endpoint V204 com mesmos filtros
+window.exportarCSV = () => {
+  const q = new URLSearchParams();
+  const dest = document.getElementById('f-destinatario').value;
+  const tipo = document.getElementById('f-tipo').value;
+  if (dest) q.set('destinatario', dest);
+  if (tipo) q.set('tipo', tipo);
+  fetch(`/api/admin/emails.csv${q.toString() ? `?${q}` : ''}`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem('fesf_token')}` }
+  }).then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const trunc = r.headers.get('X-Truncated') === 'true';
+    return r.blob().then(b => ({ blob: b, trunc }));
+  }).then(({ blob, trunc }) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `emails-${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast(trunc ? 'Download · primeiras 10.000 linhas (refine filtro para o resto)' : 'Download iniciado', 'sucesso');
+  }).catch(e => toast('Erro: ' + e.message, 'erro'));
+};
+
+async function abrirEmail(id) {
+  try {
+    const { email } = await api.obterEmail(id);
+    document.getElementById('email-assunto').textContent = email.assunto;
+    document.getElementById('email-meta').innerHTML = `<strong>Para:</strong> ${email.destinatario} · <strong>Enviado em:</strong> ${new Date(email.criado_em).toLocaleString('pt-BR')} · <strong>Tipo:</strong> ${email.tipo}`;
+    document.getElementById('email-corpo').textContent = email.corpo;
+    abrirModal('modal-email');
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+}
+
+carregar();
+</script>
+
+</body>
+</html>

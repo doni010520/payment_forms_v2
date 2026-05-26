@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Painel · Portal de Pagamentos</title>
+<link rel="stylesheet" href="/app/style.css">
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div>
+      <strong>Portal de Pagamentos</strong>
+      <span class="muted" style="font-size:11px;display:block" id="brand-unit-label">Painel da unidade</span>
+    </div>
+  </div>
+  <div class="tabs">
+    <a class="active" data-tab="envios">Envios</a>
+    <a data-tab="pendencias">Pendências <span id="badge-pend" class="pill rejeitado" style="display:none"></span></a>
+    <a data-tab="fornecedores">Fornecedores</a>
+    <a data-tab="links">Links públicos</a>
+    <a data-tab="lancar">Novo lançamento</a>
+  </div>
+  <div class="userbox">
+    <button id="btnHotkeys" onclick="abrirAjudaHotkeys()" title="Atalhos (?)" style="padding:8px 12px">⌨</button>
+    <button id="bell" onclick="toggleNotif()" title="Notificacoes" style="position:relative;padding:8px 12px">
+      🔔<span id="bellBadge" class="reminder-count-real" style="display:none;position:absolute;top:2px;right:2px;background:var(--danger);color:#fff;border-radius:9px;font-size:10px;padding:1px 5px;font-weight:700">0</span>
+    </button>
+    <div>
+      <strong id="userNome">—</strong>
+      <span id="userInfo" class="muted" style="font-size:11px;display:block"></span>
+    </div>
+    <div class="avatar" id="userAvatar">—</div>
+    <button onclick="sair()">Sair</button>
+  </div>
+</nav>
+
+<!-- Painel de notificacoes (deslizante) -->
+<div id="notifPanel" style="position:fixed;top:56px;right:24px;width:360px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.15);max-height:70vh;overflow:auto;display:none;z-index:200">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)">
+    <strong>Notificações</strong>
+    <div style="display:flex;gap:6px"><button id="btnLerTodas" style="font-size:11.5px;padding:4px 10px">Marcar todas como lidas</button><a href="/app/notificacoes.html" style="font-size:11.5px;padding:4px 10px">Ver todas →</a></div>
+  </div>
+  <div id="notifList" style="padding:6px 0"></div>
+</div>
+
+<div class="page">
+
+  <!-- V244: page-head com contexto da unidade (alinhado ao mockup) -->
+  <div class="between" style="align-items:flex-start;margin-bottom:18px;gap:18px;flex-wrap:wrap">
+    <div>
+      <div class="muted" id="page-eyebrow" style="font-size:11px;text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:4px">—</div>
+      <h1 id="page-title" style="margin:0 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">Painel da unidade
+        <span id="page-visao-pill" class="pill" style="background:var(--accent-soft, #e6f2ee);color:var(--accent, #4fa590);font-size:11.5px;padding:3px 10px;border-radius:14px;font-weight:600">● Visão: Operador</span>
+      </h1>
+      <p class="muted" id="page-subtitle" style="margin:0;font-size:13.5px">—</p>
+    </div>
+    <div class="filters" style="gap:8px">
+      <select id="f-periodo" title="Filtrar por competência" style="min-width:170px">
+        <option value="">Todas competências</option>
+      </select>
+      <button onclick="exportarCSV()" title="Exportar envios da competência atual em CSV">⬇ Exportar CSV</button>
+      <button class="primary" onclick="window.location.href='#tab-lancar'; document.querySelector('[data-tab=lancar]')?.click();">+ Novo lançamento</button>
+    </div>
+  </div>
+
+  <div id="alertaCriticas"></div>
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpis"></div>
+
+  <!-- Grafico + Sidebar -->
+  <div id="chart-sidebar-wrap" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="card" style="margin:0">
+      <div class="between">
+        <h3 style="margin:0">Envios da unidade · últimas semanas</h3>
+        <div class="muted" style="font-size:11.5px">📊 acumulado por semana</div>
+      </div>
+      <div id="bar-chart" style="margin-top:14px;display:flex;align-items:flex-end;gap:14px;height:200px;padding:0 6px;border-bottom:1px solid var(--border)"></div>
+      <div style="display:flex;gap:14px;margin-top:10px;font-size:11.5px;color:var(--muted);justify-content:center">
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--info);border-radius:2px;vertical-align:middle"></span> Em análise</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--warning);border-radius:2px;vertical-align:middle"></span> Aguard. ret.</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--accent);border-radius:2px;vertical-align:middle"></span> Aprovados</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--danger);border-radius:2px;vertical-align:middle"></span> Rejeitados</span>
+      </div>
+    </div>
+    <div class="card" style="margin:0">
+      <h3 style="margin:0 0 10px">Atividade recente</h3>
+      <div id="sidebar-atividade" style="max-height:230px;overflow:auto"></div>
+    </div>
+  </div>
+
+  <!-- TAB ENVIOS -->
+  <section id="tab-envios">
+    <div class="card">
+      <div class="between">
+        <h2>Envios recebidos</h2>
+        <div class="filters">
+          <select id="f-origem">
+            <option value="">Todas as origens</option>
+            <option value="portal">Portal (logado)</option>
+            <option value="link_publico">Link público</option>
+            <option value="manual">Manual (você lançou)</option>
+          </select>
+          <select id="f-status">
+            <option value="">Todos os status</option>
+            <option value="em_analise">Em análise</option>
+            <option value="aguardando_ret">Aguardando retificação</option>
+            <option value="retificado">Retificado</option>
+            <option value="aprovado">Aprovado</option>
+            <option value="rejeitado">Rejeitado</option>
+            <option value="pago">Pago</option>
+          </select>
+          <button onclick="carregarEnvios()">Atualizar</button>
+          <button onclick="exportarCSV()">Exportar CSV</button>
+        </div>
+      </div>
+      <div id="envios-tabela"></div>
+    </div>
+  </section>
+
+  <!-- TAB PENDENCIAS -->
+  <!-- V257: aba Pendências alinhada ao mockup screen-pendencias — banner pedagógico + KPIs + filtros + contador -->
+  <section id="tab-pendencias" style="display:none">
+    <!-- Banner pedagógico (compacto) -->
+    <div class="alert info" id="pend-banner" style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
+      <div style="font-size:22px;line-height:1">!</div>
+      <div style="flex:1">
+        <strong style="display:block;margin-bottom:2px">O que é uma pendência de envio?</strong>
+        <span style="font-size:12.5px">Expectativa registrada de que um fornecedor envie documentação até determinada data. O sistema dispara lembretes automaticamente; se não houver envio, o operador pode <strong>reagendar, lançar manualmente em nome do fornecedor</strong> ou <strong>cancelar com justificativa</strong>.</span>
+      </div>
+    </div>
+
+    <!-- 4 KPIs específicos da aba -->
+    <div class="kpi-row" id="kpis-pend-tab" style="margin-bottom:14px"></div>
+
+    <div class="card">
+      <div class="between" style="flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px">
+        <div class="filters" style="gap:8px">
+          <input type="search" id="f-busca-pend" placeholder="Buscar por fornecedor/modalidade…" style="min-width:220px">
+          <select id="f-status-pend">
+            <option value="">Todos os status</option>
+            <option value="atrasada">Atrasadas</option>
+            <option value="sem_resposta">Sem resposta</option>
+            <option value="aguardando">Aguardando envio</option>
+            <option value="cumprida">Cumpridas</option>
+            <option value="cancelada">Canceladas</option>
+          </select>
+          <select id="f-ord-pend">
+            <option value="urgencia">Ordenar: mais críticas primeiro</option>
+            <option value="prazo">Prazo (próximo)</option>
+            <option value="forn">Fornecedor (A-Z)</option>
+          </select>
+          <button class="primary" onclick="abrirModal('modal-expectativa')">+ Criar expectativa</button>
+        </div>
+        <span id="contador-pend" class="muted" style="font-size:12.5px;white-space:nowrap">—</span>
+      </div>
+      <div id="pendencias-tabela"></div>
+    </div>
+  </section>
+
+  <!-- TAB FORNECEDORES -->
+  <!-- V256: aba Fornecedores alinhada ao mockup screen-forn-hecc — KPIs específicos + filtros enriquecidos + contador -->
+  <section id="tab-fornecedores" style="display:none">
+    <!-- KPIs específicos da aba Fornecedores -->
+    <div class="kpi-row" id="kpis-forn-tab" style="margin-bottom:14px"></div>
+
+    <div class="card">
+      <div class="between" style="flex-wrap:wrap;gap:12px;align-items:center">
+        <div style="flex:1;min-width:240px">
+          <p class="muted" style="margin:0;font-size:13px"><strong>Com portal</strong> = auto-serviço (fornecedor logado). <strong>Externo</strong> = você opera por ele (link público ou lançamento manual).</p>
+        </div>
+        <div class="filters" style="gap:8px">
+          <input type="search" id="f-busca-forn" placeholder="Buscar fornecedor..." style="min-width:200px">
+          <select id="f-tipo-forn">
+            <option value="">Todos os tipos</option>
+            <option value="com_portal">Com portal</option>
+            <option value="externo_pj">Externo PJ</option>
+            <option value="externo_pf">Externo PF</option>
+          </select>
+          <select id="f-eng-forn">
+            <option value="">Todos os engajamentos</option>
+            <option value="ativo">Ativo</option>
+            <option value="inadimplente">Inadimplente</option>
+            <option value="inativo">Inativo</option>
+          </select>
+          <button class="primary" onclick="abrirModal('modal-externo')">+ Cadastrar externo</button>
+          <span id="contador-forn-tab" class="muted" style="font-size:12.5px;align-self:center;white-space:nowrap">—</span>
+        </div>
+      </div>
+
+      <h3 style="margin-top:22px;font-size:11.5px;text-transform:uppercase;letter-spacing:1.2px;color:var(--accent)">Com portal · auto-serviço</h3>
+      <div id="lista-forn-portal"></div>
+
+      <h3 style="margin-top:22px;font-size:11.5px;text-transform:uppercase;letter-spacing:1.2px;color:#b96f00">Externos · sem portal (você opera)</h3>
+      <div id="lista-forn-externos"></div>
+    </div>
+  </section>
+
+  <!-- TAB LINKS -->
+  <section id="tab-links" style="display:none">
+    <div class="card">
+      <div class="between">
+        <h2>Links públicos da unidade</h2>
+        <button class="primary" onclick="abrirModal('modal-link')">+ Gerar link</button>
+      </div>
+      <div class="alert info">Links públicos permitem que fornecedores <strong>sem conta no portal</strong> enviem documentação. Cada link tem token único, pode ser configurado para uso único ou múltiplo.</div>
+      <div id="links-tabela"></div>
+    </div>
+  </section>
+
+  <!-- TAB LANCAR -->
+  <!-- V258: aba Novo lançamento alinhada ao mockup screen-lanc-manual — banner pedagógico + atalho pendências + KPIs do mês + lançamentos recentes -->
+  <section id="tab-lancar" style="display:none">
+    <!-- Banner pedagógico de decisão -->
+    <div class="alert info" id="lanc-banner" style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
+      <div style="font-size:22px;line-height:1">?</div>
+      <div style="flex:1">
+        <strong style="display:block;margin-bottom:2px">Qual fornecedor está sendo pago?</strong>
+        <span style="font-size:12.5px">Use o caminho certo conforme o perfil do fornecedor. O sistema gera um envio com origem rastreável nos 3 cenários. <strong>Já tem uma expectativa registrada?</strong> Converta direto do atalho abaixo. A via padrão é o <strong>fornecedor enviar pelo Portal</strong>; link público e manual são exceções.</span>
+      </div>
+    </div>
+
+    <!-- Atalho: converter pendência existente (aparece se houver pendências passíveis) -->
+    <div id="lanc-converter-atalho" style="display:none;background:linear-gradient(90deg,rgba(178,40,40,.04),rgba(217,140,30,.02));border:1px solid rgba(178,40,40,.18);border-radius:10px;padding:14px 16px;margin-bottom:18px;align-items:center;gap:14px">
+      <div style="width:36px;height:36px;border-radius:50%;background:#ffe6c2;color:#8c5200;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;font-size:16px">⚡</div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:14px"><span id="lanc-converter-count">0</span> pendência(s) podem ser convertidas em lançamento manual</div>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:2px">Fornecedores que não responderam após lembretes. Você pode lançar em nome deles e fechar a pendência.</div>
+      </div>
+      <button onclick="document.querySelector('[data-tab=pendencias]')?.click()">Ver pendências</button>
+    </div>
+
+    <div class="card">
+      <!-- CAMINHO PADRÃO -->
+      <div style="padding:18px 20px;background:var(--accent-soft);border-left:4px solid var(--accent);border-radius:10px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--accent);text-transform:uppercase;margin-bottom:6px">Caminho padrão · recomendado</div>
+            <h3 style="margin:0 0 4px"><span class="origin portal">Portal</span> Fornecedor envia logado</h3>
+            <p class="muted" style="margin:0">Convide um fornecedor com conta. Ele recebe notificação no portal e submete sozinho.</p>
+          </div>
+          <button class="primary" onclick="abrirModal('modal-expectativa')" style="white-space:nowrap" title="Cria uma expectativa para fornecedor cadastrado — ele recebe notificacao no portal">Convidar cadastrado</button>
+        </div>
+      </div>
+
+      <!-- VIAS DE EXCECAO -->
+      <div style="margin-top:24px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Vias de exceção · quando o fornecedor não usa o portal</div>
+        <p class="muted" style="font-size:12.5px;margin:0 0 14px">Use estas opções somente quando o fornecedor <strong>não se cadastrou e se recusa a se cadastrar</strong> no portal. Cadastre como <em>externo</em> primeiro.</p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+          <div class="card" style="margin:0;border-left:3px solid var(--text-3);cursor:pointer" onclick="abrirModal('modal-externo')">
+            <h3>+ Cadastrar fornecedor externo</h3>
+            <p class="muted">Primeiro passo: cadastre o fornecedor (PJ ou PF) que não vai usar o portal. A FESF assume o papel de cadastrar.</p>
+          </div>
+          <div class="card" style="margin:0;border-left:3px solid var(--accent);cursor:pointer" onclick="abrirModal('modal-link')">
+            <h3><span class="origin link_publico">Link</span> Enviar link público</h3>
+            <p class="muted">Gera link com token único e envia ao fornecedor externo por e-mail. Ele preenche sem precisar criar conta.</p>
+          </div>
+          <div class="card" style="margin:0;border-left:3px solid var(--warning);cursor:pointer" onclick="abrirModal('modal-manual')">
+            <h3><span class="origin manual">Manual</span> Lançar você mesmo</h3>
+            <p class="muted">Última alternativa: você preenche e anexa documentos em nome do fornecedor (com autorização). Auditoria preserva tudo.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPIs dos lançamentos manuais -->
+    <div style="margin-top:24px">
+      <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:0 0 12px;font-weight:600">Resumo · lançamentos manuais (mês corrente)</h3>
+      <div class="kpi-row" id="kpis-lanc-tab"></div>
+    </div>
+
+    <!-- Lançamentos manuais recentes -->
+    <div style="margin-top:24px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:0;font-weight:600">Seus lançamentos manuais recentes</h3>
+        <a href="#" style="font-size:12.5px;font-weight:600" onclick="document.querySelector('[data-tab=envios]')?.click(); return false;">Ver todos →</a>
+      </div>
+      <div class="card" style="margin:0;padding:0;overflow:hidden">
+        <div id="lanc-recentes-tabela"></div>
+      </div>
+    </div>
+
+  </section>
+
+</div>
+
+<!-- Modal: Criar expectativa -->
+<div class="modal-bg" id="modal-expectativa">
+  <div class="modal">
+    <h2>Criar expectativa de envio</h2>
+    <p class="sub">Registra que um fornecedor deve enviar documentação até determinada data.</p>
+    <form id="form-expectativa">
+      <div class="field"><label>Fornecedor</label><select id="exp-forn" required></select></div>
+      <div class="row">
+        <div class="field"><label>Modalidade</label><select id="exp-mod" required></select></div>
+        <div class="field"><label>Competência (YYYY-MM)</label><input id="exp-comp" placeholder="2026-06" pattern="\d{4}-\d{2}" required></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Prazo</label><input id="exp-prazo" type="date" required></div>
+        <div class="field"><label>Origem esperada</label>
+          <select id="exp-origem" required>
+            <option value="portal">Portal (auto-serviço)</option>
+            <option value="link_publico">Link público</option>
+            <option value="manual">Manual (operador)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Observações (opcional)</label><textarea id="exp-obs" rows="2"></textarea></div>
+      <div class="actions">
+        <button type="button" onclick="fecharModal('modal-expectativa')">Cancelar</button>
+        <button type="submit" class="primary">Criar expectativa</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Gerar link publico -->
+<div class="modal-bg" id="modal-link">
+  <div class="modal">
+    <h2>Gerar link público</h2>
+    <p class="sub">Link com token único para fornecedor enviar sem login.</p>
+    <form id="form-link">
+      <div class="field"><label>Fornecedor (opcional)</label><select id="lnk-forn"><option value="">— vincular depois —</option></select></div>
+      <div class="row">
+        <div class="field"><label>Modalidade</label><select id="lnk-mod" required></select></div>
+        <div class="field"><label>E-mail destinatário</label><input id="lnk-email" type="email"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Expira em (data)</label><input id="lnk-expira" type="date"><div style="font-size:11px;color:var(--muted);margin-top:4px">Obrigatório para multi-uso</div></div>
+        <div class="field"><label style="display:flex;gap:8px;align-items:center;text-transform:none;font-size:13px"><input type="checkbox" id="lnk-multi" style="width:auto"> Uso múltiplo (vários envios)</label></div>
+      </div>
+      <!-- V227/O6: limite explícito de usos (opcional, força multi-uso quando >1) -->
+      <div class="field">
+        <label>Limite de usos (opcional)</label>
+        <input id="lnk-usos-max" type="number" min="1" max="1000" placeholder="Ex.: 3">
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Em branco: 1 uso (link único) ou ilimitado até expirar (multi-uso). N&gt;1 ativa multi-uso automaticamente.</div>
+      </div>
+      <div class="actions">
+        <button type="button" onclick="fecharModal('modal-link')">Cancelar</button>
+        <button type="submit" class="primary">Gerar link</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Cadastrar fornecedor externo -->
+<div class="modal-bg" id="modal-externo">
+  <div class="modal">
+    <h2>Cadastrar fornecedor externo</h2>
+    <p class="sub">Use esta opção <strong>somente quando o fornecedor não usa o portal</strong>. O fornecedor fica ativo na sua unidade e pode receber link público ou ter envios lançados manualmente.</p>
+    <form id="form-externo">
+      <div class="field">
+        <label>Tipo</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label style="border:1px solid var(--border);padding:12px;border-radius:8px;cursor:pointer;text-transform:none;font-weight:500;font-size:13px">
+            <input type="radio" name="ex-tipo" value="externo_pj" checked style="width:auto"> Empresa (PJ) sem portal
+            <div class="muted" style="font-size:11.5px;margin-top:4px">CNPJ — empresa que se recusa a usar o portal</div>
+          </label>
+          <label style="border:1px solid var(--border);padding:12px;border-radius:8px;cursor:pointer;text-transform:none;font-weight:500;font-size:13px">
+            <input type="radio" name="ex-tipo" value="externo_pf" style="width:auto"> Pessoa Física (autônomo)
+            <div class="muted" style="font-size:11.5px;margin-top:4px">CPF — profissional liberal, prestador eventual</div>
+          </label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Razão social / Nome completo</label><input id="ex-nome" required></div>
+        <div class="field"><label id="ex-lbl-doc">CNPJ</label><input id="ex-doc" placeholder="só números" required></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>E-mail (opcional)</label><input id="ex-email" type="email" placeholder="caso queira receber link público por e-mail"></div>
+        <div class="field"><label>Telefone</label><input id="ex-tel" placeholder="(71) 99999-9999"></div>
+      </div>
+      <div class="alert info">O fornecedor será vinculado à sua unidade automaticamente. Depois você pode gerar link público ou lançar manualmente para ele.</div>
+      <div class="actions">
+        <button type="button" onclick="fecharModal('modal-externo')">Cancelar</button>
+        <button type="submit" class="primary">Cadastrar externo</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Lancamento manual -->
+<div class="modal-bg" id="modal-manual">
+  <div class="modal">
+    <h2>Lançamento manual</h2>
+    <p class="sub">Você preenche e anexa documentos em nome do fornecedor (cenário 3: fornecedor offline).</p>
+    <form id="form-manual">
+      <div class="field"><label>Fornecedor</label><select id="man-forn" required></select></div>
+      <div class="row">
+        <div class="field"><label>Modalidade</label><select id="man-mod" required></select></div>
+        <div class="field"><label>Competência</label><input id="man-comp" placeholder="2026-06" pattern="\d{4}-\d{2}" required></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Valor (R$)</label><input id="man-valor" type="number" step="0.01" placeholder="0,00"></div>
+        <div class="field"><label>NF (opcional)</label><input id="man-nf"></div>
+      </div>
+      <div class="field"><label>Descrição</label><input id="man-desc"></div>
+      <div class="field"><label>Motivo do lançamento manual <span style="color:var(--danger)">*</span></label>
+        <textarea id="man-motivo" rows="3" required placeholder="Ex.: Fornecedor PF sem e-mail; contato apenas por telefone; autorização verbal em 22/05."></textarea>
+      </div>
+      <div class="actions">
+        <button type="button" onclick="fecharModal('modal-manual')">Cancelar</button>
+        <button type="submit" class="warn">Lançar manual</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Detalhe envio -->
+<div class="modal-bg" id="modal-detalhe">
+  <div class="modal" style="width: 720px">
+    <h2 id="det-titulo">Detalhes do envio</h2>
+    <div id="det-conteudo"></div>
+    <div class="actions">
+      <button type="button" onclick="fecharModal('modal-detalhe')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { api, getUsuario, clearSession, requireSession, brl, dataBR, toast, formatarRespostasForm, statusLabel} from '/app/api.js';
+
+const usuario = requireSession();
+if (!usuario) throw new Error('sem sessao');
+
+// inicializa cabecalho
+document.getElementById('userNome').textContent = usuario.nome;
+document.getElementById('userInfo').textContent =
+  usuario.papel === 'admin_fesf' ? 'FESF Sede · Admin' :
+  usuario.papel === 'operador_unidade' ? `Operador · ${usuario.unidade_sigla || ''}` :
+  'Fornecedor';
+document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+
+// V244: contexto da unidade no topnav + page-head (alinhado ao mockup)
+const brandLabel = document.getElementById('brand-unit-label');
+if (brandLabel && usuario.unidade_sigla) {
+  brandLabel.textContent = `${usuario.unidade_sigla} · Painel da unidade`;
+}
+(async () => {
+  try {
+    const eyebrow = document.getElementById('page-eyebrow');
+    const subtitle = document.getElementById('page-subtitle');
+    const visaoPill = document.getElementById('page-visao-pill');
+    if (visaoPill) visaoPill.textContent = `● Visão: Operador ${usuario.unidade_sigla || ''}`.trim();
+    if (usuario.unidade_id) {
+      const { unidade } = await api.detalheUnidade(usuario.unidade_id).catch(() => ({ unidade: null }));
+      if (unidade && eyebrow) {
+        eyebrow.textContent = `${unidade.nome || ''}${unidade.cidade ? ' · ' + unidade.cidade : ''}`.toUpperCase();
+      } else if (eyebrow) {
+        eyebrow.textContent = (usuario.unidade_nome || '').toUpperCase();
+      }
+    }
+  } catch (e) { /* mantém placeholder */ }
+})();
+
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+window.exportarCSV = async () => {
+  try {
+    const url = `/api/envios/export.csv${usuario.unidade_id ? '?unidade_id=' + usuario.unidade_id : ''}`;
+    const a = document.createElement('a'); a.href = url; a.download = `envios-${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch (e) { toast('Erro ao exportar: ' + e.message, 'erro'); }
+};
+
+// =====================================================================
+// Tabs
+// =====================================================================
+// V248: títulos por tab (alinha com mockup screen-links / screen-fornecedores / etc)
+const TAB_HEADERS = {
+  envios:       { title: 'Painel da unidade',     sub: '— ',                                                            visao: '● Visão: Operador' },
+  pendencias:   { title: 'Pendências da unidade', sub: '— ', visao: '● Visão: Operador' }, // V257: sub dinâmico em carregarPendencias()
+  fornecedores: { title: 'Fornecedores da unidade', sub: '— ', visao: '● Visão: Operador' }, // V256: sub atualizado dinamicamente em carregarFornecedores()
+  links:        { title: 'Links de envio',        sub: 'Crie links persistentes para fornecedores enviarem documentos diretamente para esta unidade. Configure se exige login e validade.', visao: '● Visão: Operador' },
+  lancar:       { title: 'Iniciar novo pagamento', sub: 'Escolha como o fornecedor irá interagir com este pagamento — ou faça você mesmo o lançamento manual.', visao: '● Visão: Operador' }, // V258: alinhado ao mockup screen-lanc-manual
+};
+function aplicarHeaderTab(tab) {
+  const h = TAB_HEADERS[tab];
+  if (!h) return;
+  const title = document.getElementById('page-title');
+  const sub   = document.getElementById('page-subtitle');
+  const pill  = document.getElementById('page-visao-pill');
+  if (title) {
+    // Mantém o pill dentro do h1 — só troca o texto antes
+    const pillEl = title.querySelector('.pill');
+    title.innerHTML = h.title + ' ';
+    if (pillEl) title.appendChild(pillEl);
+  }
+  if (sub && tab !== 'envios') sub.textContent = h.sub;  // tab envios mantém o subtitle dinâmico do KPI
+  if (pill) pill.textContent = `${h.visao} ${usuario.unidade_sigla || ''}`.trim();
+}
+
+document.querySelectorAll('.topnav .tabs a').forEach(a => {
+  a.addEventListener('click', () => {
+    document.querySelectorAll('.topnav .tabs a').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    const tab = a.dataset.tab;
+    document.querySelectorAll('section[id^=tab-]').forEach(s => s.style.display = 'none');
+    document.getElementById('tab-' + tab).style.display = '';
+    aplicarHeaderTab(tab);
+    // V248: chart/sidebar/KPIs/alert só fazem sentido no tab envios — esconde nas outras tabs (não polui o painel)
+    const chartSidebar = document.getElementById('chart-sidebar-wrap');
+    if (chartSidebar) chartSidebar.style.display = tab === 'envios' ? '' : 'none';
+    const kpis = document.getElementById('kpis');
+    if (kpis) kpis.style.display = tab === 'envios' ? '' : 'none';
+    const alerta = document.getElementById('alertaCriticas');
+    if (alerta) alerta.style.display = tab === 'envios' ? '' : 'none';
+    if (tab === 'pendencias') carregarPendencias();
+    if (tab === 'links') carregarLinks();
+    if (tab === 'fornecedores') carregarFornecedores();
+    if (tab === 'lancar') carregarTabLancar(); // V258
+  });
+});
+
+// V258: aba "Novo lançamento" — KPIs do mês, recentes, atalho converter
+async function carregarTabLancar() {
+  try {
+    // Atalho de conversão: contar pendências sem_resposta + atrasada
+    const { expectativas } = await api.listarExpectativas();
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const passiveis = expectativas.filter(e => {
+      if (e.status === 'cumprida' || e.status === 'cancelada') return false;
+      const prazo = new Date(e.prazo);
+      const atraso = prazo < hoje;
+      return e.status === 'sem_resposta' || atraso;
+    });
+    const atalho = document.getElementById('lanc-converter-atalho');
+    if (atalho) {
+      atalho.style.display = passiveis.length > 0 ? 'flex' : 'none';
+      document.getElementById('lanc-converter-count').textContent = passiveis.length;
+    }
+
+    // KPIs do mês: envios com origem=manual no mês corrente
+    const compMes = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+    const { envios } = await api.envios({ origem: 'manual', competencia: compMes });
+    const manuais = envios || [];
+    const totalCents = manuais.reduce((s, e) => s + (e.valor_centavos || 0), 0);
+    const aprovados = manuais.filter(e => e.status === 'aprovado' || e.status === 'pago');
+    const aprovadosCents = aprovados.reduce((s, e) => s + (e.valor_centavos || 0), 0);
+    const emAnalise = manuais.filter(e => e.status === 'em_analise' || e.status === 'aguardando_retificacao');
+    const emAnaliseCents = emAnalise.reduce((s, e) => s + (e.valor_centavos || 0), 0);
+    const fornUnicos = new Set(manuais.map(e => e.fornecedor_id)).size;
+    document.getElementById('kpis-lanc-tab').innerHTML = `
+      <div class="kpi"><div class="label">Manuais este mês</div><div class="value">${manuais.length}</div><div class="sub">${brl(totalCents)} lançados</div></div>
+      <div class="kpi"><div class="label">Fornecedores únicos</div><div class="value">${fornUnicos}</div><div class="sub">distintos no mês</div></div>
+      <div class="kpi accent"><div class="label">Aprovados/Pagos</div><div class="value">${aprovados.length}</div><div class="sub">${brl(aprovadosCents)} liberados</div></div>
+      <div class="kpi warn"><div class="label">Em análise</div><div class="value">${emAnalise.length}</div><div class="sub">${brl(emAnaliseCents)}</div></div>
+    `;
+
+    // Lançamentos manuais recentes (top 5)
+    const recentes = manuais.slice(0, 5);
+    const tbl = document.getElementById('lanc-recentes-tabela');
+    if (recentes.length === 0) {
+      tbl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted)">Nenhum lançamento manual no mês corrente.</div>';
+    } else {
+      tbl.innerHTML = `
+        <table style="margin:0">
+          <thead><tr><th>Protocolo</th><th>Fornecedor</th><th>Modalidade</th><th style="text-align:right">Valor</th><th>Status</th><th>Lançado em</th><th></th></tr></thead>
+          <tbody>
+            ${recentes.map(e => `
+              <tr>
+                <td><code style="font-size:11.5px">${e.protocolo || ('#' + e.id)}</code></td>
+                <td><strong>${e.razao_social || '—'}</strong><div class="muted" style="font-size:11px">${e.documento || ''}</div></td>
+                <td>${e.modalidade_nome || '—'}</td>
+                <td style="text-align:right;font-variant-numeric:tabular-nums">${brl(e.valor_centavos)}</td>
+                <td><span class="pill ${e.status}">${statusLabel(e.status)}</span></td>
+                <td>${dataBR(e.criado_em)}</td>
+                <td style="text-align:right"><a href="/app/envio.html?id=${e.id}" style="font-size:12.5px;font-weight:600">Ver →</a></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+    }
+  } catch (err) { console.error('[carregarTabLancar]', err); }
+}
+window.carregarTabLancar = carregarTabLancar;
+
+async function carregarFornecedores() {
+  const busca = document.getElementById('f-busca-forn')?.value?.toLowerCase() || '';
+  const tipo = document.getElementById('f-tipo-forn')?.value || '';
+  const engajamento = document.getElementById('f-eng-forn')?.value || '';
+  // V256: busca SEMPRE todos para calcular KPIs corretos; tipo filtra client-side
+  const { fornecedores } = await api.fornecedores(null);
+  // KPIs e subtitle (computados sobre TODOS, não sobre filtrados)
+  const todosPortal = fornecedores.filter(f => f.tipo === 'com_portal');
+  const todosExternos = fornecedores.filter(f => f.tipo !== 'com_portal');
+  const inadimplentes = fornecedores.filter(f => f.status_engajamento === 'inadimplente').length;
+  const ativos = fornecedores.filter(f => (f.status_engajamento || 'ativo') === 'ativo' && f.ativo !== false).length;
+  const sigla = (usuario.unidade_sigla || 'unidade');
+  const subEl = document.getElementById('page-subtitle');
+  if (subEl) subEl.textContent = `${todosPortal.length} com portal + ${todosExternos.length} externos (sem portal) · ${fornecedores.length} atendendo a ${sigla}`;
+  const kpiBox = document.getElementById('kpis-forn-tab');
+  if (kpiBox) kpiBox.innerHTML = `
+    <div class="kpi accent"><div class="label">Com portal</div><div class="value">${todosPortal.length}</div><div class="sub">auto-serviço · logam no portal</div></div>
+    <div class="kpi warn"><div class="label">Externos</div><div class="value">${todosExternos.length}</div><div class="sub">sem portal · você opera por eles</div></div>
+    <div class="kpi"><div class="label">Ativos</div><div class="value">${ativos}</div><div class="sub">engajamento OK · respondendo</div></div>
+    <div class="kpi ${inadimplentes > 0 ? 'danger' : ''}"><div class="label">Inadimplentes</div><div class="value">${inadimplentes}</div><div class="sub">${inadimplentes > 0 ? 'recusam-se a enviar' : '— sem ocorrências'}</div></div>
+  `;
+  // Aplica filtros client-side
+  let filtrados = fornecedores;
+  if (tipo) filtrados = filtrados.filter(f => f.tipo === tipo);
+  if (engajamento) filtrados = filtrados.filter(f => (f.status_engajamento || 'ativo') === engajamento);
+  filtrados = filtrados.filter(f =>
+    !busca || f.razao_social.toLowerCase().includes(busca) || (f.documento||'').includes(busca)
+  );
+  const contadorEl = document.getElementById('contador-forn-tab');
+  if (contadorEl) contadorEl.textContent = `${filtrados.length} fornecedor(es)` + (filtrados.length !== fornecedores.length ? ` (de ${fornecedores.length})` : '');
+  const comPortal = filtrados.filter(f => f.tipo === 'com_portal');
+  const externos  = filtrados.filter(f => f.tipo !== 'com_portal');
+
+  function renderLista(items, container, tipoLabel) {
+    if (items.length === 0) { container.innerHTML = '<div class="muted" style="padding:14px 0">Nenhum fornecedor.</div>'; return; }
+    container.innerHTML = `
+      <table>
+        <thead><tr><th>Razão social</th><th>Documento</th><th>Tipo</th><th>Engajamento</th><th>E-mail</th><th></th></tr></thead>
+        <tbody>
+          ${items.map(f => {
+            const eng = f.status_engajamento || 'ativo';
+            const engCor = { ativo: '#d4f0d6 #2f7d5c', inadimplente: '#ffd6d6 #b22828', inativo: '#e5e5e5 #666' }[eng].split(' ');
+            const engLabel = { ativo: 'Ativo', inadimplente: '⚠ Inadimplente', inativo: 'Inativo' }[eng];
+            const engTitle = f.motivo_engajamento ? ` title="${f.motivo_engajamento.replace(/"/g,'&quot;')}"` : '';
+            const rowStyle = eng === 'inadimplente' ? ' style="background:rgba(178,40,40,.04)"' : '';
+            return `
+            <tr${rowStyle}>
+              <td><strong>${f.razao_social}</strong></td>
+              <td><code style="font-size:11px">${f.documento}</code></td>
+              <td><span class="origin ${f.tipo === 'com_portal' ? 'portal' : 'manual'}">${statusLabel(f.tipo)}</span></td>
+              <td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10.5px;font-weight:600;background:${engCor[0]};color:${engCor[1]}"${engTitle}>${engLabel}</span></td>
+              <td>${f.email || '<span class="muted">—</span>'}</td>
+              <td style="white-space:nowrap;text-align:right">
+                <button onclick="location.href='/app/admin-fornecedor.html?id=${f.id}'">Ver detalhes</button>
+                ${f.tipo !== 'com_portal' ? `<button class="warn" onclick="lancarParaFornec(${f.id}, '${(f.razao_social||'').replace(/'/g,"\\'")}')">+ Lançar</button>` : ''}
+              </td>
+            </tr>
+          `;}).join('')}
+        </tbody>
+      </table>`;
+  }
+  renderLista(comPortal, document.getElementById('lista-forn-portal'), 'Com portal');
+  renderLista(externos, document.getElementById('lista-forn-externos'), 'Externos');
+}
+window.carregarFornecedores = carregarFornecedores;
+document.getElementById('f-busca-forn')?.addEventListener('input', () => carregarFornecedores());
+document.getElementById('f-tipo-forn')?.addEventListener('change', () => carregarFornecedores());
+document.getElementById('f-eng-forn')?.addEventListener('change', () => carregarFornecedores());
+
+window.lancarParaFornec = (id, nome) => {
+  // pre-seleciona fornecedor no modal manual
+  document.getElementById('man-forn').value = id;
+  abrirModal('modal-manual');
+};
+
+// =====================================================================
+// Modais
+// =====================================================================
+window.abrirModal = id => document.getElementById(id).classList.add('open');
+window.fecharModal = id => document.getElementById(id).classList.remove('open');
+document.querySelectorAll('.modal-bg').forEach(bg => bg.addEventListener('click', (e) => {
+  if (e.target === bg) bg.classList.remove('open');
+}));
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
+});
+
+// =====================================================================
+// Carregamento
+// =====================================================================
+let cacheFornecedores = [];
+let cacheModalidades = [];
+
+async function inicializar() {
+  try {
+    const [forns, mods] = await Promise.all([
+      api.fornecedores().catch(() => ({ fornecedores: [] })),
+      api.modalidades(),
+    ]);
+    cacheFornecedores = forns.fornecedores || [];
+    cacheModalidades = mods.modalidades || [];
+    popularSelectFornecedores('exp-forn');
+    popularSelectFornecedores('lnk-forn', true);
+    popularSelectFornecedores('man-forn');
+    popularSelectModalidades('exp-mod');
+    popularSelectModalidades('lnk-mod');
+    popularSelectModalidades('man-mod');
+    await carregarKPIs();
+    await carregarEnvios();
+    await carregarBarChart();
+    await carregarAtividade();
+  } catch (e) {
+    toast('Erro ao inicializar: ' + e.message, 'erro');
+    console.error(e);
+  }
+}
+
+function popularSelectFornecedores(id, vazio = false) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = (vazio ? '<option value="">— escolher depois —</option>' : '') +
+    cacheFornecedores.map(f => `<option value="${f.id}">${f.razao_social} · ${f.tipo}</option>`).join('');
+}
+function popularSelectModalidades(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = cacheModalidades.map(m => `<option value="${m.id}">${m.nome}</option>`).join('');
+}
+
+async function carregarBarChart() {
+  if (!usuario.unidade_id) {
+    document.getElementById('chart-sidebar-wrap').style.display = 'none';
+    return;
+  }
+  try {
+    const { serie } = await api.serieUnidade(usuario.unidade_id, 6);
+    const cont = document.getElementById('bar-chart');
+    if (!serie || serie.length === 0) {
+      cont.innerHTML = '<div class="muted" style="margin:auto">Sem envios nas últimas semanas.</div>';
+      return;
+    }
+    const max = Math.max(...serie.map(s => s.total)) || 1;
+    cont.innerHTML = serie.map(s => {
+      const semanaInicio = new Date(s.semana);
+      const label = `${String(semanaInicio.getDate()).padStart(2,'0')}/${String(semanaInicio.getMonth()+1).padStart(2,'0')}`;
+      const segs = [
+        { val: s.em_analise, cor: 'var(--info)' },
+        { val: s.aguardando_ret, cor: 'var(--warning)' },
+        { val: s.aprovados, cor: 'var(--accent)' },
+        { val: s.rejeitados, cor: 'var(--danger)' },
+      ];
+      const total = s.total;
+      const altura = Math.max(8, (total / max) * 170);
+      return `
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${total}</div>
+          <div style="display:flex;flex-direction:column;width:36px;height:${altura}px;border-radius:4px 4px 0 0;overflow:hidden;background:var(--surface-2)">
+            ${segs.filter(x => x.val > 0).map(x => `<div style="background:${x.cor};flex:${x.val}" title="${x.val}"></div>`).join('')}
+          </div>
+          <div style="font-size:11px;color:var(--muted)">${label}</div>
+        </div>`;
+    }).join('');
+  } catch (e) {
+    console.warn('chart erro', e);
+    document.getElementById('chart-sidebar-wrap').style.display = 'none';
+  }
+}
+
+async function carregarAtividade() {
+  if (!usuario.unidade_id) return;
+  try {
+    const { atividade } = await api.atividadeUnidade(usuario.unidade_id, 12);
+    const cont = document.getElementById('sidebar-atividade');
+    if (atividade.length === 0) { cont.innerHTML = '<div class="muted">Sem atividade recente.</div>'; return; }
+    cont.innerHTML = atividade.map(a => `
+      <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12.5px">
+        <div><strong>${a.usuario_nome || '<i>sistema</i>'}</strong> · <code style="font-size:10.5px;background:var(--surface-2);padding:1px 4px;border-radius:3px">${statusLabel(a.acao)}</code></div>
+        ${a.protocolo ? `<div class="muted" style="margin-top:2px">${a.protocolo}${a.detalhe ? ' · ' + a.detalhe.substring(0,60) : ''}</div>` : (a.detalhe ? `<div class="muted" style="margin-top:2px">${a.detalhe.substring(0,80)}</div>` : '')}
+        <div class="muted" style="font-size:11px;margin-top:2px">${new Date(a.criado_em).toLocaleString('pt-BR')}</div>
+      </div>
+    `).join('');
+  } catch (e) { console.warn('atividade erro', e); }
+}
+
+async function carregarKPIs() {
+  const c = competenciaAtual();
+  const [{ por_origem }, { expectativas }, { envios }] = await Promise.all([
+    api.resumoOrigem({ competencia: c }),
+    api.listarExpectativas({ competencia: c }).catch(()=>({expectativas:[]})),
+    api.envios({ competencia: c }),
+  ]);
+  const porOrigem = Object.fromEntries((por_origem||[]).map(r => [r.origem, r]));
+  const totalEnvios = envios.length;
+  const totalValor = envios.reduce((a, e) => a + Number(e.valor_centavos||0), 0);
+  const aguardRet = envios.filter(e => e.status === 'aguardando_ret');
+  const aguardValor = aguardRet.reduce((a, e) => a + Number(e.valor_centavos||0), 0);
+  const aprovados = envios.filter(e => ['aprovado','pago'].includes(e.status));
+  const aprovValor = aprovados.reduce((a, e) => a + Number(e.valor_centavos||0), 0);
+  const fornUnicos = new Set(envios.map(e => e.fornecedor_id)).size;
+  const criticas = (expectativas||[]).filter(e => ['atrasada','sem_resposta'].includes(e.status));
+  const criticasN = criticas.length;
+  const atrasadas = criticas.filter(e => e.status === 'atrasada').length;
+  const semResp = criticas.filter(e => e.status === 'sem_resposta').length;
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="label">Recebidos · ${c}</div><div class="value">${totalEnvios}</div><div class="sub">${brl(totalValor)}${fornUnicos > 0 ? ' · ' + fornUnicos + ' fornecedor' + (fornUnicos > 1 ? 'es' : '') : ''}</div></div>
+    <div class="kpi warn"><div class="label">Aguardando ret.</div><div class="value">${aguardRet.length}</div><div class="sub">${aguardRet.length > 0 ? brl(aguardValor) : '— sem pendências'}</div></div>
+    <div class="kpi ${criticasN > 0 ? 'danger':'warn'}"><div class="label">Pendências críticas</div><div class="value">${criticasN}</div><div class="sub">${criticasN > 0 ? atrasadas + ' atrasada' + (atrasadas !== 1 ? 's' : '') + ' · ' + semResp + ' sem resposta' : '— sem pendências'}</div></div>
+    <div class="kpi accent"><div class="label">Aprovados (mês)</div><div class="value">${aprovados.length}</div><div class="sub">${aprovados.length > 0 ? brl(aprovValor) + ' liberados' : '— ainda nenhum'}</div></div>
+  `;
+
+  // V244: page subtitle dinâmico (mockup-alike)
+  const subtitle = document.getElementById('page-subtitle');
+  if (subtitle) {
+    subtitle.textContent = `${c} · ${totalEnvios} envio${totalEnvios !== 1 ? 's' : ''} recebido${totalEnvios !== 1 ? 's' : ''} · ${expectativas.length} pendência${expectativas.length !== 1 ? 's' : ''} · ${brl(totalValor)} movimentados`;
+  }
+  const badge = document.getElementById('badge-pend');
+  if (criticasN > 0) { badge.style.display = 'inline-block'; badge.textContent = criticasN; } else { badge.style.display = 'none'; }
+
+  // alerta se houver criticas
+  if (criticasN > 0) {
+    document.getElementById('alertaCriticas').innerHTML = `
+      <div class="alert danger" style="cursor:pointer" onclick="document.querySelector('[data-tab=pendencias]').click()">
+        <strong>${criticasN} pendência(s) crítica(s)</strong> · fornecedores não enviaram após lembretes. Considere lançar manualmente. <span style="float:right">Ver pendências →</span>
+      </div>
+    `;
+  } else {
+    document.getElementById('alertaCriticas').innerHTML = '';
+  }
+}
+
+function competenciaAtual() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+async function carregarEnvios() {
+  const origem = document.getElementById('f-origem').value;
+  const status = document.getElementById('f-status').value;
+  const { envios } = await api.envios({ origem, status });
+  const tbl = document.getElementById('envios-tabela');
+  if (envios.length === 0) {
+    tbl.innerHTML = '<div class="empty" style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:40px">∅</div><h3>Nenhum envio encontrado</h3><p>Ajuste os filtros ou registre um novo lançamento.</p></div>';
+    return;
+  }
+  const podeAgir = ['operador_unidade','admin_fesf'].includes(usuario.papel);
+  const bulkBar = podeAgir ? `
+    <div id="bulk-bar" style="display:none;background:var(--primary-soft);padding:10px 14px;border-radius:8px;margin-bottom:10px;justify-content:space-between;align-items:center;gap:10px">
+      <div><strong id="bulk-count">0</strong> envio(s) selecionado(s)</div>
+      <div style="display:flex;gap:6px">
+        <button class="success" onclick="bulkAprovar()">✓ Aprovar selecionados</button>
+        <button class="warn" onclick="bulkSolicitarRet()">⚠ Solicitar retificação</button>
+      </div>
+    </div>` : '';
+  // V230/O1: SLA — calcula dias em análise vs sla_dias_aprovacao (config).
+  // Cor: verde < 60%, amarelo 60-99%, vermelho >= 100%. Aplica apenas a envios
+  // que ainda estão "em_analise" (depois de aprovado, SLA não importa).
+  const slaDias = (await api.obterConfiguracoes().catch(()=>({configuracoes:{sla_dias_aprovacao:5}}))).configuracoes.sla_dias_aprovacao || 5;
+  function slaCell(envio) {
+    if (!['em_analise','aguardando_ret','aguardando_retificacao'].includes(envio.status)) return '<td class="muted">—</td>';
+    // V235: clamp em 0 para evitar "-1 dias" quando criado_em tem drift de timezone (DB grava UTC+local)
+    const diffMs = Date.now() - new Date(envio.criado_em).getTime();
+    const dias = Math.max(0, Math.floor(diffMs / 86400000));
+    const pct = (dias / slaDias) * 100;
+    let bg, fg;
+    if (pct >= 100) { bg = '#fde0e0'; fg = '#a32020'; }       // vermelho
+    else if (pct >= 60) { bg = '#fff4d6'; fg = '#8a4a1a'; }    // amarelo
+    else { bg = '#dff4d6'; fg = '#2e6b1a'; }                   // verde
+    const label = dias === 0 ? 'hoje' : dias === 1 ? '1 dia' : `${dias} dias`;
+    const sufixo = pct >= 100 ? ` (estourou ${Math.floor(pct - 100)}%)` : ` / ${slaDias}d`;
+    return `<td><span style="display:inline-block;background:${bg};color:${fg};padding:2px 8px;border-radius:10px;font-size:11.5px;font-weight:600" title="Tempo em análise (SLA ${slaDias} dias)">${label}${sufixo}</span></td>`;
+  }
+  tbl.innerHTML = bulkBar + `
+    <table id="tbl-envios">
+      <thead><tr>
+        ${podeAgir ? '<th style="width:28px"><input type="checkbox" id="check-all-env"></th>' : ''}
+        <th>Protocolo</th><th>Fornecedor</th><th>Modalidade</th><th>Comp.</th><th>Origem</th><th>Status</th><th title="SLA: tempo em análise vs prazo">SLA</th><th style="text-align:right">Valor</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${envios.map(e => `
+          <tr data-env-id="${e.id}" tabindex="0" class="env-row">
+            ${podeAgir ? `<td><input type="checkbox" data-env="${e.id}" data-status="${e.status}"></td>` : ''}
+            <td><code>${e.protocolo}</code><div class="muted">${dataBR(e.criado_em)}</div></td>
+            <td>${e.razao_social || ''}<div class="muted">${e.documento || ''}</div></td>
+            <td>${e.modalidade_nome || ''}</td>
+            <td>${e.competencia}</td>
+            <td><span class="origin ${e.origem}">${statusLabel(e.origem)}</span></td>
+            <td><span class="pill ${e.status}">${statusLabel(e.status)}</span></td>
+            ${slaCell(e)}
+            <td style="text-align:right;font-family:ui-monospace,monospace">${brl(e.valor_centavos)}</td>
+            <td><button onclick="location.href='/app/envio.html?id=${e.id}'">Ver</button></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  if (podeAgir) {
+    const todos = document.getElementById('check-all-env');
+    function atualizar() {
+      const marcados = document.querySelectorAll('[data-env]:checked').length;
+      const bar = document.getElementById('bulk-bar');
+      bar.style.display = marcados > 0 ? 'flex' : 'none';
+      document.getElementById('bulk-count').textContent = marcados;
+    }
+    todos.addEventListener('change', e => {
+      document.querySelectorAll('[data-env]').forEach(cb => cb.checked = e.target.checked);
+      atualizar();
+    });
+    document.querySelectorAll('[data-env]').forEach(cb => cb.addEventListener('change', atualizar));
+  }
+}
+
+window.bulkAprovar = async () => {
+  const ids = Array.from(document.querySelectorAll('[data-env]:checked')).map(cb => Number(cb.dataset.env));
+  if (ids.length === 0) return;
+  if (!confirm(`Aprovar ${ids.length} envio(s) em lote? (apenas envios em análise/retificados serão aprovados)`)) return;
+  try {
+    const r = await api.aprovarEnviosLote(ids);
+    toast(`${r.aprovados.length} aprovado(s) · ${r.erros.length} erro(s)`, r.erros.length ? 'erro' : 'sucesso');
+    carregarEnvios(); carregarKPIs();
+  } catch (e) { toast(e.message, 'erro'); }
+};
+
+window.bulkSolicitarRet = async () => {
+  const ids = Array.from(document.querySelectorAll('[data-env]:checked')).map(cb => Number(cb.dataset.env));
+  if (ids.length === 0) return;
+  const motivo = prompt(`Motivo da retificação para ${ids.length} envio(s) (mín. 5 chars):`);
+  if (!motivo || motivo.length < 5) return;
+  let ok = 0, err = 0;
+  for (const id of ids) {
+    try { await api.solicitarRet(id, motivo); ok++; } catch { err++; }
+  }
+  toast(`${ok} retificação(ões) solicitada(s)${err ? ` · ${err} falha(s)` : ''}`, err ? 'erro' : 'sucesso');
+  carregarEnvios(); carregarKPIs();
+};
+window.carregarEnvios = carregarEnvios;
+document.getElementById('f-origem').addEventListener('change', carregarEnvios);
+document.getElementById('f-status').addEventListener('change', carregarEnvios);
+
+window.exportarCSV = async () => {
+  // monta query atual
+  const q = new URLSearchParams();
+  const origem = document.getElementById('f-origem').value;
+  const status = document.getElementById('f-status').value;
+  if (origem) q.set('origem', origem);
+  if (status) q.set('status', status);
+  const url = `/api/envios/export.csv${q.toString() ? `?${q}` : ''}`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('fesf_token')}` } });
+  if (!r.ok) { toast('Erro no export', 'erro'); return; }
+  const blob = await r.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `envios-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast('CSV baixado', 'sucesso');
+};
+
+async function carregarPendencias() {
+  const { expectativas } = await api.listarExpectativas();
+  const tbl = document.getElementById('pendencias-tabela');
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const computar = (e) => {
+    const prazo = new Date(e.prazo);
+    const diff = Math.floor((prazo - hoje) / 86400000);
+    let urgencia, cor, label, atraso;
+    if (e.status === 'cumprida' || e.status === 'cancelada') { urgencia = 0; cor = '#7a7a7a'; label = ''; }
+    else if (diff < 0) { urgencia = 100 + Math.abs(diff); cor = '#b22828'; label = `${Math.abs(diff)} dia(s) em atraso`; atraso = true; }
+    else if (diff === 0) { urgencia = 90; cor = '#d99020'; label = 'vence hoje'; }
+    else if (diff <= 3) { urgencia = 70 - diff; cor = '#a06800'; label = `${diff} dia(s) restantes`; }
+    else { urgencia = 10; cor = '#2f7d5c'; label = `em ${diff} dias`; }
+    return { ...e, urgencia, cor, label, atraso };
+  };
+  // V257: KPIs específicos da aba (computados sobre TODAS as expectativas, antes de filtros)
+  const todas = expectativas.map(computar);
+  const aguardando = todas.filter(e => e.status === 'aguardando').length;
+  const semResp = todas.filter(e => e.status === 'sem_resposta').length;
+  const atrasadasN = todas.filter(e => e.status === 'atrasada' || (e.atraso && e.status !== 'cumprida' && e.status !== 'cancelada')).length;
+  const ativas = todas.filter(e => e.status !== 'cumprida' && e.status !== 'cancelada').length;
+  const subEl = document.getElementById('page-subtitle');
+  if (subEl) subEl.textContent = `${ativas} expectativa(s) ativa(s) · ${atrasadasN} atrasada(s) · ${semResp} sem resposta`;
+  const kpiBox = document.getElementById('kpis-pend-tab');
+  if (kpiBox) kpiBox.innerHTML = `
+    <div class="kpi"><div class="label">Aguardando envio</div><div class="value">${aguardando}</div><div class="sub">prazo ainda em dia</div></div>
+    <div class="kpi warn"><div class="label">Sem resposta</div><div class="value">${semResp}</div><div class="sub">passou do 2º lembrete</div></div>
+    <div class="kpi ${atrasadasN > 0 ? 'danger' : ''}"><div class="label">Atrasadas</div><div class="value">${atrasadasN}</div><div class="sub">${atrasadasN > 0 ? 'prazo expirou · ação obrigatória' : '— sem atrasos'}</div></div>
+    <div class="kpi accent"><div class="label">Ativas</div><div class="value">${ativas}</div><div class="sub">não cumpridas / canceladas</div></div>
+  `;
+  if (expectativas.length === 0) {
+    tbl.innerHTML = '<div class="empty" style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:40px">✓</div><h3>Nenhuma expectativa registrada</h3><p>Use "+ Criar expectativa" para registrar um envio esperado.</p></div>';
+    document.getElementById('contador-pend').textContent = '0 expectativa(s)';
+    return;
+  }
+  // Aplica filtros client-side
+  const busca = document.getElementById('f-busca-pend')?.value?.toLowerCase() || '';
+  const statusF = document.getElementById('f-status-pend')?.value || '';
+  const ordF = document.getElementById('f-ord-pend')?.value || 'urgencia';
+  let filtradas = todas.filter(e => {
+    if (statusF) {
+      if (statusF === 'atrasada' && !(e.status === 'atrasada' || (e.atraso && e.status !== 'cumprida' && e.status !== 'cancelada'))) return false;
+      if (statusF !== 'atrasada' && e.status !== statusF) return false;
+    }
+    if (busca && !((e.razao_social||'').toLowerCase().includes(busca) || (e.modalidade_nome||'').toLowerCase().includes(busca) || (e.documento||'').includes(busca))) return false;
+    return true;
+  });
+  const ordenadas = filtradas.sort((a, b) => {
+    if (ordF === 'prazo') return new Date(a.prazo) - new Date(b.prazo);
+    if (ordF === 'forn') return (a.razao_social||'').localeCompare(b.razao_social||'');
+    return b.urgencia - a.urgencia;
+  });
+  document.getElementById('contador-pend').textContent = `${ordenadas.length} expectativa(s)` + (ordenadas.length !== expectativas.length ? ` (de ${expectativas.length})` : '');
+  const atrasadas = todas.filter(e => e.atraso && e.status !== 'cumprida' && e.status !== 'cancelada');
+  const muitoAntigas = todas.filter(e => e.atraso && e.status !== 'cumprida' && e.status !== 'cancelada' && Math.abs((new Date(e.prazo) - hoje) / 86400000) > 30);
+  const bulk = atrasadas.length > 0 ? `<div class="alert info" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px"><div>⚠ <strong>${atrasadas.length}</strong> expectativa(s) em atraso${muitoAntigas.length > 0 ? ` · ${muitoAntigas.length} com >30 dias` : ''}</div><div style="display:flex;gap:6px"><button class="primary" id="bulk-lembrar">📧 Lembrar todas atrasadas</button>${muitoAntigas.length > 0 ? `<button class="danger" id="bulk-cancelar">× Cancelar antigas (>30d)</button>` : ''}</div></div>` : '';
+  tbl.innerHTML = bulk + `
+    <table>
+      <thead><tr><th>Urgência</th><th>Fornecedor</th><th>Modalidade</th><th>Comp.</th><th>Prazo</th><th>Status</th><th>Lembretes</th><th>Ações</th></tr></thead>
+      <tbody>
+        ${ordenadas.map(e => `
+          <tr style="${e.atraso ? 'background:rgba(178,40,40,.04)' : (e.urgencia >= 70 ? 'background:rgba(217,140,30,.04)' : '')}">
+            <td><span style="display:inline-block;padding:3px 9px;border-radius:10px;background:${e.cor};color:#fff;font-size:11px;font-weight:600;white-space:nowrap">${e.label || '—'}</span></td>
+            <td>${e.razao_social}<div class="muted">${e.documento} · ${e.fornecedor_tipo}</div></td>
+            <td>${e.modalidade_nome}</td>
+            <td>${e.competencia}</td>
+            <td>${dataBR(e.prazo)}</td>
+            <td><span class="pill ${e.status}">${statusLabel(e.status)}</span></td>
+            <td>${e.lembretes_enviados || 0}</td>
+            <td style="white-space:nowrap">
+              ${e.status !== 'cumprida' && e.status !== 'cancelada' ? `
+                <button onclick="lembrar(${e.id})" title="Disparar lembrete">📧</button>
+                <button class="warn" onclick="converterParaManual(${e.id}, '${(e.razao_social||'').replace(/'/g, "\\'")}')">Lançar manual</button>
+                <button onclick="cancelarExp(${e.id})">×</button>
+              ` : ''}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  document.getElementById('bulk-cancelar')?.addEventListener('click', async () => {
+    const motivo = prompt(`Cancelar ${muitoAntigas.length} expectativa(s) com mais de 30 dias de atraso. Motivo (mín. 5 chars):`);
+    if (!motivo || motivo.length < 5) return;
+    try {
+      const r = await api.cancelarMultiplas(muitoAntigas.map(e => e.id), motivo);
+      toast(`${r.canceladas.length} cancelada(s)${r.erros.length ? ` · ${r.erros.length} erro(s)` : ''}`, r.erros.length ? 'erro' : 'sucesso');
+      carregarPendencias();
+    } catch (err) { toast(err.message, 'erro'); }
+  });
+  document.getElementById('bulk-lembrar')?.addEventListener('click', async () => {
+    if (!confirm(`Disparar lembrete para ${atrasadas.length} expectativa(s) em atraso?`)) return;
+    let ok = 0, err = 0;
+    for (const e of atrasadas) {
+      try { await api.enviarLembrete(e.id, {}); ok++; } catch { err++; }
+    }
+    toast(`${ok} lembrete(s) enviado(s)${err ? ` · ${err} falha(s)` : ''}`, err ? 'erro' : 'sucesso');
+    carregarPendencias();
+  });
+}
+window.carregarPendencias = carregarPendencias;
+// V257: listeners dos novos filtros
+document.getElementById('f-busca-pend')?.addEventListener('input', () => carregarPendencias());
+document.getElementById('f-status-pend')?.addEventListener('change', () => carregarPendencias());
+document.getElementById('f-ord-pend')?.addEventListener('change', () => carregarPendencias());
+
+async function carregarLinks() {
+  const tbl = document.getElementById('links-tabela');
+  if (usuario.papel === 'operador_unidade') {
+    const { links } = await api.listarLinksUnidade(usuario.unidade_id);
+    if (links.length === 0) { tbl.innerHTML = '<div class="empty-state"><span class="icon">🔗</span><h3>Nenhum link público gerado</h3><p>Gere um link para enviar a um fornecedor externo que não usa o portal.</p></div>'; return; }
+    tbl.innerHTML = `
+      <table>
+        <thead><tr><th>Token</th><th>Fornecedor</th><th>Modalidade</th><th>Destinatário</th><th>Usos</th><th>Status</th><th>Criado</th><th>Ações</th></tr></thead>
+        <tbody>
+          ${links.map(l => {
+            const url = `${location.origin}/app/publico.html?token=${l.token}`;
+            // V227/O6: status considera usos_max e expira_em
+            const expirado = l.expira_em && new Date(l.expira_em) < new Date();
+            const esgotado = l.usos_max != null && l.usos >= l.usos_max;
+            const usadoSingle = !l.uso_multiplo && l.usos > 0;
+            const valido = !l.revogado && !expirado && !esgotado && !usadoSingle;
+            // Texto de usos: X / Y (limite) ou X (multi sem limite) ou X (único)
+            const usosTxt = l.usos_max != null
+              ? `${l.usos} / ${l.usos_max}`
+              : l.uso_multiplo
+                ? `${l.usos} (sem limite)`
+                : `${l.usos} / 1`;
+            // Texto de expiração: "expira em X dias" ou "expirou em Y" ou "sem prazo"
+            let prazoTxt = 'sem prazo';
+            if (l.expira_em) {
+              const diff = Math.ceil((new Date(l.expira_em) - new Date()) / 86400000);
+              if (diff < 0) prazoTxt = `<span style="color:#a32020">expirou há ${-diff}d</span>`;
+              else if (diff === 0) prazoTxt = '<strong>expira hoje</strong>';
+              else if (diff <= 3) prazoTxt = `<span style="color:#8a4a1a">expira em ${diff}d</span>`;
+              else prazoTxt = `expira em ${diff}d`;
+            }
+            let statusPill;
+            if (l.revogado) statusPill = '<span class="pill rejeitado">Revogado</span>';
+            else if (expirado) statusPill = '<span class="pill cancelada">Expirado</span>';
+            else if (esgotado) statusPill = '<span class="pill cancelada">Esgotado</span>';
+            else if (usadoSingle) statusPill = '<span class="pill cancelada">Usado</span>';
+            else statusPill = '<span class="pill aprovado">Ativo</span>';
+            return `
+              <tr>
+                <td><code style="font-size:11px">${l.token.substring(0,20)}…</code></td>
+                <td>${l.fornecedor_razao_social || '—'}</td>
+                <td>${l.modalidade_nome}</td>
+                <td>${l.email_destinatario || '—'}</td>
+                <td>${usosTxt}<br><span class="muted" style="font-size:11px">${prazoTxt}</span></td>
+                <td>${statusPill}</td>
+                <td>${dataBR(l.criado_em)}</td>
+                <td>
+                  <button data-copy="${url}">Copiar URL</button>
+                  ${valido ? `<button class="danger" data-revoga="${l.id}">Revogar</button>` : ''}
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+    tbl.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', e => { navigator.clipboard.writeText(e.target.dataset.copy); e.target.textContent = '✓ copiado'; }));
+    tbl.querySelectorAll('[data-revoga]').forEach(b => b.addEventListener('click', async e => {
+      if (!confirm('Revogar este link público? Esta ação não pode ser desfeita.')) return;
+      try { await api.revogarLink(Number(e.target.dataset.revoga)); toast('Link revogado','sucesso'); carregarLinks(); }
+      catch (err) { toast(err.message,'erro'); }
+    }));
+  } else {
+    tbl.innerHTML = '<div class="empty-state"><span class="icon">ℹ</span><h3>Visão por unidade</h3><p>Use o filtro "Por unidade" no menu Admin para visualizar links de uma unidade específica.</p></div>';
+  }
+}
+
+// =====================================================================
+// Ações
+// =====================================================================
+window.verDetalhes = async (id) => {
+  try {
+    const { envio, versoes, documentos, auditoria, comentarios, form_data } = await api.envio(id);
+    document.getElementById('det-titulo').textContent = `Detalhes · ${envio.protocolo}`;
+    document.getElementById('det-conteudo').innerHTML = `
+      <div class="card" style="margin:0 0 12px">
+        <div class="row">
+          <div><strong>Fornecedor:</strong> ${envio.razao_social}<div class="muted">${envio.documento}</div></div>
+          <div><strong>Unidade:</strong> ${envio.unidade_sigla}<div class="muted">${envio.unidade_nome||''}</div></div>
+          <div><strong>Modalidade:</strong> ${envio.modalidade_nome}</div>
+          <div><strong>Competência:</strong> ${envio.competencia}</div>
+          <div><strong>Origem:</strong> <span class="origin ${envio.origem}">${statusLabel(envio.origem)}</span></div>
+          <div><strong>Status:</strong> <span class="pill ${envio.status}">${statusLabel(envio.status)}</span></div>
+          <div><strong>Valor:</strong> ${brl(envio.valor_centavos)}</div>
+          <div><strong>NF:</strong> ${envio.numero_nf || '—'}</div>
+        </div>
+        ${envio.descricao ? `<p style="margin-top:12px"><strong>Descrição:</strong> ${envio.descricao}</p>` : ''}
+        ${envio.motivo_manual ? `<div class="alert warn" style="margin-top:8px"><strong>Motivo do lançamento manual:</strong><br>${envio.motivo_manual}</div>` : ''}
+      </div>
+      ${(usuario.papel === 'operador_unidade' || usuario.papel === 'admin_fesf') && envio.status === 'em_analise' ? `
+        <div class="card" style="margin:0 0 12px">
+          <h3>Decisão</h3>
+          <div class="flex" style="gap:8px">
+            <button class="success" onclick="aprovar(${envio.id})">Aprovar</button>
+            <button class="warn" onclick="solicitarRet(${envio.id})">Solicitar retificação</button>
+            <button class="danger" onclick="rejeitar(${envio.id})">Rejeitar</button>
+            <button onclick="window.open('/app/recibo.html?id=${envio.id}', '_blank')">🖨 Imprimir recibo</button>
+          </div>
+        </div>
+      ` : (usuario.papel === 'admin_fesf' && envio.status === 'aprovado') ? `
+        <div class="card" style="margin:0 0 12px">
+          <h3>Processamento de pagamento</h3>
+          <p class="muted">Envio aprovado pela unidade. Admin FESF pode marcar como pago após processar transferência financeira. Os dados de pagamento (TED, banco, comprovante) são registrados na página de análise do envio.</p>
+          <div class="flex" style="gap:8px;margin-top:8px">
+            <button class="success" onclick="location.href='/app/envio.html?id=${envio.id}'">💰 Registrar pagamento (estruturado) →</button>
+            <button onclick="window.open('/app/recibo.html?id=${envio.id}', '_blank')">🖨 Imprimir recibo</button>
+          </div>
+        </div>
+      ` : `<div style="margin-top:10px"><button onclick="window.open('/app/recibo.html?id=${envio.id}', '_blank')">🖨 Imprimir recibo</button></div>`}
+      <div class="card" style="margin:0 0 12px"><h3>Respostas do formulário</h3>
+        <p class="muted" style="font-size:12px;margin:0 0 10px">Dados preenchidos pelo fornecedor no formulário oficial.</p>
+        ${formatarRespostasForm(form_data)}
+      </div>
+      <div class="card" style="margin:0 0 12px"><h3>Versões (${versoes.length})</h3>
+        <table><thead><tr><th>v</th><th>Criada em</th></tr></thead><tbody>
+          ${versoes.map(v => `<tr><td>v${v.numero}</td><td>${dataBR(v.criada_em)}</td></tr>`).join('')}
+        </tbody></table>
+      </div>
+      <div class="card" style="margin:0 0 12px">
+        <div class="between"><h3 style="margin:0">Documentos (${documentos.length})</h3>
+          <button class="primary" onclick="uploadDoc(${envio.id})">+ Anexar arquivo</button>
+        </div>
+        ${documentos.length === 0 ? '<div class="muted" style="margin-top:8px">Nenhum documento anexado</div>' :
+          `<table><thead><tr><th>Campo</th><th>Arquivo</th><th>Tamanho</th><th>Anexado em</th></tr></thead><tbody>
+            ${documentos.map(d => `<tr><td><code>${d.campo}</code></td><td>${d.nome_original}</td><td>${(d.tamanho_bytes/1024).toFixed(1)} KB</td><td>${dataBR(d.criado_em)}</td></tr>`).join('')}
+          </tbody></table>`}
+      </div>
+      <div class="card" style="margin:0 0 12px">
+        <h3>Comentários (${(comentarios||[]).length})</h3>
+        ${(comentarios||[]).length === 0 ? '<div class="muted" style="margin-top:6px">Sem comentários ainda.</div>' :
+          (comentarios||[]).map(c => `
+            <div style="padding:10px 12px;background:${c.usuario_papel === 'fornecedor' ? 'var(--primary-soft)' : 'var(--surface-2)'};border-radius:8px;margin:8px 0">
+              <div style="font-size:11.5px;color:var(--muted);margin-bottom:4px"><strong>${c.usuario_nome || '—'}</strong> <span class="muted">(${c.usuario_papel || ''})</span> · ${new Date(c.criado_em).toLocaleString('pt-BR')}</div>
+              <div style="font-size:13px;white-space:pre-wrap">${c.texto}</div>
+            </div>
+          `).join('')}
+        <form id="form-coment-pn" style="margin-top:12px;display:flex;gap:8px">
+          <textarea id="coment-texto-pn" placeholder="Comentar com o fornecedor..." rows="2" style="flex:1;resize:vertical"></textarea>
+          <button class="primary" type="submit">Enviar</button>
+        </form>
+      </div>
+      <div class="card" style="margin:0"><h3>Trilha de auditoria (${auditoria.length})</h3>
+        <table><thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Detalhe</th></tr></thead><tbody>
+          ${auditoria.map(a => `<tr><td>${new Date(a.criado_em).toLocaleString('pt-BR')}</td><td>${a.usuario_nome || '<i>sistema</i>'}</td><td><code>${statusLabel(a.acao)}</code></td><td>${(a.detalhe||'').substring(0,80)}</td></tr>`).join('')}
+        </tbody></table>
+      </div>
+    `;
+    document.getElementById('form-coment-pn').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const txt = document.getElementById('coment-texto-pn').value.trim();
+      if (txt.length < 2) return;
+      try { await api.comentar(id, txt); verDetalhes(id); }
+      catch (err) { toast(err.message, 'erro'); }
+    });
+    abrirModal('modal-detalhe');
+  } catch (e) {
+    toast('Erro: ' + e.message, 'erro');
+  }
+};
+
+window.aprovar = async (id) => {
+  if (!confirm('Aprovar este envio?')) return;
+  try { await api.aprovarEnvio(id); toast('Envio aprovado', 'sucesso'); fecharModal('modal-detalhe'); carregarEnvios(); carregarKPIs(); }
+  catch (e) { toast(e.message, 'erro'); }
+};
+// V208: marcarPago simples (so observacao) removido — causava perda de dados
+// estruturados (TED/banco/comprovante). Use envio.html que tem modal completo.
+window.rejeitar = async (id) => {
+  const motivo = prompt('Motivo da rejeição (mín. 5 chars):');
+  if (!motivo || motivo.length < 5) return;
+  try { await api.rejeitarEnvio(id, motivo); toast('Envio rejeitado', 'sucesso'); fecharModal('modal-detalhe'); carregarEnvios(); }
+  catch (e) { toast(e.message, 'erro'); }
+};
+window.solicitarRet = async (id) => {
+  const motivo = prompt('Descreva o que precisa ser corrigido:');
+  if (!motivo || motivo.length < 5) return;
+  try { await api.solicitarRet(id, motivo); toast('Retificação solicitada', 'sucesso'); fecharModal('modal-detalhe'); carregarEnvios(); }
+  catch (e) { toast(e.message, 'erro'); }
+};
+
+window.lembrar = async (expId) => {
+  try { const r = await api.enviarLembrete(expId, { canal: 'email' }); toast(`Lembrete #${r.numero} enviado`, 'sucesso'); carregarPendencias(); }
+  catch (e) { toast(e.message, 'erro'); }
+};
+
+window.cancelarExp = async (expId) => {
+  const motivo = prompt('Motivo do cancelamento (mín. 5 chars):');
+  if (!motivo || motivo.length < 5) return;
+  try { await api.cancelarExpectativa(expId, motivo); toast('Expectativa cancelada', 'sucesso'); carregarPendencias(); carregarKPIs(); }
+  catch (e) { toast(e.message, 'erro'); }
+};
+
+window.converterParaManual = async (expId, nomeForn) => {
+  const motivo = prompt(`Converter expectativa de ${nomeForn} em lançamento manual.\n\nMotivo (mín. 5 chars):`, 'Fornecedor não respondeu após lembretes');
+  if (!motivo || motivo.length < 5) return;
+  const valor = prompt('Valor em reais (ex: 1234.56):', '0');
+  try {
+    const { envio } = await api.converterManual(expId, {
+      motivo, valor_centavos: Math.round(Number(valor||0) * 100), descricao: 'Convertido de pendência',
+    });
+    toast(`Envio ${envio.protocolo} criado`, 'sucesso');
+    carregarPendencias(); carregarEnvios(); carregarKPIs();
+  } catch (e) { toast(e.message, 'erro'); }
+};
+
+// Form: criar expectativa
+document.getElementById('form-expectativa').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    await api.criarExpectativa({
+      fornecedor_id: Number(document.getElementById('exp-forn').value),
+      unidade_id: usuario.unidade_id,
+      modalidade_id: Number(document.getElementById('exp-mod').value),
+      competencia: document.getElementById('exp-comp').value,
+      prazo: document.getElementById('exp-prazo').value,
+      origem_prevista: document.getElementById('exp-origem').value,
+      observacoes: document.getElementById('exp-obs').value,
+    });
+    fecharModal('modal-expectativa');
+    toast('Expectativa criada', 'sucesso');
+    carregarPendencias(); carregarKPIs();
+    e.target.reset();
+  } catch (err) { toast(err.message, 'erro'); }
+});
+
+// Form: gerar link
+document.getElementById('form-link').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const usosMaxRaw = document.getElementById('lnk-usos-max').value;
+    const r = await api.criarLink({
+      fornecedor_id: document.getElementById('lnk-forn').value || null,
+      unidade_id: usuario.unidade_id,
+      modalidade_id: Number(document.getElementById('lnk-mod').value),
+      email_destinatario: document.getElementById('lnk-email').value || null,
+      expira_em: document.getElementById('lnk-expira').value || null,
+      uso_multiplo: document.getElementById('lnk-multi').checked,
+      usos_max: usosMaxRaw ? Number(usosMaxRaw) : null,
+    });
+    fecharModal('modal-link');
+    const url = `${location.origin}/app/publico.html?token=${r.link.token}`;
+    prompt('Link gerado. Copie e envie ao fornecedor:', url);
+    if (document.querySelector('[data-tab=links]').classList.contains('active')) carregarLinks();
+    e.target.reset();
+  } catch (err) { toast(err.message, 'erro'); }
+});
+
+// Form: lancamento manual
+document.getElementById('form-manual').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const { envio } = await api.criarEnvioManual({
+      fornecedor_id: Number(document.getElementById('man-forn').value),
+      unidade_id: usuario.unidade_id,
+      modalidade_id: Number(document.getElementById('man-mod').value),
+      competencia: document.getElementById('man-comp').value,
+      valor_centavos: Math.round(Number(document.getElementById('man-valor').value||0) * 100),
+      numero_nf: document.getElementById('man-nf').value || null,
+      descricao: document.getElementById('man-desc').value || null,
+      motivo: document.getElementById('man-motivo').value,
+    });
+    fecharModal('modal-manual');
+    toast(`Envio ${envio.protocolo} criado`, 'sucesso');
+    document.querySelector('[data-tab=envios]').click();
+    carregarEnvios(); carregarKPIs();
+    e.target.reset();
+  } catch (err) { toast(err.message, 'erro'); }
+});
+
+// =====================================================================
+// Cadastro de fornecedor externo (operador / admin)
+// =====================================================================
+function atualizaLabelDocExterno() {
+  const tipo = document.querySelector('input[name=ex-tipo]:checked').value;
+  document.getElementById('ex-lbl-doc').textContent = tipo === 'externo_pf' ? 'CPF' : 'CNPJ';
+}
+document.querySelectorAll('input[name=ex-tipo]').forEach(r => r.addEventListener('change', atualizaLabelDocExterno));
+
+document.getElementById('form-externo').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    const tipo = document.querySelector('input[name=ex-tipo]:checked').value;
+    const r = await api.cadastrarFornecedorExterno({
+      tipo,
+      razao_social: document.getElementById('ex-nome').value.trim(),
+      documento: document.getElementById('ex-doc').value,
+      email: document.getElementById('ex-email').value || null,
+      telefone: document.getElementById('ex-tel').value || null,
+    });
+    fecharModal('modal-externo');
+    toast(`Fornecedor externo "${r.fornecedor.razao_social}" cadastrado`, 'sucesso');
+    // recarrega lista de fornecedores em cache para os outros modais
+    const { fornecedores } = await api.fornecedores().catch(() => ({ fornecedores: [] }));
+    cacheFornecedores = fornecedores;
+    popularSelectFornecedores('exp-forn');
+    popularSelectFornecedores('lnk-forn', true);
+    popularSelectFornecedores('man-forn');
+    e.target.reset();
+    atualizaLabelDocExterno();
+  } catch (err) { toast(err.message, 'erro'); }
+});
+
+// =====================================================================
+// Notificacoes
+// =====================================================================
+window.toggleNotif = async () => {
+  const panel = document.getElementById('notifPanel');
+  if (panel.style.display === 'block') { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  await carregarNotif();
+};
+async function carregarNotif() {
+  try {
+    const { notificacoes, nao_lidas } = await api.notificacoes();
+    document.getElementById('bellBadge').style.display = nao_lidas > 0 ? 'inline-block' : 'none';
+    document.getElementById('bellBadge').textContent = nao_lidas;
+    const list = document.getElementById('notifList');
+    if (notificacoes.length === 0) { list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Nenhuma notificacao</div>'; return; }
+    list.innerHTML = notificacoes.map(n => `
+      <div class="notif-item" data-id="${n.id}" style="padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;${n.lida ? '' : 'background:rgba(91,84,153,.05)'}">
+        <div style="font-size:13px;color:var(--text)">${n.mensagem}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">${new Date(n.criada_em).toLocaleString('pt-BR')}${n.lida ? '' : ' · NAO LIDA'}</div>
+      </div>
+    `).join('');
+    list.querySelectorAll('.notif-item').forEach(it => it.addEventListener('click', async () => {
+      const id = Number(it.dataset.id);
+      await api.marcarLida(id);
+      const n = notificacoes.find(x => x.id === id);
+      if (n && n.link) { document.getElementById('notifPanel').style.display = 'none'; if (n.link.startsWith('/app/')) location.href = n.link; }
+      carregarNotif();
+    }));
+  } catch (e) { console.error(e); }
+}
+document.getElementById('btnLerTodas').addEventListener('click', async () => {
+  await api.marcarTodasLidas();
+  carregarNotif();
+});
+// poll a cada 30s
+setInterval(() => {
+  api.notificacoes({ naoLidasApenas: true }).then(r => {
+    document.getElementById('bellBadge').style.display = r.nao_lidas > 0 ? 'inline-block' : 'none';
+    document.getElementById('bellBadge').textContent = r.nao_lidas;
+  }).catch(() => {});
+}, 30000);
+// Auto-refresh da lista de envios a cada 60s (apenas se aba ativa)
+setInterval(() => {
+  const tabEnvios = document.getElementById('tab-envios');
+  if (tabEnvios && tabEnvios.style.display !== 'none' && !document.hidden) {
+    carregarEnvios();
+  }
+}, 60000);
+// inicial
+carregarNotif();
+
+// =====================================================================
+// Upload de documentos (no modal de detalhe)
+// =====================================================================
+window.uploadDoc = async (envioId) => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.onchange = async () => {
+    const f = input.files[0]; if (!f) return;
+    const campo = prompt('Campo (ex: nf_pdf, crf_estadual):', 'anexo');
+    if (campo === null) return;
+    try {
+      await api.uploadDocumento(envioId, f, campo);
+      toast('Documento anexado', 'sucesso');
+      // recarrega detalhes
+      verDetalhes(envioId);
+    } catch (e) { toast('Erro upload: ' + e.message, 'erro'); }
+  };
+  input.click();
+};
+
+// Carregar
+inicializar();
+
+// V214/F2.1: notificacoes geram link `/app/painel.html?envio=X` — abre modal direto
+const envioParam = Number(new URLSearchParams(location.search).get('envio'));
+if (envioParam) {
+  setTimeout(() => verDetalhes(envioParam), 300); // espera carregar a lista
+}
+
+// V230/O1: Hotkeys de triagem
+// J/K navega na lista de envios; Enter abre detalhes; ? mostra ajuda; Esc fecha modal.
+// As ações são minimalistas no painel — A/R/C ficam dentro de envio.html (página dedicada).
+let _envFoco = -1;
+function focarEnv(idx) {
+  const rows = document.querySelectorAll('#tbl-envios .env-row');
+  if (rows.length === 0) return;
+  _envFoco = Math.max(0, Math.min(idx, rows.length - 1));
+  rows.forEach((r, i) => {
+    r.style.background = i === _envFoco ? 'var(--primary-soft, #eeecf6)' : '';
+    if (i === _envFoco) r.scrollIntoView({ block: 'nearest' });
+  });
+}
+function abrirEnvFocado() {
+  const rows = document.querySelectorAll('#tbl-envios .env-row');
+  const row = rows[_envFoco];
+  if (row && row.dataset.envId) location.href = `/app/envio.html?id=${row.dataset.envId}`;
+}
+document.addEventListener('keydown', (ev) => {
+  // ignora se digitando em input/textarea/select
+  const tag = (ev.target.tagName || '').toLowerCase();
+  if (['input','textarea','select'].includes(tag) || ev.target.isContentEditable) return;
+  // ignora se modal está aberto (exceto Esc)
+  const modalAberto = document.querySelector('.modal-bg[style*="display: flex"], .modal-bg[style*="display:flex"]');
+  if (modalAberto && ev.key !== 'Escape') return;
+  if (ev.key === 'j' || ev.key === 'J') { focarEnv(_envFoco + 1); ev.preventDefault(); }
+  else if (ev.key === 'k' || ev.key === 'K') { focarEnv(_envFoco - 1); ev.preventDefault(); }
+  else if (ev.key === 'Enter' && _envFoco >= 0) { abrirEnvFocado(); ev.preventDefault(); }
+  else if (ev.key === '?' || ev.key === '/') { abrirAjudaHotkeys(); ev.preventDefault(); }
+  else if (ev.key === 'Escape' && modalAberto) {
+    // Fecha o último modal aberto
+    Array.from(document.querySelectorAll('.modal-bg')).reverse().forEach(m => {
+      const dpy = window.getComputedStyle(m).display;
+      if (dpy === 'flex') { m.style.display = 'none'; return false; }
+    });
+  }
+});
+window.abrirAjudaHotkeys = () => {
+  const existente = document.getElementById('modal-hotkeys');
+  if (existente) { existente.style.display = 'flex'; return; }
+  const m = document.createElement('div');
+  m.id = 'modal-hotkeys';
+  m.className = 'modal-bg';
+  m.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center';
+  m.innerHTML = `
+    <div style="background:#fff;padding:24px;border-radius:10px;max-width:480px;width:90%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <h2 style="margin:0 0 16px;font-size:18px">⌨ Atalhos de teclado</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:13.5px">
+        <tbody>
+          <tr><td style="padding:6px 0"><kbd style="background:#eee;border:1px solid #ccc;padding:1px 6px;border-radius:3px;font-family:monospace">J</kbd> / <kbd style="background:#eee;border:1px solid #ccc;padding:1px 6px;border-radius:3px;font-family:monospace">K</kbd></td><td style="padding:6px 0">Navegar entre envios da lista</td></tr>
+          <tr><td style="padding:6px 0"><kbd style="background:#eee;border:1px solid #ccc;padding:1px 6px;border-radius:3px;font-family:monospace">Enter</kbd></td><td style="padding:6px 0">Abrir envio focado para análise</td></tr>
+          <tr><td style="padding:6px 0"><kbd style="background:#eee;border:1px solid #ccc;padding:1px 6px;border-radius:3px;font-family:monospace">Esc</kbd></td><td style="padding:6px 0">Fechar modal aberto</td></tr>
+          <tr><td style="padding:6px 0"><kbd style="background:#eee;border:1px solid #ccc;padding:1px 6px;border-radius:3px;font-family:monospace">?</kbd></td><td style="padding:6px 0">Mostrar esta ajuda</td></tr>
+          <tr><td colspan="2" style="padding:14px 0 6px;font-weight:600;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:.5px">Dentro do envio (página de análise)</td></tr>
+          <tr><td style="padding:6px 0"><kbd style="background:#eee;border:1px solid #ccc;padding:1px 6px;border-radius:3px;font-family:monospace">A</kbd></td><td style="padding:6px 0">Aprovar envio</td></tr>
+          <tr><td style="padding:6px 0"><kbd style="background:#eee;border:1px solid #ccc;padding:1px 6px;border-radius:3px;font-family:monospace">R</kbd></td><td style="padding:6px 0">Solicitar retificação</td></tr>
+          <tr><td style="padding:6px 0"><kbd style="background:#eee;border:1px solid #ccc;padding:1px 6px;border-radius:3px;font-family:monospace">C</kbd></td><td style="padding:6px 0">Foco no campo de comentário</td></tr>
+        </tbody>
+      </table>
+      <div style="text-align:right;margin-top:18px"><button onclick="document.getElementById('modal-hotkeys').style.display='none'" style="padding:8px 16px;border:1px solid #cfcfcb;background:#fff;border-radius:6px;cursor:pointer">Fechar (Esc)</button></div>
+    </div>`;
+  m.addEventListener('click', (e) => { if (e.target === m) m.style.display = 'none'; });
+  document.body.appendChild(m);
+};
+</script>
+
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>API Reference · FESF Sede</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  /* V287: API viewer com tag-header destacado + method chips com halo + hover suave */
+  .tag-block{margin-bottom:28px}
+  .tag-header{display:flex;align-items:baseline;gap:12px;padding:12px 16px;background:linear-gradient(90deg,var(--primary-soft) 0%,rgba(91,84,153,.04) 100%);border-radius:10px;margin-bottom:10px;border-left:4px solid var(--primary)}
+  .tag-header h2{margin:0;font-size:16px;color:var(--primary-2);font-weight:700}
+  .tag-header .descr{font-size:12.5px;color:var(--muted);font-weight:500}
+  /* Endpoint card com hover lift sutil */
+  .endpoint{border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px;background:var(--surface);display:grid;grid-template-columns:84px 1fr;gap:16px;align-items:start;transition:all .15s ease;box-shadow:0 1px 2px rgba(20,20,30,.03)}
+  .endpoint:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(91,84,153,.1);transform:translateY(-1px)}
+  /* Method chips tipográficos com letter-spacing maior + monospace bold */
+  .method{display:inline-block;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:800;text-align:center;font-family:ui-monospace,monospace;letter-spacing:.7px;line-height:1.4;width:100%;box-shadow:0 1px 2px rgba(20,20,30,.06)}
+  .method.get{background:#e3f0ff;color:#0066cc}
+  .method.post{background:#d4f0d6;color:#2f7d5c}
+  .method.put,.method.patch{background:#fff4d6;color:#a06800}
+  .method.delete{background:#ffd6d6;color:#b22828}
+  /* Path com tipografia mono destacada */
+  .ep-path{font-family:ui-monospace,monospace;font-size:13.5px;font-weight:600;color:var(--text);word-break:break-all}
+  .ep-summary{font-size:12.5px;color:var(--text-2);margin-top:4px;line-height:1.5}
+  .ep-meta{display:flex;gap:10px;margin-top:6px;font-size:11px;flex-wrap:wrap}
+  .ep-meta .auth{color:var(--accent);font-weight:700;background:var(--accent-soft);padding:1px 8px;border-radius:4px;letter-spacing:.3px}
+  .ep-meta .pub{color:#2f7d5c;font-weight:600}
+  .filtros{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .filtros input,.filtros select{padding:8px 12px;border:1px solid var(--border);border-radius:6px}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div><strong>API Reference</strong><span class="muted" style="font-size:11px;display:block">OpenAPI 3.0 · 78 endpoints</span></div>
+  </div>
+  <div class="tabs">
+    <a href="/app/admin.html">Dashboard</a>
+    <a href="/app/admin-pagamentos.html">Pagamentos</a>
+    <a href="/app/admin-unidades.html">Unidades</a>
+    <a href="/app/admin-fornecedores.html">Fornecedores</a>
+    <a href="/app/admin-usuarios.html">Usuários</a>
+    <a href="/app/admin-relatorios.html">Relatórios</a>
+    <a href="/app/admin-auditoria.html">Auditoria</a>
+    <a href="/app/admin-emails.html">E-mails</a>
+    <a href="/app/admin-smtp.html">SMTP</a>
+    <a href="/app/admin-status.html">Status</a>
+    <a class="active">API</a>
+    <a href="/app/admin-config.html">Configurações</a>
+  </div>
+  <div class="userbox">
+    <div><strong id="userNome">—</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · Admin</span></div>
+    <a class="avatar" id="userAvatar" href="/app/perfil.html" style="text-decoration:none">—</a>
+    <button onclick="sair()">Sair</button>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="between" style="margin-bottom:16px">
+    <div>
+      <h1 id="api-title">FESF-SUS Portal de Pagamentos · API</h1>
+      <p class="muted" id="api-descr">Carregando…</p>
+    </div>
+    <div>
+      <a href="/api/openapi.json" download="fesf-openapi.json"><button>⬇ Baixar openapi.json</button></a>
+    </div>
+  </div>
+
+  <div class="filtros">
+    <input type="search" id="f-busca" placeholder="Buscar endpoint (path ou summary)..." style="min-width:280px">
+    <select id="f-tag"><option value="">Todas as categorias</option></select>
+    <select id="f-method"><option value="">Todos os métodos</option><option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select>
+  </div>
+
+  <div id="api-content">Carregando…</div>
+</div>
+
+<script type="module">
+import { requireSession, clearSession } from '/app/api.js';
+const usuario = requireSession();
+if (!usuario || usuario.papel !== 'admin_fesf') location.href = '/app/login.html';
+document.getElementById('userNome').textContent = usuario.nome;
+document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+
+let spec = null;
+let allEndpoints = [];
+
+async function carregar() {
+  spec = await (await fetch('/api/openapi.json')).json();
+  document.getElementById('api-title').textContent = spec.info.title + ' · ' + spec.info.version;
+  document.getElementById('api-descr').textContent = spec.info.description;
+
+  // popula filtro de tags
+  const tagSel = document.getElementById('f-tag');
+  tagSel.innerHTML = '<option value="">Todas as categorias</option>' + spec.tags.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+
+  // achata endpoints
+  allEndpoints = [];
+  for (const [path, methods] of Object.entries(spec.paths)) {
+    for (const [method, info] of Object.entries(methods)) {
+      allEndpoints.push({ path, method: method.toUpperCase(), ...info });
+    }
+  }
+  renderizar();
+}
+
+function renderizar() {
+  const busca = (document.getElementById('f-busca').value || '').toLowerCase();
+  const fTag = document.getElementById('f-tag').value;
+  const fMethod = document.getElementById('f-method').value;
+  const filtrados = allEndpoints.filter(e => {
+    if (busca && !(e.path.toLowerCase().includes(busca) || (e.summary || '').toLowerCase().includes(busca))) return false;
+    if (fTag && !(e.tags || []).includes(fTag)) return false;
+    if (fMethod && e.method !== fMethod) return false;
+    return true;
+  });
+
+  // agrupa por tag (primeira tag de cada endpoint)
+  const grupos = {};
+  for (const e of filtrados) {
+    const tag = (e.tags && e.tags[0]) || 'Outros';
+    if (!grupos[tag]) grupos[tag] = [];
+    grupos[tag].push(e);
+  }
+
+  if (Object.keys(grupos).length === 0) {
+    document.getElementById('api-content').innerHTML = '<div class="empty-state"><span class="icon">∅</span><h3>Nenhum endpoint corresponde</h3><p>Ajuste os filtros.</p></div>';
+    return;
+  }
+
+  const html = Object.entries(grupos).map(([tag, eps]) => {
+    const tagInfo = spec.tags.find(t => t.name === tag) || { description: '' };
+    return `
+      <div class="tag-block">
+        <div class="tag-header">
+          <h2>${tag}</h2>
+          <span class="descr">${tagInfo.description || ''}</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--muted)">${eps.length} endpoint(s)</span>
+        </div>
+        ${eps.map(e => `
+          <div class="endpoint">
+            <div><span class="method ${e.method.toLowerCase()}">${e.method}</span></div>
+            <div>
+              <div class="ep-path">${e.path}</div>
+              <div class="ep-summary">${e.summary || '<i>sem descrição</i>'}</div>
+              <div class="ep-meta">
+                ${e.security ? '<span class="auth">🔒 requer JWT</span>' : '<span class="pub">🌐 público</span>'}
+                ${(e.tags || []).map(t => `<span class="muted">· ${t}</span>`).join('')}
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }).join('');
+  document.getElementById('api-content').innerHTML = html;
+}
+
+document.getElementById('f-busca').addEventListener('input', renderizar);
+document.getElementById('f-tag').addEventListener('change', renderizar);
+document.getElementById('f-method').addEventListener('change', renderizar);
+
+carregar();
+</script>
+
+</body>
+</html>

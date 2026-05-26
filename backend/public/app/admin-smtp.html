@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SMTP · FESF Sede</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  /* V285: form rows com spacing arejado + pill-status com halo */
+  .smtp-card{margin-bottom:16px}
+  .form-row{display:grid;grid-template-columns:220px 1fr;gap:18px;padding:14px 0;border-bottom:1px solid var(--border);align-items:center}
+  .form-row:last-child{border-bottom:none}
+  .form-row .lbl{font-weight:600;font-size:13px;color:var(--text)}
+  .form-row .lbl .sub{font-size:11.5px;color:var(--muted);display:block;font-weight:400;margin-top:3px;line-height:1.45}
+  .form-row input[type=text],.form-row input[type=password],.form-row input[type=number],.form-row input[type=email]{width:100%;max-width:440px}
+  /* Pill status com halo glow indicando estado */
+  .pill-status{display:inline-block;padding:4px 12px;border-radius:14px;font-size:11.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;vertical-align:middle;margin-left:10px}
+  .pill-on{background:#dff4d6;color:#2e6b1a;border:1px solid #b8df9e;box-shadow:0 0 0 3px rgba(79,165,144,.12)}
+  .pill-off{background:#f4e4d6;color:#8a4a1a;border:1px solid #d8b89e;box-shadow:0 0 0 3px rgba(217,144,32,.12)}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand"><div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div><strong>SMTP</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · E-mail</span></div></div>
+  <div class="tabs">
+    <a href="/app/admin.html">Dashboard</a>
+    <a href="/app/admin-pagamentos.html">Pagamentos</a>
+    <a href="/app/admin-unidades.html">Unidades</a>
+    <a href="/app/admin-fornecedores.html">Fornecedores</a>
+    <a href="/app/admin-usuarios.html">Usuários</a>
+    <a href="/app/admin-relatorios.html">Relatórios</a>
+    <a href="/app/admin-auditoria.html">Auditoria</a>
+    <a href="/app/admin-emails.html">E-mails</a>
+    <a class="active">SMTP</a>
+    <a href="/app/admin-status.html">Status</a>
+    <a href="/app/admin-config.html">Configurações</a>
+  </div>
+  <div class="userbox"><div><strong id="userNome">—</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · Admin</span></div><div class="avatar" id="userAvatar">—</div><button onclick="sair()">Sair</button></div>
+</nav>
+
+<div class="page">
+  <h1>Configuração SMTP <span id="statusPill" class="pill-status pill-off">desativado</span></h1>
+  <p class="muted">Servidor de envio de e-mails do Portal. Enquanto desativado, o sistema apenas <strong>registra</strong> os e-mails (vide aba E-mails) mas não envia de fato — senhas temporárias e notificações precisam ser entregues por canal alternativo.</p>
+
+  <div id="conteudo">
+    <div class="muted" style="padding:20px;text-align:center">Carregando configuração…</div>
+  </div>
+
+  <div class="card smtp-card" style="background:#fff8e6;border-color:#f3d8a0">
+    <h2>Como testar com Gmail / Office 365</h2>
+    <ul style="margin:6px 0 0 18px;font-size:13.5px;line-height:1.6">
+      <li><strong>Gmail:</strong> host <code>smtp.gmail.com</code>, porta <code>587</code>, TLS desativado (usa STARTTLS), usuário = e-mail completo, senha = <em>App password</em> (criar em myaccount.google.com/apppasswords)</li>
+      <li><strong>Office 365:</strong> host <code>smtp.office365.com</code>, porta <code>587</code>, TLS desativado, usuário/senha da caixa institucional</li>
+      <li><strong>Servidor interno FESF:</strong> peça ao TI o host/porta/credencial corporativa</li>
+      <li>Use sempre o botão <strong>“Testar envio”</strong> antes de ativar — ele tenta uma conexão real sem persistir nada</li>
+    </ul>
+  </div>
+</div>
+
+<script type="module">
+import { api, requireSession, toast } from '/app/api.js';
+
+const me = await requireSession('admin_fesf');
+document.getElementById('userNome').textContent = me.nome || '—';
+document.getElementById('userAvatar').textContent = (me.nome || '?').substring(0,1).toUpperCase();
+
+let snapshot = null;
+
+function render(c) {
+  snapshot = c;
+  const pill = document.getElementById('statusPill');
+  if (c.enabled && c.host) { pill.className = 'pill-status pill-on'; pill.textContent = 'ativado'; }
+  else { pill.className = 'pill-status pill-off'; pill.textContent = 'desativado'; }
+
+  const passwordPlaceholder = c.tem_password
+    ? `Mantida (${c.password || '••••••'}). Reentre apenas se quiser trocar.`
+    : 'Senha de aplicação ou da conta';
+
+  document.getElementById('conteudo').innerHTML = `
+    <div class="card smtp-card">
+      <h2>Servidor de envio</h2>
+      <div class="form-row">
+        <div class="lbl">Ativar envio real<span class="sub">Quando desativado, e-mails ficam só no log (modo simulator)</span></div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13.5px">
+          <input type="checkbox" id="f_enabled" ${c.enabled ? 'checked' : ''}>
+          <span>Enviar e-mails via SMTP</span>
+        </label>
+      </div>
+      <div class="form-row">
+        <div class="lbl">Host<span class="sub">ex: smtp.gmail.com</span></div>
+        <input type="text" id="f_host" value="${c.host || ''}" placeholder="smtp.exemplo.com">
+      </div>
+      <div class="form-row">
+        <div class="lbl">Porta<span class="sub">587 (STARTTLS) ou 465 (SSL)</span></div>
+        <input type="number" id="f_port" value="${c.port || 587}" min="1" max="65535" style="max-width:120px">
+      </div>
+      <div class="form-row">
+        <div class="lbl">SSL/TLS direto<span class="sub">Marque se porta 465 (SSL implícito). Para 587 deixe desmarcado (usa STARTTLS).</span></div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13.5px">
+          <input type="checkbox" id="f_secure" ${c.secure ? 'checked' : ''}>
+          <span>Conexão segura imediata</span>
+        </label>
+      </div>
+      <div class="form-row">
+        <div class="lbl">Usuário<span class="sub">Geralmente o e-mail completo</span></div>
+        <input type="text" id="f_user" value="${c.user || ''}" placeholder="usuario@dominio">
+      </div>
+      <div class="form-row">
+        <div class="lbl">Senha<span class="sub">App password para Gmail. Não é exibida depois de salva.</span></div>
+        <input type="password" id="f_password" value="" placeholder="${passwordPlaceholder}" autocomplete="new-password">
+      </div>
+      <div class="form-row">
+        <div class="lbl">Nome do remetente<span class="sub">Aparece na caixa do destinatário</span></div>
+        <input type="text" id="f_from_name" value="${c.from_name || ''}" placeholder="FESF-SUS · Portal de Pagamentos">
+      </div>
+      <div class="form-row">
+        <div class="lbl">E-mail do remetente<span class="sub">Endereço usado em "De:". Deve ser autorizado pelo servidor.</span></div>
+        <input type="email" id="f_from_email" value="${c.from_email || ''}" placeholder="nao-responda@fesfsus.ba.gov.br">
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <button class="primary" onclick="salvar()">Salvar configuração</button>
+        <button onclick="testar()">Testar envio</button>
+      </div>
+    </div>`;
+}
+
+window.salvar = async () => {
+  const body = coletar();
+  try {
+    const r = await api.salvarSmtp(body);
+    toast('Configuração salva', 'sucesso');
+    render(r.config);
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+};
+
+window.testar = async () => {
+  const destinatario = prompt('Enviar e-mail de teste para qual endereço?', me.email || '');
+  if (!destinatario) return;
+  const body = { destinatario, ...coletar() };
+  try {
+    const r = await api.testarSmtp(body);
+    toast('Teste enviado! Verifique a caixa de ' + destinatario, 'sucesso');
+  } catch (e) {
+    toast('Falha no teste: ' + e.message, 'erro');
+  }
+};
+
+function coletar() {
+  return {
+    enabled:    document.getElementById('f_enabled').checked,
+    host:       document.getElementById('f_host').value.trim(),
+    port:       Number(document.getElementById('f_port').value) || 587,
+    secure:     document.getElementById('f_secure').checked,
+    user:       document.getElementById('f_user').value.trim(),
+    password:   document.getElementById('f_password').value, // vazio = mantém anterior
+    from_name:  document.getElementById('f_from_name').value.trim(),
+    from_email: document.getElementById('f_from_email').value.trim(),
+  };
+}
+
+window.sair = () => { localStorage.removeItem('token'); location.href = '/app/login.html'; };
+
+try {
+  const r = await api.obterSmtp();
+  render(r.config);
+} catch (e) {
+  document.getElementById('conteudo').innerHTML = `<div class="alert danger">Erro: ${e.message}</div>`;
+}
+</script>
+</body>
+</html>

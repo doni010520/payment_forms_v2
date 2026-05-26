@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Storage · FESF Sede</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  /* V292: tela de config OneDrive/SharePoint */
+  .smtp-card{margin-bottom:16px}
+  .form-row{display:grid;grid-template-columns:220px 1fr;gap:18px;padding:14px 0;border-bottom:1px solid var(--border);align-items:center}
+  .form-row:last-child{border-bottom:none}
+  .form-row .lbl{font-weight:600;font-size:13px;color:var(--text)}
+  .form-row .lbl .sub{font-size:11.5px;color:var(--muted);display:block;font-weight:400;margin-top:3px;line-height:1.45}
+  .form-row input,.form-row select{width:100%;max-width:480px;font-family:ui-monospace,monospace;font-size:12.5px}
+  .pill-status{display:inline-block;padding:4px 12px;border-radius:14px;font-size:11.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;vertical-align:middle;margin-left:10px}
+  .pill-on{background:#dff4d6;color:#2e6b1a;border:1px solid #b8df9e;box-shadow:0 0 0 3px rgba(79,165,144,.12)}
+  .pill-off{background:#f4e4d6;color:#8a4a1a;border:1px solid #d8b89e;box-shadow:0 0 0 3px rgba(217,144,32,.12)}
+  .info-banner{background:var(--info-soft);border-left:4px solid var(--info);padding:14px 18px;border-radius:8px;margin-bottom:16px;font-size:13px;line-height:1.6}
+  .info-banner code{background:rgba(0,0,0,.04);padding:2px 6px;border-radius:3px;font-size:12px}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div><strong>Storage</strong><span class="muted" style="font-size:11px;display:block">OneDrive / SharePoint para anexos</span></div>
+  </div>
+  <div class="tabs">
+    <a href="/app/admin.html">Dashboard</a>
+    <a href="/app/admin-pagamentos.html">Pagamentos</a>
+    <a href="/app/admin-unidades.html">Unidades</a>
+    <a href="/app/admin-fornecedores.html">Fornecedores</a>
+    <a href="/app/admin-usuarios.html">Usuários</a>
+    <a href="/app/admin-relatorios.html">Relatórios</a>
+    <a href="/app/admin-auditoria.html">Auditoria</a>
+    <a href="/app/admin-smtp.html">SMTP</a>
+    <a class="active">Storage</a>
+    <a href="/app/admin-status.html">Status</a>
+    <a href="/app/admin-config.html">Configurações</a>
+  </div>
+  <div class="userbox">
+    <div><strong id="userNome">—</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · Admin</span></div>
+    <div class="avatar" id="userAvatar">—</div>
+    <button onclick="sair()">Sair</button>
+  </div>
+</nav>
+
+<div class="page">
+  <div class="between" style="align-items:flex-start;margin-bottom:18px;gap:18px;flex-wrap:wrap">
+    <div>
+      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:4px">Administração do sistema</div>
+      <h1 style="margin:0 0 4px;display:flex;align-items:center;gap:10px">
+        Storage de anexos
+        <span id="statusPill" class="pill-status pill-off">desativado</span>
+      </h1>
+      <p class="muted" id="sub" style="margin:0;font-size:13.5px">Carregando…</p>
+    </div>
+    <div class="filters" style="gap:8px">
+      <button onclick="testar()">🔌 Testar conexão</button>
+      <button class="primary" onclick="salvar()">Salvar</button>
+    </div>
+  </div>
+
+  <div class="info-banner">
+    <strong>Como funciona:</strong> Quando habilitado, todos os anexos novos serão enviados para a pasta configurada no OneDrive/SharePoint via Microsoft Graph API.
+    Anexos antigos permanecem onde estão (local). Em caso de falha de upload remoto, o arquivo é mantido localmente como fallback.
+    <br><br>
+    <strong>Pré-requisito:</strong> registrar um App Registration no Azure AD com permissão <code>Files.ReadWrite.All</code> (Application) e gerar um <code>client_secret</code>.
+    O Graph Drive ID pode ser obtido em <code>GET /v1.0/drives/{driveId}</code> ou na URL do SharePoint.
+  </div>
+
+  <div class="card smtp-card">
+    <h2 style="margin-top:0">Backend de armazenamento</h2>
+    <div class="form-row">
+      <div class="lbl">Backend ativo<span class="sub">Onde salvar novos anexos</span></div>
+      <div>
+        <select id="f-backend">
+          <option value="local">Local (disco do servidor)</option>
+          <option value="onedrive">OneDrive / SharePoint (MS Graph)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card smtp-card" id="onedrive-card">
+    <h2 style="margin-top:0">Configuração OneDrive / SharePoint</h2>
+
+    <div class="form-row">
+      <div class="lbl">Habilitado<span class="sub">Liga/desliga sem perder a config</span></div>
+      <div><label><input type="checkbox" id="f-enabled" style="width:auto"> Habilitar upload remoto</label></div>
+    </div>
+
+    <div class="form-row">
+      <div class="lbl">Tenant ID<span class="sub">UUID do Azure AD tenant (Directory ID)</span></div>
+      <div><input type="text" id="f-tenant" placeholder="00000000-0000-0000-0000-000000000000"></div>
+    </div>
+
+    <div class="form-row">
+      <div class="lbl">Client ID<span class="sub">App Registration ID (Application ID)</span></div>
+      <div><input type="text" id="f-client" placeholder="00000000-0000-0000-0000-000000000000"></div>
+    </div>
+
+    <div class="form-row">
+      <div class="lbl">Client Secret<span class="sub">Valor do secret gerado no App Registration</span></div>
+      <div>
+        <input type="password" id="f-secret" placeholder="(não alterar — manter atual)">
+        <p class="muted" id="secret-mask" style="font-size:11.5px;margin:6px 0 0">—</p>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="lbl">Drive ID<span class="sub">Drive do SharePoint Site ou OneDrive do usuário</span></div>
+      <div><input type="text" id="f-drive" placeholder="b!xxxxx... ou drive ID do site"></div>
+    </div>
+
+    <div class="form-row">
+      <div class="lbl">Pasta de destino<span class="sub">Caminho dentro do drive (será criado se não existir)</span></div>
+      <div><input type="text" id="f-folder" placeholder="FESF-SUS/anexos" style="font-family:inherit"></div>
+    </div>
+  </div>
+
+  <div id="test-result"></div>
+</div>
+
+<script type="module">
+import { api, requireSession, clearSession, toast } from '/app/api.js';
+const usuario = requireSession();
+if (!usuario || usuario.papel !== 'admin_fesf') location.href = '/app/login.html';
+document.getElementById('userNome').textContent = usuario.nome;
+document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+
+const token = localStorage.getItem('fesf_token');
+const H = { Authorization: `Bearer ${token}` };
+
+async function carregar() {
+  try {
+    const cfg = await fetch('/api/admin/storage', { headers: H }).then(r => r.json());
+    document.getElementById('f-backend').value = cfg.backend;
+    const od = cfg.onedrive;
+    document.getElementById('f-enabled').checked = od.enabled;
+    document.getElementById('f-tenant').value = od.tenant_id;
+    document.getElementById('f-client').value = od.client_id;
+    document.getElementById('f-drive').value = od.drive_id;
+    document.getElementById('f-folder').value = od.folder_path;
+    document.getElementById('secret-mask').textContent = od.client_secret_configured
+      ? `Atual: ${od.client_secret_mask} (deixe em branco para manter)`
+      : 'Nenhum secret configurado';
+    const ativo = cfg.backend === 'onedrive' && od.enabled;
+    const pill = document.getElementById('statusPill');
+    pill.className = 'pill-status ' + (ativo ? 'pill-on' : 'pill-off');
+    pill.textContent = ativo ? 'ativo' : 'desativado';
+    document.getElementById('sub').textContent = ativo
+      ? `Anexos novos serão enviados ao OneDrive · pasta "${od.folder_path}"`
+      : 'Anexos novos ficarão no disco local. Configure abaixo para habilitar OneDrive.';
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+}
+window.carregar = carregar;
+
+window.salvar = async () => {
+  try {
+    const body = {
+      backend: document.getElementById('f-backend').value,
+      onedrive: {
+        enabled: document.getElementById('f-enabled').checked,
+        tenant_id: document.getElementById('f-tenant').value.trim(),
+        client_id: document.getElementById('f-client').value.trim(),
+        client_secret: document.getElementById('f-secret').value, // vazio = manter
+        drive_id: document.getElementById('f-drive').value.trim(),
+        folder_path: document.getElementById('f-folder').value.trim() || 'FESF-SUS/anexos',
+      },
+    };
+    const r = await fetch('/api/admin/storage', {
+      method:'PUT', headers:{ ...H, 'Content-Type':'application/json' }, body: JSON.stringify(body)
+    });
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      throw new Error(j.error || ('HTTP ' + r.status));
+    }
+    toast('Configuração salva', 'sucesso');
+    document.getElementById('f-secret').value = '';
+    carregar();
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+};
+
+window.testar = async () => {
+  document.getElementById('test-result').innerHTML = '<div class="alert info">Testando conexão…</div>';
+  try {
+    const r = await fetch('/api/admin/storage/test', { method:'POST', headers: H });
+    const j = await r.json();
+    if (r.ok && j.ok) {
+      document.getElementById('test-result').innerHTML = `
+        <div class="alert accent">
+          <strong>✓ Conexão OK</strong> com drive <strong>${j.info.drive_name}</strong> (${j.info.drive_type})
+          <div style="margin-top:6px;font-size:12.5px;line-height:1.6">
+            Owner: ${j.info.owner}<br>
+            ${j.info.quota_total_gb ? `Quota: ${j.info.quota_usado_gb} GB de ${j.info.quota_total_gb} GB` : ''}
+          </div>
+        </div>`;
+      toast('Conexão OK', 'sucesso');
+    } else {
+      document.getElementById('test-result').innerHTML = `<div class="alert danger"><strong>✗ Falha:</strong> ${j.error}</div>`;
+      toast('Falha: ' + j.error, 'erro');
+    }
+  } catch (e) {
+    document.getElementById('test-result').innerHTML = `<div class="alert danger"><strong>✗ Erro:</strong> ${e.message}</div>`;
+  }
+};
+
+document.getElementById('f-backend').addEventListener('change', (e) => {
+  document.getElementById('onedrive-card').style.opacity = e.target.value === 'onedrive' ? '1' : '.5';
+});
+
+carregar();
+</script>
+</body>
+</html>

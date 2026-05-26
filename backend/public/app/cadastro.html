@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cadastro no Portal · FESF-SUS</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  body{background: linear-gradient(135deg, #5B5499 0%, #4FA590 100%); min-height: 100vh; padding: 40px 20px;}
+  .wrap{background:#fff;padding:32px;border-radius:16px;width:680px;max-width:95vw;margin:0 auto;box-shadow:0 20px 60px rgba(0,0,0,.2);}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--border)}
+  .brand-mark{width:44px;height:44px;background:var(--primary);color:#fff;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-weight:700}
+  h1{font-size:22px;margin:0 0 6px}
+  .lead{color:var(--muted);margin:0 0 22px;font-size:13px}
+  .info{background:var(--accent-soft);padding:14px 16px;border-radius:8px;margin-bottom:22px;font-size:13px;color:var(--text-2);border-left:3px solid var(--accent)}
+  .info strong{color:var(--text)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  #estado-sucesso{text-align:center;padding:40px 20px}
+  #estado-sucesso .check{width:64px;height:64px;border-radius:50%;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:12px}
+  .unidades{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .unidades label{padding:6px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;display:inline-flex;gap:6px;align-items:center;margin:0;font-size:12.5px;text-transform:none;font-weight:500}
+  .unidades label.sel{background:var(--primary-soft);border-color:var(--primary);color:var(--primary-2)}
+  .unidades input{width:auto;margin:0}
+  .vantagens{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:18px 0 22px}
+  .vantagem{padding:10px 12px;background:var(--surface-2);border-radius:8px;font-size:12.5px;color:var(--text-2)}
+  .vantagem strong{color:var(--text);display:block;margin-bottom:3px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-mark">FESF</div>
+    <div>
+      <strong>Portal de Pagamentos · FESF-SUS</strong>
+      <div class="muted" style="font-size:12px">Cadastro de fornecedor</div>
+    </div>
+  </div>
+
+  <div id="estado-form">
+    <!-- V245: pill brand-aligned no topo (mockup-alike) -->
+    <span class="pill" style="display:inline-block;background:var(--primary-soft, #eeecf6);color:var(--primary-2, #4a4480);font-size:11.5px;padding:4px 12px;border-radius:14px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px">Novo fornecedor</span>
+
+    <h1>Cadastre sua empresa no Portal</h1>
+    <p class="lead">Este é o caminho <strong>recomendado</strong> para fornecedores que prestam serviços à rede FESF. Com a conta ativada, você gerencia todos os envios de documentação diretamente, sem depender da unidade.</p>
+
+    <!-- Preservado: 3 cards de benefícios (não estão no mockup, mas reforçam a proposta) -->
+    <div class="vantagens">
+      <div class="vantagem"><strong>↑ Auto-serviço</strong>Você submete a qualquer momento, sem precisar acionar a unidade.</div>
+      <div class="vantagem"><strong>↗ Acompanhamento</strong>Status de cada envio visível em tempo real no portal.</div>
+      <div class="vantagem"><strong>⌘ Histórico</strong>Todos os seus envios, retificações e aprovações em um só lugar.</div>
+    </div>
+
+    <!-- V245: info box roxo (brand) com 3 etapas numeradas — substitui alert verde -->
+    <div style="background:var(--primary-soft, #eeecf6);border:1px solid var(--primary-line, #d0cae3);border-radius:10px;padding:14px 18px;margin:18px 0;display:flex;gap:14px;align-items:flex-start">
+      <div style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--primary, #5b5499);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px">i</div>
+      <div style="flex:1">
+        <strong style="display:block;margin-bottom:6px;font-size:13.5px">Como funciona o fluxo</strong>
+        <ol style="margin:0;padding-left:18px;font-size:13px;line-height:1.55;color:var(--text-2)">
+          <li><strong>Você preenche</strong> os dados abaixo (CNPJ, e-mail, contato).</li>
+          <li><strong>A FESF valida</strong> o CNPJ e a documentação em até 1 dia útil.</li>
+          <li><strong>Sua conta é ativada</strong> — você recebe usuário e senha temporária no e-mail informado e já pode enviar documentação.</li>
+        </ol>
+      </div>
+    </div>
+
+    <form id="form-cad">
+      <input type="hidden" id="cad-tipo" value="com_portal">
+
+      <div class="row2">
+        <div class="field"><label>Razão social <span style="color:var(--danger)">*</span></label><input id="cad-nome" required placeholder="Conforme registrado na Receita Federal"></div>
+        <div class="field"><label>CNPJ <span style="color:var(--danger)">*</span></label><input id="cad-doc" placeholder="só números (14 dígitos)" maxlength="14" inputmode="numeric" pattern="\d{14}" title="14 dígitos (sem pontos ou traços)" required></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>E-mail institucional <span style="color:var(--danger)">*</span></label><input id="cad-email" type="email" placeholder="contato@empresa.com.br" required></div>
+        <div class="field"><label>Telefone comercial</label><input id="cad-tel" placeholder="(71) 99999-9999"></div>
+      </div>
+      <!-- V229/F1.3: nome do contato responsavel — usado nas comunicações e como nome do usuário do portal -->
+      <div class="field">
+        <label>Nome do contato responsável <span style="color:var(--danger)">*</span></label>
+        <input id="cad-contato" required minlength="3" placeholder="Ex.: Maria Silva — quem responderá pelo cadastro">
+        <p class="muted" style="font-size:11.5px;margin:6px 0 0">Será o nome usado nas notificações e no login do portal após aprovação.</p>
+      </div>
+
+      <div class="field">
+        <label>Unidades onde irá atender</label>
+        <div class="unidades" id="lista-uni"></div>
+        <p class="muted" style="font-size:11.5px;margin:6px 0 0">Selecione uma ou mais. Você poderá adicionar unidades depois.</p>
+      </div>
+
+      <!-- V267 (2ª passagem): consentimentos LGPD + Termos alinhados ao mockup screen-cadastro -->
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--text-2);line-height:1.5;cursor:pointer">
+          <input type="checkbox" id="cad-termos" required style="margin-top:3px;flex-shrink:0">
+          <span>Declaro que as informações fornecidas são verdadeiras e li os <a href="https://www.fesfsus.ba.gov.br/termos" target="_blank" rel="noopener" style="color:var(--primary, #5b5499);font-weight:500">Termos de Uso</a> e a <a href="https://www.fesfsus.ba.gov.br/lgpd" target="_blank" rel="noopener" style="color:var(--primary, #5b5499);font-weight:500">Política de Privacidade</a> do Portal FESF-SUS.</span>
+        </label>
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--text-2);line-height:1.5;cursor:pointer">
+          <input type="checkbox" id="cad-lgpd" required style="margin-top:3px;flex-shrink:0">
+          <span>Autorizo o tratamento dos meus dados pessoais conforme a <a href="https://www.fesfsus.ba.gov.br/lgpd" target="_blank" rel="noopener" style="color:var(--primary, #5b5499);font-weight:500">LGPD</a> para fins de cadastro, autenticação e operação do portal.</span>
+        </label>
+      </div>
+
+      <div id="cad-erro" style="color:var(--danger);font-size:13px;margin:10px 0;min-height:18px"></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:18px;border-top:1px solid var(--border);gap:14px;flex-wrap:wrap">
+        <a href="/app/login.html">← Voltar ao login</a>
+        <div style="display:flex;align-items:center;gap:14px">
+          <span class="muted" style="font-size:11.5px">Após enviar, o CNPJ não poderá ser editado.</span>
+          <button type="submit" class="primary" style="padding:11px 24px;font-size:14px">Enviar para análise</button>
+        </div>
+      </div>
+    </form>
+
+    <div style="margin-top:22px;padding:14px 16px;background:var(--surface-2);border-radius:8px;font-size:12px;color:var(--text-3);border-left:3px solid var(--border-strong)">
+      <strong style="color:var(--text-2);font-size:12.5px">Pessoa Física ou empresa que não fará uso do portal?</strong>
+      Nesse caso, o cadastro será realizado <em>pela própria FESF</em>: entre em contato com a unidade onde irá atender. A FESF poderá enviar um link público para você preencher cada envio individualmente, sem necessidade de criar conta.
+    </div>
+  </div>
+
+  <div id="estado-sucesso" style="display:none">
+    <div class="check">✓</div>
+    <h1>Cadastro enviado</h1>
+    <p>Seu cadastro foi recebido e será analisado pela equipe FESF em até 1 dia útil. Quando a conta for ativada, você receberá <strong>usuário e senha temporária</strong> no e-mail informado.</p>
+    <p style="margin-top:20px"><a href="/app/login.html" style="font-weight:600">Voltar ao login →</a></p>
+  </div>
+
+</div>
+
+<script type="module">
+import { api } from '/app/api.js';
+
+(async () => {
+  const { unidades } = await api.unidades();
+  document.getElementById('lista-uni').innerHTML = unidades.map(u => `
+    <label data-sigla="${u.sigla}"><input type="checkbox" value="${u.sigla}"> ${u.sigla} <span class="muted">— ${u.cidade}</span></label>
+  `).join('');
+  document.querySelectorAll('#lista-uni label').forEach(l => l.addEventListener('change', () => {
+    l.classList.toggle('sel', l.querySelector('input').checked);
+  }));
+})();
+
+document.getElementById('form-cad').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const erro = document.getElementById('cad-erro'); erro.textContent = '';
+  const unidades_siglas = Array.from(document.querySelectorAll('#lista-uni input:checked')).map(i => i.value);
+  if (unidades_siglas.length === 0) { erro.textContent = 'Selecione pelo menos uma unidade.'; return; }
+  try {
+    await api.cadastrarFornecedor({
+      tipo: 'com_portal',
+      razao_social: document.getElementById('cad-nome').value.trim(),
+      documento: document.getElementById('cad-doc').value.replace(/\D/g, ''),
+      email: document.getElementById('cad-email').value,
+      telefone: document.getElementById('cad-tel').value || null,
+      // V229/F1.3: nome do contato responsavel obrigatorio
+      nome_contato: document.getElementById('cad-contato').value.trim(),
+      unidades_siglas,
+    });
+    document.getElementById('estado-form').style.display = 'none';
+    document.getElementById('estado-sucesso').style.display = '';
+    window.scrollTo(0, 0);
+  } catch (err) {
+    erro.textContent = err.message || 'Erro no cadastro';
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# =====================================================================
+# Roda TODAS as suítes de teste em sequência correta.
+# Uso: npm run test:all
+# =====================================================================
+set -e
+cd "$(dirname "$0")/.."
+
+# 1. Mata servidores anteriores e limpa DB
+pkill -f 'node.*server.js' 2>/dev/null || true
+sleep 2
+rm -rf .pgdata .uploads
+
+# 2. Sobe servidor com rate-limit desativado (testes batem o mesmo IP várias vezes)
+echo "→ Subindo servidor (LOG_QUIET=1, RATE_LIMIT_DISABLED=1)..."
+LOG_QUIET=1 RATE_LIMIT_DISABLED=1 ESCALONAMENTO_INTERVALO_MS=0 node server.js > /tmp/fesf-test.log 2>&1 &
+SERVER_PID=$!
+sleep 4
+
+# 3. Verifica que servidor está up
+if ! curl -s http://localhost:3000/api/health > /dev/null; then
+  echo "❌ Servidor não respondeu em 4s. Veja /tmp/fesf-test.log"
+  kill $SERVER_PID 2>/dev/null || true
+  exit 1
+fi
+
+# 4. Roda as suítes em ordem cuidadosa:
+#    - flows roda PRIMEIRO (usa PGlite direto, sem passar pelo servidor)
+#    - depois reinicia servidor para garantir estado consistente
+#    - V2-V25 + suites operacionais via API
+#    - restore por último (truncate destrutivo)
+echo ""
+echo "→ Rodando flows.test (direto no DB, antes do servidor)..."
+kill $SERVER_PID 2>/dev/null || true
+sleep 1
+rm -rf .pgdata
+OUT=$(node tests/flows.test.js 2>&1 || true)
+P=$(echo "$OUT" | grep -oE '[0-9]+ passou' | head -1 | grep -oE '[0-9]+' || echo 0)
+F=$(echo "$OUT" | grep -oE '[0-9]+ falhou' | head -1 | grep -oE '[0-9]+' || echo 0)
+TOTAL_PASS=$P; TOTAL_FAIL=$F
+printf "  ✓ %-15s %3d testes\n" "flows" "$P"
+
+echo "→ Reiniciando servidor com seed fresco..."
+rm -rf .pgdata
+LOG_QUIET=1 RATE_LIMIT_DISABLED=1 ESCALONAMENTO_INTERVALO_MS=0 node server.js > /tmp/fesf-test.log 2>&1 &
+SERVER_PID=$!
+sleep 4
+
+SUITES=(
+  v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 v15 v16 v17 v18 v19 v20 v21 v22 v23 v24 v25
+  cenarios health probes version security logging status-page backup openapi migrations compression retention notif-cleanup storage banner peak-hours idempotency lgpd notif-prefs cors housekeeping pagination search sessoes-revogar rotacao-senha timeline-usuario timeline-fornecedor duplicados ratelimit-byuser emails-csv auditoria-csv envios-csv jornada-fornecedor form-adapter upload-publico jornada-operador jornada-admin smtp documentos-acesso expectativas-admin senha-temporaria links-limites reenvio-prazo cadastro-ux sla-hotkeys anotacoes-colaborativas expectativas-metricas smoke-jornadas v234-fluxos-completos audit-ui-render prometheus http e2e bulk-reset maintenance maintenance-header lgpd-esquecimento restore
+)
+# shutdown rodado separadamente porque spawna seu próprio servidor
+
+FAILED_SUITES=""
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Rodando ${#SUITES[@]} suítes API + flows (já rodada) + ratelimit (depois)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+for t in "${SUITES[@]}"; do
+  OUT=$(node tests/${t}.test.js 2>&1 || true)
+  P=$(echo "$OUT" | grep -oE '[0-9]+ passou' | head -1 | grep -oE '[0-9]+' || echo 0)
+  F=$(echo "$OUT" | grep -oE '[0-9]+ falhou' | head -1 | grep -oE '[0-9]+' || echo 0)
+  TOTAL_PASS=$((TOTAL_PASS + P))
+  TOTAL_FAIL=$((TOTAL_FAIL + F))
+  if [ "$F" = "0" ]; then
+    printf "  ✓ %-15s %3d testes\n" "$t" "$P"
+  else
+    printf "  ✗ %-15s %3d passou, %d falhou\n" "$t" "$P" "$F"
+    FAILED_SUITES="$FAILED_SUITES $t"
+  fi
+done
+
+# 5. Rate limit em servidor separado (com rate limit habilitado)
+echo ""
+echo "→ Restartando servidor com rate-limit ATIVO para ratelimit.test..."
+kill $SERVER_PID 2>/dev/null || true
+sleep 2
+rm -rf .pgdata
+LOG_QUIET=1 ESCALONAMENTO_INTERVALO_MS=0 node server.js > /tmp/fesf-test-rl.log 2>&1 &
+SERVER_PID=$!
+sleep 4
+
+OUT=$(node tests/ratelimit.test.js 2>&1 || true)
+P=$(echo "$OUT" | grep -oE '[0-9]+ passou' | head -1 | grep -oE '[0-9]+' || echo 0)
+F=$(echo "$OUT" | grep -oE '[0-9]+ falhou' | head -1 | grep -oE '[0-9]+' || echo 0)
+TOTAL_PASS=$((TOTAL_PASS + P))
+TOTAL_FAIL=$((TOTAL_FAIL + F))
+printf "  ✓ %-15s %3d testes\n" "ratelimit" "$P"
+
+# Shutdown: spawna seu próprio servidor isolado
+kill $SERVER_PID 2>/dev/null || true
+sleep 1
+echo "→ Rodando shutdown.test (spawna server isolado em 3099)..."
+OUT=$(node tests/shutdown.test.js 2>&1 || true)
+P=$(echo "$OUT" | grep -oE '[0-9]+ passou' | head -1 | grep -oE '[0-9]+' || echo 0)
+F=$(echo "$OUT" | grep -oE '[0-9]+ falhou' | head -1 | grep -oE '[0-9]+' || echo 0)
+TOTAL_PASS=$((TOTAL_PASS + P))
+TOTAL_FAIL=$((TOTAL_FAIL + F))
+printf "  ✓ %-15s %3d testes\n" "shutdown" "$P"
+
+# Timeout: spawna server com REQUEST_TIMEOUT_MS curto
+echo "→ Rodando timeout.test (spawna server em 3098)..."
+OUT=$(node tests/timeout.test.js 2>&1 || true)
+P=$(echo "$OUT" | grep -oE '[0-9]+ passou' | head -1 | grep -oE '[0-9]+' || echo 0)
+F=$(echo "$OUT" | grep -oE '[0-9]+ falhou' | head -1 | grep -oE '[0-9]+' || echo 0)
+TOTAL_PASS=$((TOTAL_PASS + P))
+TOTAL_FAIL=$((TOTAL_FAIL + F))
+printf "  ✓ %-15s %3d testes\n" "timeout" "$P"
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+if [ "$TOTAL_FAIL" = "0" ]; then
+  echo "  ✓ $TOTAL_PASS testes verdes · 0 falhas"
+else
+  echo "  ✗ $TOTAL_PASS verdes · $TOTAL_FAIL falhas"
+  echo "  Falhas em:$FAILED_SUITES"
+fi
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+exit $TOTAL_FAIL

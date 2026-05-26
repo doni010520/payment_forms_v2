@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FESF Sede · Dashboard</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
+  .grid-card h3{margin:0 0 10px;font-size:14px}
+  /* V273: bar charts com fill gradient roxo→verde, track maior, labels mais legíveis */
+  .bar{display:flex;align-items:center;gap:12px;padding:8px 0;font-size:13px}
+  .bar .lbl{width:180px;font-weight:500;color:var(--text)}
+  .bar .track{flex:1;height:18px;background:var(--surface-2);border-radius:9px;overflow:hidden;position:relative}
+  .bar .fill{height:100%;background:linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);border-radius:9px;transition:width .4s ease}
+  .bar .val{font-family:ui-monospace,monospace;font-weight:700;color:var(--text);min-width:54px;text-align:right;font-size:13.5px}
+  .pend-card{background:var(--warning-soft);border-left:3px solid var(--warning);padding:12px 14px;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:14px}
+  .pend-card .info{flex:1}
+  .pend-card .actions{display:flex;gap:6px}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div>
+      <strong>FESF Sede · Visão Consolidada</strong>
+      <span class="muted" style="font-size:11px;display:block">Rede inteira FESF-SUS</span>
+    </div>
+  </div>
+  <div class="tabs">
+    <a class="active" data-tab="kpis">Dashboard</a>
+    <a data-tab="pendentes">Pendentes <span id="badge-pend" class="pill rejeitado" style="display:none"></span></a>
+    <a href="/app/admin-pagamentos.html">Pagamentos</a>
+    <a href="/app/admin-unidades.html">Unidades</a>
+    <a href="/app/admin-fornecedores.html">Fornecedores</a>
+    <a href="/app/admin-usuarios.html">Usuários</a>
+    <a href="/app/admin-relatorios.html">Relatórios</a>
+    <a href="/app/admin-auditoria.html">Auditoria</a>
+    <a href="/app/admin-emails.html">E-mails</a>
+    <a href="/app/admin-smtp.html">SMTP</a>
+    <a href="/app/admin-status.html">Status</a>
+    <a href="/app/admin-api.html">API</a>
+    <a href="/app/admin-config.html">Configurações</a>
+  </div>
+  <div class="userbox">
+    <button id="bell" onclick="toggleNotif()" title="Notificacoes" style="position:relative;padding:8px 12px">
+      🔔<span id="bellBadge" style="display:none;position:absolute;top:2px;right:2px;background:var(--danger);color:#fff;border-radius:9px;font-size:10px;padding:1px 5px;font-weight:700">0</span>
+    </button>
+    <div>
+      <strong id="userNome">—</strong>
+      <span id="userInfo" class="muted" style="font-size:11px;display:block">Admin FESF Sede</span>
+    </div>
+    <a class="avatar" id="userAvatar" href="/app/perfil.html" title="Meu perfil" style="text-decoration:none;cursor:pointer">—</a>
+    <button onclick="sair()">Sair</button>
+  </div>
+</nav>
+
+<div id="notifPanel" style="position:fixed;top:56px;right:24px;width:360px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.15);max-height:70vh;overflow:auto;display:none;z-index:200">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)">
+    <strong>Notificações</strong>
+    <div style="display:flex;gap:6px">
+      <button id="btnLerTodas" style="font-size:11.5px;padding:4px 10px">Marcar todas como lidas</button>
+      <a href="/app/notificacoes.html" style="font-size:11.5px;padding:4px 10px">Ver todas →</a>
+    </div>
+  </div>
+  <div id="notifList" style="padding:6px 0"></div>
+</div>
+
+<div class="page">
+
+  <!-- TAB METRICAS -->
+  <section id="tab-kpis">
+    <!-- V251: header rico alinhado ao mockup (eyebrow + H1 + subtitle dinâmico + ações) -->
+    <div class="between" style="align-items:flex-start;margin-bottom:18px;gap:18px;flex-wrap:wrap">
+      <div>
+        <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:4px">Visão consolidada</div>
+        <h1 style="margin:0 0 4px">Dashboard operacional</h1>
+        <p class="muted" id="metricas-sub" style="margin:0;font-size:13.5px">—</p>
+      </div>
+      <div class="filters" style="gap:8px">
+        <select id="f-comp">
+          <option value="">Todas competências</option>
+        </select>
+        <button onclick="exportarMetricasCSV()" title="Exportar envios em CSV">⬇ Exportar CSV</button>
+        <button class="primary" onclick="abrirLancamentoManual()">+ Lançamento manual</button>
+      </div>
+    </div>
+
+    <div class="kpi-row" id="kpis-totais"></div>
+
+    <div class="grid2">
+      <div class="grid-card">
+        <h3>Por unidade</h3>
+        <div id="bars-unidade"></div>
+      </div>
+      <div class="grid-card">
+        <h3>Por origem (Portal · Link público · Manual)</h3>
+        <div id="bars-origem"></div>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:16px">
+      <div class="grid-card">
+        <h3>Por modalidade</h3>
+        <div id="bars-modalidade"></div>
+      </div>
+      <div class="grid-card">
+        <h3>Por status</h3>
+        <div id="bars-status"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3>Pendências da rede</h3>
+      <div id="pendencias-resumo"></div>
+    </div>
+  </section>
+
+  <!-- TAB PENDENTES -->
+  <section id="tab-pendentes" style="display:none">
+    <div class="between">
+      <h1>Fornecedores pendentes de aprovação</h1>
+      <button onclick="carregarPendentes()">Atualizar</button>
+    </div>
+    <div class="alert info">Fornecedores que se auto-cadastraram aguardando análise da FESF. Aprove para ativar (PJ com portal recebe usuário + senha temporária).</div>
+    <div id="pendentes-lista"></div>
+  </section>
+
+</div>
+
+<!-- V223/A1: modal copiavel para senha temp (helper compartilhado) -->
+<script src="/app/senha-temp-modal.js"></script>
+
+<script type="module">
+import { api, requireSession, clearSession, brl, dataBR, toast, statusLabel} from '/app/api.js';
+
+const usuario = requireSession();
+if (!usuario || usuario.papel !== 'admin_fesf') {
+  location.href = '/app/login.html';
+}
+
+document.getElementById('userNome').textContent = usuario.nome;
+document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+
+// Tabs
+document.querySelectorAll('.topnav .tabs a[data-tab]').forEach(a => {
+  a.addEventListener('click', (e) => {
+    if (a.getAttribute('onclick')) return; // pular o externo
+    e.preventDefault();
+    document.querySelectorAll('.topnav .tabs a').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    document.querySelectorAll('section[id^=tab-]').forEach(s => s.style.display = 'none');
+    document.getElementById('tab-' + a.dataset.tab).style.display = '';
+    if (a.dataset.tab === 'pendentes') carregarPendentes();
+  });
+});
+
+// Notif bell
+window.toggleNotif = async () => {
+  const p = document.getElementById('notifPanel');
+  if (p.style.display === 'block') { p.style.display = 'none'; return; }
+  p.style.display = 'block';
+  const { notificacoes, nao_lidas } = await api.notificacoes();
+  document.getElementById('bellBadge').style.display = nao_lidas > 0 ? 'inline-block' : 'none';
+  document.getElementById('bellBadge').textContent = nao_lidas;
+  document.getElementById('notifList').innerHTML = notificacoes.length === 0 ?
+    '<div style="padding:20px;text-align:center;color:var(--muted)">Sem notificações</div>' :
+    notificacoes.map(n => `<div style="padding:10px 14px;border-bottom:1px solid var(--border);${n.lida?'':'background:rgba(91,84,153,.05)'}"><div style="font-size:13px">${n.mensagem}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${new Date(n.criada_em).toLocaleString('pt-BR')}</div></div>`).join('');
+};
+document.getElementById('btnLerTodas').addEventListener('click', async () => { await api.marcarTodasLidas(); toggleNotif(); toggleNotif(); });
+api.notificacoes({ naoLidasApenas: true }).then(r => {
+  document.getElementById('bellBadge').style.display = r.nao_lidas > 0 ? 'inline-block' : 'none';
+  document.getElementById('bellBadge').textContent = r.nao_lidas;
+}).catch(()=>{});
+
+// Carrega competencias
+function competencias() {
+  const sel = document.getElementById('f-comp');
+  const hoje = new Date();
+  const opts = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    opts.push(`<option value="${v}">${v}</option>`);
+  }
+  sel.innerHTML = '<option value="">Todas competências</option>' + opts.join('');
+}
+
+function renderBar(container, items, labelKey, valueKey, totalForPct = null) {
+  const total = (totalForPct ?? items.reduce((a, x) => a + Number(x[valueKey]||0), 0)) || 1;
+  container.innerHTML = items.map(i => {
+    const v = Number(i[valueKey] || 0);
+    const pct = (v / total * 100).toFixed(1);
+    return `
+      <div class="bar">
+        <div class="lbl">${i[labelKey]}</div>
+        <div class="track"><div class="fill" style="width:${pct}%"></div></div>
+        <div class="val">${v}</div>
+      </div>`;
+  }).join('') || '<div class="muted">Sem dados</div>';
+}
+
+async function carregarMetricas() {
+  try {
+    const comp = document.getElementById('f-comp').value;
+    const m = await api.metricas(comp ? { competencia: comp } : {});
+
+    // V251: subtitle dinâmico ao estilo mockup
+    const totalEnvios = m.totais.total_envios;
+    const totalPend = m.pendencias.reduce((a,p)=>a+p.n,0);
+    const unidadesAtivas = m.por_unidade.filter(u => u.total_envios > 0).length;
+    document.getElementById('metricas-sub').textContent =
+      `Pagamentos da rede FESF · ${unidadesAtivas} de ${m.por_unidade.length} unidades ativas · ${totalEnvios} envio${totalEnvios !== 1 ? 's' : ''} + ${totalPend} pendência${totalPend !== 1 ? 's' : ''} ${m.competencia ? 'em ' + m.competencia : 'em todas as competências'}`;
+
+    // V251: KPIs alinhados ao mockup — Em análise / Aguardando ret / Aprovados (mês) / Pendências críticas
+    const byStatus = Object.fromEntries((m.por_status||[]).map(s => [s.status, s.n]));
+    const emAnalise = byStatus.em_analise || 0;
+    const aguardRet = byStatus.aguardando_ret || byStatus.aguardando_retificacao || 0;
+    const aprovados = (byStatus.aprovado || 0) + (byStatus.pago || 0);
+    const atrasadas = (m.pendencias.find(p=>p.status==='atrasada')||{n:0}).n;
+    const semResp = (m.pendencias.find(p=>p.status==='sem_resposta')||{n:0}).n;
+    const criticas = atrasadas + semResp;
+    document.getElementById('kpis-totais').innerHTML = `
+      <div class="kpi"><div class="label">Em análise</div><div class="value">${emAnalise}</div><div class="sub">${brl(m.totais.total_centavos)} movimento total</div></div>
+      <div class="kpi warn"><div class="label">Aguardando ret.</div><div class="value">${aguardRet}</div><div class="sub">${aguardRet > 0 ? 'esperando fornecedor' : '— sem pendências'}</div></div>
+      <div class="kpi accent"><div class="label">Aprovados (mês)</div><div class="value">${aprovados}</div><div class="sub">${aprovados > 0 ? 'incluindo pagos' : '— ainda nenhum'}</div></div>
+      <div class="kpi ${criticas > 0 ? 'danger' : 'warn'}"><div class="label">Pendências críticas</div><div class="value">${criticas}</div><div class="sub">${criticas > 0 ? `${atrasadas} atrasada${atrasadas !== 1 ? 's' : ''} · ${semResp} sem resposta` : '— sem pendências'}</div></div>
+    `;
+    // V273: labels mais legíveis nos bar charts — origem usa statusLabel para mostrar "Portal", "Link público", "Manual"
+    renderBar(document.getElementById('bars-unidade'), m.por_unidade.map(u => ({ label: u.sigla + (u.cidade?` · ${u.cidade}`:''), n: u.total_envios })), 'label', 'n');
+    renderBar(document.getElementById('bars-origem'),   m.por_origem.map(o => ({ label: statusLabel(o.origem), n: o.n })), 'label', 'n');
+    renderBar(document.getElementById('bars-modalidade'), m.por_modalidade.map(x => ({ label: x.nome, n: x.n })), 'label', 'n');
+    renderBar(document.getElementById('bars-status'),    m.por_status.map(s => ({ label: statusLabel(s.status), n: s.n })), 'label', 'n');
+
+    const pendList = m.pendencias;
+    document.getElementById('pendencias-resumo').innerHTML = pendList.length === 0 ?
+      '<div class="muted">Sem expectativas registradas</div>' :
+      `<table><thead><tr><th>Status</th><th>Quantidade</th></tr></thead><tbody>
+        ${pendList.map(p => `<tr><td><span class="pill ${p.status}">${statusLabel(p.status)}</span></td><td>${p.n}</td></tr>`).join('')}
+      </tbody></table>`;
+  } catch (e) {
+    toast('Erro carregando metricas: ' + e.message, 'erro');
+  }
+}
+window.carregarMetricas = carregarMetricas;
+document.getElementById('f-comp').addEventListener('change', carregarMetricas);
+
+// V251: actions do header (alinhado ao mockup)
+window.exportarMetricasCSV = async () => {
+  try {
+    const comp = document.getElementById('f-comp').value;
+    const url = `/api/envios/export.csv${comp ? '?competencia=' + comp : ''}`;
+    const a = document.createElement('a'); a.href = url; a.download = `metricas-${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch (e) { toast('Erro ao exportar: ' + e.message, 'erro'); }
+};
+window.abrirLancamentoManual = () => {
+  // Admin não opera diretamente em unidade — direciona para listagem de unidades para escolher
+  toast('Lançamento manual é feito pelo operador da unidade. Selecione a unidade para acessar o painel.', 'info');
+  setTimeout(() => location.href = '/app/admin-unidades.html', 1200);
+};
+
+async function carregarPendentes() {
+  try {
+    const { pendentes } = await api.fornecedoresPendentes();
+    const badge = document.getElementById('badge-pend');
+    if (pendentes.length > 0) { badge.style.display='inline-block'; badge.textContent = pendentes.length; }
+    else badge.style.display='none';
+    const cont = document.getElementById('pendentes-lista');
+    if (pendentes.length === 0) { cont.innerHTML = '<div class="empty">Nenhum cadastro pendente.</div>'; return; }
+    cont.innerHTML = pendentes.map(f => `
+      <div class="pend-card">
+        <div class="info">
+          <strong>${f.razao_social}</strong> <span class="origin ${f.tipo==='com_portal'?'portal':'manual'}">${statusLabel(f.tipo)}</span>
+          <div class="muted" style="margin-top:3px">${f.documento} · ${f.email || 'sem e-mail'} · ${f.telefone || ''}</div>
+          <div class="muted" style="font-size:11.5px;margin-top:3px">Unidades solicitadas: ${(f.unidades_siglas||[]).join(', ') || 'nenhuma'} · Cadastrado em ${dataBR(f.criado_em)}</div>
+        </div>
+        <div class="actions">
+          <button class="success" onclick="aprovar(${f.id}, '${(f.razao_social||'').replace(/'/g,"\\'")}')">Aprovar</button>
+          <button class="danger" onclick="rejeitar(${f.id})">Rejeitar</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+}
+window.carregarPendentes = carregarPendentes;
+
+window.aprovar = async (id, nome) => {
+  if (!confirm(`Aprovar fornecedor "${nome}"?`)) return;
+  try {
+    const r = await api.aprovarFornecedor(id, null);
+    if (r.senha_temporaria) {
+      // V223/A1: modal copiavel (substitui alert nativo)
+      window.mostrarSenhaTemp(`${nome} · usuário do portal criado`, r.senha_temporaria);
+    } else {
+      toast('Fornecedor aprovado', 'sucesso');
+    }
+    carregarPendentes();
+    carregarMetricas();
+  } catch (e) { toast(e.message, 'erro'); }
+};
+
+window.rejeitar = async (id) => {
+  const motivo = prompt('Motivo da rejeição (mín. 5 chars):');
+  if (!motivo || motivo.length < 5) return;
+  try {
+    await api.rejeitarFornecedor(id, motivo);
+    toast('Fornecedor rejeitado', 'sucesso');
+    carregarPendentes();
+  } catch (e) { toast(e.message, 'erro'); }
+};
+
+// Inicializa
+competencias();
+carregarMetricas();
+// Atualiza contagem de pendentes no badge ao abrir
+api.fornecedoresPendentes().then(r => {
+  if (r.pendentes.length > 0) {
+    const badge = document.getElementById('badge-pend');
+    badge.style.display = 'inline-block';
+    badge.textContent = r.pendentes.length;
+  }
+}).catch(()=>{});
+</script>
+</body>
+</html>

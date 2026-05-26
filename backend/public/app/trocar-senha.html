@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trocar senha temporária · FESF-SUS</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  body{background:linear-gradient(180deg,#f6f4ed 0%,#e8e3d3 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .box{background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.06);max-width:480px;width:100%;padding:32px 30px}
+  .box h1{margin:0 0 8px;font-size:22px}
+  .box .sub{color:var(--muted);font-size:13.5px;margin:0 0 22px;line-height:1.5}
+  .avisos{background:#fff4d6;border:1px solid #f3d8a0;color:#6b4e00;padding:10px 14px;border-radius:6px;margin-bottom:18px;font-size:13px;line-height:1.5}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:600;margin-bottom:6px}
+  .field input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+  .erro{background:#fde0e0;color:#a32020;border:1px solid #f3c0c0;padding:8px 12px;border-radius:6px;font-size:13px;margin-bottom:14px;display:none}
+  .erro.show{display:block}
+  .btn-primary{width:100%;padding:11px;background:var(--primary);color:#fff;border:none;border-radius:6px;font-weight:600;font-size:14px;cursor:pointer}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+  .sair{text-align:center;margin-top:14px;font-size:12px}
+  .sair a{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="box">
+  <h1>🔑 Defina uma nova senha</h1>
+  <p class="sub">Sua senha atual foi gerada pelo sistema (temporária). Por segurança, escolha uma nova senha antes de continuar.</p>
+
+  <div class="avisos">
+    <strong>Atenção:</strong> escolha uma senha forte (mínimo 8 caracteres, misture letras, números e símbolos). Não compartilhe.
+  </div>
+
+  <div id="erro" class="erro"></div>
+
+  <form id="form-trocar">
+    <div class="field">
+      <label for="atual">Senha temporária atual</label>
+      <input type="password" id="atual" required autocomplete="current-password">
+      <div class="hint">A senha que o admin enviou por canal seguro.</div>
+    </div>
+    <div class="field">
+      <label for="nova">Nova senha</label>
+      <input type="password" id="nova" required autocomplete="new-password" minlength="8">
+      <div class="hint">Mínimo 8 caracteres. Use letras, números e símbolos.</div>
+    </div>
+    <div class="field">
+      <label for="confirma">Confirme a nova senha</label>
+      <input type="password" id="confirma" required autocomplete="new-password" minlength="8">
+    </div>
+    <button class="btn-primary" type="submit" id="btn-salvar">Salvar nova senha</button>
+  </form>
+  <p class="sair"><a href="#" onclick="sair(event)">← Sair (não trocar agora)</a></p>
+</div>
+
+<script type="module">
+import { api, getUsuario, getToken, setSession, clearSession, toast } from '/app/api.js';
+
+// Se não está logado ou já trocou, redireciona
+const usr = getUsuario();
+if (!usr || !getToken()) {
+  location.href = '/app/login.html';
+} else if (!usr.senha_temporaria_ativa) {
+  // Já trocou em outro lugar — vai pro destino normal
+  redirecionarLogado(usr);
+}
+
+function redirecionarLogado(u) {
+  if (u.papel === 'fornecedor') location.href = '/app/portal.html';
+  else if (u.papel === 'admin_fesf') location.href = '/app/admin.html';
+  else location.href = '/app/painel.html';
+}
+
+window.sair = (ev) => {
+  ev.preventDefault();
+  if (!confirm('Sair sem trocar a senha? Você será deslogado e precisará entrar de novo.')) return;
+  clearSession();
+  location.href = '/app/login.html';
+};
+
+document.getElementById('form-trocar').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const atual = document.getElementById('atual').value;
+  const nova = document.getElementById('nova').value;
+  const confirma = document.getElementById('confirma').value;
+  const erro = document.getElementById('erro');
+  const btn = document.getElementById('btn-salvar');
+  erro.classList.remove('show');
+
+  if (nova.length < 8) { erro.textContent = 'Nova senha deve ter no mínimo 8 caracteres.'; erro.classList.add('show'); return; }
+  if (nova !== confirma) { erro.textContent = 'Confirmação não confere com a nova senha.'; erro.classList.add('show'); return; }
+  if (nova === atual) { erro.textContent = 'A nova senha precisa ser diferente da temporária.'; erro.classList.add('show'); return; }
+
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  try {
+    const r = await api.alterarMinhaSenha(atual, nova);
+    // O backend devolve um token novo (api.js trata via setSession se vier)
+    if (r.novo_token) {
+      const u = getUsuario();
+      u.senha_temporaria_ativa = false;
+      setSession({ token: r.novo_token, usuario: u });
+    } else {
+      // sem novo_token (raro) — limpa flag e força re-login
+      clearSession();
+      toast('Senha trocada. Faça login novamente.', 'sucesso');
+      setTimeout(() => location.href = '/app/login.html', 1500);
+      return;
+    }
+    toast('Senha alterada com sucesso!', 'sucesso');
+    setTimeout(() => redirecionarLogado(getUsuario()), 800);
+  } catch (err) {
+    erro.textContent = err.message || 'Erro ao trocar senha';
+    erro.classList.add('show');
+    btn.disabled = false; btn.textContent = 'Salvar nova senha';
+  }
+});
+</script>
+</body>
+</html>

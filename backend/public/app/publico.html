@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Envio público · FESF-SUS</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  /* V282: publico.html com sombra dual layer + slide-in entry + tipografia refinada */
+  body{background: linear-gradient(135deg, #4FA590 0%, #5B5499 100%); min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 40px 20px;}
+  .wrap{background:#fff;padding: 36px;border-radius: 16px;width: 720px;max-width: 95vw;box-shadow: 0 20px 60px rgba(0,0,0,.25), 0 4px 12px rgba(0,0,0,.08);animation:publicoIn .3s cubic-bezier(.16,.84,.44,1)}
+  @keyframes publicoIn{from{transform:translateY(16px) scale(.98);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+  .brand{display:flex;align-items:center;gap:14px;margin-bottom: 24px;padding-bottom: 18px;border-bottom: 1px solid var(--border)}
+  .brand-mark{width: 46px;height: 46px;background: var(--primary);color: #fff;border-radius: 11px;display: inline-flex;align-items: center;justify-content: center;font-weight: 700;font-size:13px;letter-spacing:.5px;box-shadow:0 2px 8px rgba(91,84,153,.3)}
+  h1{font-size: 24px;margin: 0 0 8px;font-weight:700;letter-spacing:-.01em}
+  /* Contexto: verde accent com border-left + sombra sutil */
+  .contexto{background: var(--accent-soft);padding: 18px 20px;border-radius: 12px;margin-bottom: 22px;border-left:4px solid var(--accent);box-shadow:0 1px 2px rgba(20,20,30,.04)}
+  .contexto strong{display:block;margin-bottom: 8px;color:var(--text);font-size:14px;font-weight:600}
+  .contexto div{font-size:13px;color:var(--text-2);line-height:1.6}
+  /* Estados loading/erro centralizados */
+  #estado-loading,#estado-erro{text-align:center;padding: 48px 20px;}
+  #estado-erro{color: var(--danger);font-weight:500}
+  /* Checklist (o que esperar) com ícones de check verde */
+  .checklist{margin:20px 0;background:var(--surface-2);padding:16px 20px;border-radius:10px;font-size:13px;border-left:3px solid var(--primary)}
+  .checklist strong{display:block;margin-bottom:10px;font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--text-3);font-weight:700}
+  .checklist ul{margin:0;padding-left:18px}
+  .checklist li{margin:6px 0;color:var(--text-2);line-height:1.5}
+  .checklist li::marker{color:var(--primary)}
+  /* LGPD em surface-2 com tipografia pequena legível */
+  .lgpd{font-size:11.5px;color:var(--muted);background:var(--surface-2);padding:14px 16px;border-radius:8px;margin-top:16px;line-height:1.55;border-left:3px solid var(--border-strong, #c8c4b5)}
+</style>
+</head>
+<body>
+<a href="#estado-form" class="skip-link">Pular para o formulário</a>
+<div class="wrap" role="main">
+  <!-- V249: header com tagline lado direito (mockup-alike) -->
+  <header class="brand" style="display:flex;align-items:center;justify-content:space-between;gap:14px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="brand-mark" aria-hidden="true">FESF</div>
+      <div>
+        <strong>Portal de Pagamentos · FESF-SUS</strong>
+        <div class="muted" style="font-size:12px" id="brand-sub">Envio direto para a unidade — sem cadastro necessário.</div>
+      </div>
+    </div>
+    <div class="muted" style="font-size:12px;text-align:right;flex-shrink:0">🔒 Link específico<br><span style="font-size:11px">acesso sem cadastro</span></div>
+  </header>
+
+  <div id="estado-loading" role="status" aria-live="polite"><p>Carregando contexto do link…</p></div>
+  <div id="estado-erro" style="display:none" role="alert" aria-live="assertive"></div>
+
+  <section id="estado-form" style="display:none" aria-labelledby="titulo-envio">
+    <!-- V249: pill verde "ENVIO SEM LOGIN" no topo do estado-form (mockup-alike) -->
+    <span class="pill" style="display:inline-block;background:var(--accent-soft, #e3f0ec);color:var(--accent, #4FA590);font-size:11.5px;padding:4px 12px;border-radius:14px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Envio sem login</span>
+
+    <h1 id="titulo-envio">Envio de documentação</h1>
+    <p class="muted" id="lead-envio">Você está prestes a abrir o formulário oficial da FESF-SUS para enviar sua documentação. Após o preenchimento, o operador da unidade receberá automaticamente seu envio para análise.</p>
+
+    <div class="contexto" id="contexto"></div>
+
+    <div class="checklist" aria-labelledby="checklist-titulo">
+      <strong id="checklist-titulo">O que esperar:</strong>
+      <ul>
+        <li>O formulário tem várias etapas — preencha com calma</li>
+        <li>Você poderá anexar documentos (nota fiscal, certidões, comprovantes)</li>
+        <li>Ao finalizar, receberá um <strong>número de protocolo</strong> para consultas</li>
+        <li>O operador da unidade analisará e poderá solicitar retificações</li>
+      </ul>
+    </div>
+
+    <div class="lgpd" role="note">
+      <strong>LGPD:</strong> Ao prosseguir, você autoriza a FESF-SUS a tratar os dados informados unicamente para fins de processamento deste pagamento. Os dados são protegidos por trilha de auditoria completa.
+    </div>
+
+    <div style="margin-top: 22px;text-align:right">
+      <button class="primary" id="btn-abrir" style="padding:12px 26px;font-size:14.5px;font-weight:600" aria-label="Abrir o formulário oficial de envio de documentação">Abrir formulário →</button>
+    </div>
+  </section>
+
+</div>
+
+<script type="module">
+import { api } from '/app/api.js';
+
+const params = new URLSearchParams(location.search);
+const token = params.get('token');
+
+const $erro = document.getElementById('estado-erro');
+const $loading = document.getElementById('estado-loading');
+const $form = document.getElementById('estado-form');
+function show(el) {
+  $loading.style.display = 'none'; $form.style.display = 'none'; $erro.style.display = 'none';
+  el.style.display = '';
+}
+function erro(msg) { $erro.textContent = msg; show($erro); }
+
+if (!token) {
+  erro('Link inválido: token ausente. Entre em contato com a FESF.');
+} else {
+  try {
+    const ctx = await api.lookupLink(token);
+    if (!ctx.valido) {
+      erro(`Link ${ctx.motivoInvalido === 'ja_utilizado' ? 'já foi utilizado anteriormente' : ctx.motivoInvalido || 'inválido'}. Solicite um novo à unidade FESF.`);
+    } else {
+      // V249: contexto em formato de tabela com mais campos (mockup-alike)
+      document.getElementById('contexto').innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          ${ctx.razao_social ? `<tr>
+            <td style="padding:8px 0;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:.5px;width:200px;vertical-align:top;border-bottom:1px solid rgba(0,0,0,.06)">Empresa</td>
+            <td style="padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06)"><strong>${ctx.razao_social}</strong></td>
+          </tr>` : ''}
+          ${ctx.fornecedor_documento ? `<tr>
+            <td style="padding:8px 0;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:.5px;vertical-align:top;border-bottom:1px solid rgba(0,0,0,.06)">CNPJ</td>
+            <td style="padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06);font-family:ui-monospace,monospace">${ctx.fornecedor_documento}</td>
+          </tr>` : ''}
+          <tr>
+            <td style="padding:8px 0;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:.5px;vertical-align:top;border-bottom:1px solid rgba(0,0,0,.06)">Unidade de destino</td>
+            <td style="padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06)"><strong>${ctx.unidade_sigla} · ${ctx.unidade_nome}</strong></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:.5px;vertical-align:top;${ctx.criado_por_nome ? 'border-bottom:1px solid rgba(0,0,0,.06)' : ''}">Modalidade</td>
+            <td style="padding:8px 0;${ctx.criado_por_nome ? 'border-bottom:1px solid rgba(0,0,0,.06)' : ''}"><strong>${ctx.modalidade_nome}</strong></td>
+          </tr>
+          ${ctx.criado_por_nome ? `<tr>
+            <td style="padding:8px 0;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:.5px;vertical-align:top">Operador responsável</td>
+            <td style="padding:8px 0">${ctx.criado_por_nome}${ctx.criado_por_email ? ` · <a href="mailto:${ctx.criado_por_email}" style="color:var(--primary)">${ctx.criado_por_email}</a>` : ''}</td>
+          </tr>` : ''}
+        </table>
+        ${!ctx.razao_social ? '<p class="muted" style="margin:10px 0 0;font-size:12px;font-style:italic">Você se identificará no próprio formulário.</p>' : ''}
+      `;
+      // V249: atualiza H1 e lead com nome da unidade quando disponível
+      const tituloEl = document.getElementById('titulo-envio');
+      if (tituloEl && ctx.unidade_sigla) {
+        tituloEl.textContent = `Envio de documentos · ${ctx.unidade_sigla}`;
+      }
+      const leadEl = document.getElementById('lead-envio');
+      if (leadEl && ctx.razao_social) {
+        leadEl.innerHTML = `Você está usando um link criado pela equipe ${ctx.unidade_sigla} <strong>especificamente para a sua empresa</strong>. O operador já pré-configurou esta solicitação — basta preencher os dados do envio e anexar os documentos.`;
+      }
+      // Resolve qual formulario abrir baseado no codigo da modalidade
+      const codigoToForm = {
+        indenizatorio_moe: '/formulario-hcc.html',
+        indenizatorio_servicos: '/formulario-hcc-servicos.html',
+        indenizatorio_insumos: '/formulario-hcc-insumos.html',
+        pagamento_moe: '/formulario-hcc-pgto-mao-obra.html',
+        pagamento_servico: '/formulario-hcc-pgto-servico.html',
+        pagamento_insumos: '/formulario-hcc-pgto-insumos.html',
+      };
+      const form = codigoToForm[ctx.modalidade_codigo] || '/formulario-hcc.html';
+      const hoje = new Date();
+      const competencia = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+      const url = `${form}?modalidade=${ctx.modalidade_codigo}&unidade=${ctx.unidade_sigla}&competencia=${competencia}&public_token=${token}`;
+      document.getElementById('btn-abrir').addEventListener('click', () => {
+        location.href = url;
+      });
+      show($form);
+    }
+  } catch (e) {
+    erro('Erro ao validar o link: ' + e.message);
+  }
+}
+</script>
+</body>
+</html>

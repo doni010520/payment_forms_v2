@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Recibo de envio · FESF-SUS</title>
+<style>
+  /* Layout limpo para impressao — sem cores decorativas, conforme preferencia */
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Georgia, "Times New Roman", serif;color:#000;background:#fff;font-size:13px;line-height:1.6}
+  .pagina{max-width:780px;margin:0 auto;padding:40px}
+  .cabecalho{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:14px;margin-bottom:24px}
+  .cabecalho .esq{font-weight:700;font-size:14px}
+  .cabecalho .esq .sub{font-weight:400;font-size:11.5px;color:#444}
+  .cabecalho .dir{font-size:11px;color:#444;text-align:right}
+  h1{font-size:18px;margin:0 0 6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+  h2{font-size:14px;margin:24px 0 8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #000;padding-bottom:4px}
+  .protocolo-bloco{text-align:center;padding:18px 0;border:2px solid #000;margin:18px 0}
+  .protocolo-bloco .lbl{font-size:11px;text-transform:uppercase;color:#666;margin-bottom:4px;letter-spacing:1px}
+  .protocolo-bloco .val{font-family:"Courier New",monospace;font-size:22px;font-weight:700;letter-spacing:2px}
+  table{width:100%;border-collapse:collapse;margin:8px 0}
+  td{padding:6px 8px;border-bottom:1px dotted #aaa;vertical-align:top}
+  td.lbl{width:34%;color:#444;font-size:12px}
+  td.val{font-weight:600}
+  .rodape{margin-top:36px;padding-top:14px;border-top:1px solid #000;font-size:10.5px;color:#444;text-align:center;line-height:1.6}
+  .assinatura{margin-top:32px;display:grid;grid-template-columns:1fr 1fr;gap:30px}
+  .assinatura .linha{border-top:1px solid #000;padding-top:6px;text-align:center;font-size:11px;color:#444}
+  /* V279: controles na tela com card branco + sombra (não imprime) */
+  .controles{position:fixed;top:24px;right:24px;display:flex;gap:8px;background:rgba(255,255,255,.95);padding:6px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.12);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  .controles button{background:#fff;border:1px solid #ccc;padding:9px 16px;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:500;border-radius:6px;transition:all .15s ease;color:#000}
+  .controles button:hover{background:#000;color:#fff;border-color:#000;transform:translateY(-1px);box-shadow:0 2px 6px rgba(0,0,0,.18)}
+  .controles button:first-child{background:#000;color:#fff;border-color:#000;font-weight:600}
+  .controles button:first-child:hover{background:#222;border-color:#222}
+  /* Recibo on-screen: dica de scroll + leve cinza no fundo do body (não imprime) */
+  body{background:#f4f4f0}
+  .pagina{background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.08);margin-top:32px;margin-bottom:32px}
+  @media print{
+    .controles{display:none}
+    body{font-size:11.5px;background:#fff}
+    .pagina{padding:20px;box-shadow:none;margin:0 auto}
+    @page{margin:1.5cm}
+  }
+</style>
+</head>
+<body>
+
+<div class="controles">
+  <button onclick="window.print()">🖨 Imprimir / Salvar PDF</button>
+  <button onclick="voltarInteligente()">← Voltar</button>
+</div>
+
+<div class="pagina">
+
+  <div class="cabecalho">
+    <div class="esq">
+      FESF-SUS · Fundação Estatal Saúde da Família<br>
+      <span class="sub">Portal de Pagamentos · Recibo Oficial de Envio</span>
+    </div>
+    <div class="dir">
+      Emitido em <span id="emitido-em">—</span><br>
+      Documento gerado eletronicamente
+    </div>
+  </div>
+
+  <h1>Recibo de envio de documentação</h1>
+  <p>Comprovamos o recebimento da documentação abaixo identificada para análise e processamento de pagamento pela rede FESF-SUS.</p>
+
+  <div class="protocolo-bloco">
+    <div class="lbl">Número do protocolo</div>
+    <div class="val" id="protocolo">—</div>
+  </div>
+
+  <h2>Dados do envio</h2>
+  <table>
+    <tr><td class="lbl">Status atual:</td><td class="val" id="status">—</td></tr>
+    <tr><td class="lbl">Origem:</td><td class="val" id="origem">—</td></tr>
+    <tr><td class="lbl">Modalidade:</td><td class="val" id="modalidade">—</td></tr>
+    <tr><td class="lbl">Competência:</td><td class="val" id="competencia">—</td></tr>
+    <tr><td class="lbl">Valor declarado:</td><td class="val" id="valor">—</td></tr>
+    <tr><td class="lbl">Nota fiscal:</td><td class="val" id="nf">—</td></tr>
+    <tr><td class="lbl">Descrição:</td><td class="val" id="desc">—</td></tr>
+  </table>
+
+  <h2>Unidade destinatária</h2>
+  <table>
+    <tr><td class="lbl">Sigla:</td><td class="val" id="unidade-sigla">—</td></tr>
+    <tr><td class="lbl">Nome:</td><td class="val" id="unidade-nome">—</td></tr>
+  </table>
+
+  <h2>Fornecedor</h2>
+  <table>
+    <tr><td class="lbl">Razão social / Nome:</td><td class="val" id="forn-nome">—</td></tr>
+    <tr><td class="lbl">Documento:</td><td class="val" id="forn-doc">—</td></tr>
+  </table>
+
+  <h2>Respostas do formulário</h2>
+  <div id="form-respostas" style="margin:8px 0"><div style="color:#888">—</div></div>
+
+  <h2>Documentos anexados</h2>
+  <table id="tab-docs">
+    <thead><tr><td class="lbl"><strong>Campo</strong></td><td class="lbl"><strong>Arquivo</strong></td><td class="lbl"><strong>Tamanho</strong></td></tr></thead>
+    <tbody id="docs-body"><tr><td colspan="3" style="color:#888;text-align:center">—</td></tr></tbody>
+  </table>
+
+  <div id="bloco-pagamento" style="display:none">
+    <h2>Dados do pagamento</h2>
+    <table>
+      <tr><td class="lbl">Nº TED / transferência:</td><td class="val" id="pag-ted">—</td></tr>
+      <tr><td class="lbl">Banco pagador:</td><td class="val" id="pag-banco">—</td></tr>
+      <tr><td class="lbl">Data efetiva:</td><td class="val" id="pag-data">—</td></tr>
+      <tr><td class="lbl">Valor pago:</td><td class="val" id="pag-valor">—</td></tr>
+      <tr><td class="lbl">Registrado por:</td><td class="val" id="pag-reg">—</td></tr>
+    </table>
+  </div>
+
+  <h2>Versões da submissão</h2>
+  <table id="tab-versoes">
+    <thead><tr><td class="lbl"><strong>Versão</strong></td><td class="lbl"><strong>Criada em</strong></td></tr></thead>
+    <tbody id="versoes-body"></tbody>
+  </table>
+
+  <h2>Histórico (ações principais)</h2>
+  <table id="tab-hist">
+    <tbody id="hist-body"></tbody>
+  </table>
+
+  <div class="assinatura">
+    <div class="linha">FESF-SUS · Recebimento</div>
+    <div class="linha">Fornecedor · Conferência</div>
+  </div>
+
+  <div class="rodape">
+    Este recibo é gerado eletronicamente pelo Portal de Pagamentos da FESF-SUS e tem valor probatório do recebimento da documentação.<br>
+    Consulta pública por protocolo: <strong>/app/consulta.html</strong> · Sistema com trilha de auditoria completa.
+  </div>
+
+</div>
+
+<script>
+// V224: Voltar inteligente — agora prioriza navegação direta pela papel do
+// usuário logado. Evita 2 problemas do design anterior:
+//   - history.back() podia voltar para login (se foi o referrer) → parecia "deslogar"
+//   - window.close() falha silenciosamente em Chrome quando opener não existe
+//
+// Nova ordem:
+//   1) Se há usuário logado → vai direto para a área dele (portal/painel)
+//   2) Se foi aberto via window.open() (popup) → tenta fechar a aba
+//   3) Senão (anônimo via protocolo) → consulta pública
+window.voltarInteligente = function() {
+  try {
+    const raw = localStorage.getItem('fesf_usuario');
+    if (raw) {
+      const u = JSON.parse(raw);
+      if (u.papel === 'fornecedor') return location.href = '/app/portal.html';
+      if (u.papel === 'operador_unidade' || u.papel === 'admin_fesf') return location.href = '/app/painel.html';
+    }
+  } catch {}
+  // Sem usuário logado: tenta fechar se for popup, senão consulta
+  if (window.opener && !window.opener.closed) {
+    try { window.close(); } catch {}
+    // Se o close falhou (browser bloqueou), continua para fallback
+  }
+  location.href = '/app/consulta.html';
+};
+</script>
+<script type="module">
+import { api, getUsuario, brl, dataBR, formatarRespostasForm, statusLabel } from '/app/api.js';
+
+const params = new URLSearchParams(location.search);
+const id = Number(params.get('id'));
+const protocolo = params.get('protocolo');
+const usuario = getUsuario();
+
+// Modo 1: autenticado por id    Modo 2: anônimo via protocolo
+if (!id && !protocolo) {
+  document.querySelector('.pagina').innerHTML = '<h1>Envio nao especificado</h1><p>Acesse via portal/painel ou informe ?protocolo=HECC-XXXX.</p>';
+} else if (id && !usuario) {
+  location.href = '/app/login.html';
+} else {
+  try {
+    const data = protocolo
+      ? await api.reciboPublico(protocolo)
+      : await api.envio(id);
+    const { envio, versoes, documentos, auditoria, form_data, pagamento } = data;
+    if (pagamento) {
+      document.getElementById('bloco-pagamento').style.display = '';
+      document.getElementById('pag-ted').textContent = pagamento.numero_ted || '—';
+      document.getElementById('pag-banco').textContent = pagamento.banco_pagador || '—';
+      document.getElementById('pag-data').textContent = pagamento.data_efetiva ? new Date(pagamento.data_efetiva).toLocaleDateString('pt-BR', { timeZone: 'America/Bahia' }) : '—';
+      document.getElementById('pag-valor').textContent = brl(pagamento.valor_pago_centavos);
+      document.getElementById('pag-reg').textContent = `${pagamento.registrado_por_nome || '—'} em ${new Date(pagamento.criado_em).toLocaleString('pt-BR', { timeZone: 'America/Bahia' })}`;
+    }
+    document.getElementById('form-respostas').innerHTML = form_data ? formatarRespostasForm(form_data) : '<div style="color:#888;font-style:italic">— respostas detalhadas disponíveis apenas via portal autenticado —</div>';
+    // V238 fix R1: usa horario do servidor (envio.criado_em ou agora UTC) e formata sempre em pt-BR/America_Bahia
+    // para evitar drift entre "Emitido em" (era new Date local) e timestamps do banco.
+    const fmtData = (iso) => iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Bahia' }) : '—';
+    document.getElementById('emitido-em').textContent = new Date().toLocaleString('pt-BR', { timeZone: 'America/Bahia' });
+    document.getElementById('protocolo').textContent = envio.protocolo;
+    document.getElementById('status').textContent = statusLabel(envio.status).toUpperCase(); // V238 fix R2
+    document.getElementById('origem').textContent = statusLabel(envio.origem);
+    document.getElementById('modalidade').textContent = envio.modalidade_nome;
+    document.getElementById('competencia').textContent = envio.competencia;
+    document.getElementById('valor').textContent = brl(envio.valor_centavos);
+    document.getElementById('nf').textContent = envio.numero_nf || '—';
+    document.getElementById('desc').textContent = envio.descricao || '—';
+    document.getElementById('unidade-sigla').textContent = envio.unidade_sigla;
+    document.getElementById('unidade-nome').textContent = envio.unidade_nome || '';
+    document.getElementById('forn-nome').textContent = envio.razao_social;
+    document.getElementById('forn-doc').textContent = envio.documento;
+
+    const docsBody = document.getElementById('docs-body');
+    if (documentos.length > 0) {
+      docsBody.innerHTML = documentos.map(d => `<tr><td>${d.campo}</td><td>${d.nome_original}</td><td>${(d.tamanho_bytes/1024).toFixed(1)} KB</td></tr>`).join('');
+    } else {
+      docsBody.innerHTML = '<tr><td colspan="3" style="color:#888;text-align:center;font-style:italic">Nenhum documento anexado</td></tr>';
+    }
+
+    document.getElementById('versoes-body').innerHTML = versoes.map(v => `<tr><td>v${v.numero}</td><td>${fmtData(v.criada_em)}</td></tr>`).join('');
+
+    const acoesRelevantes = ['criado_portal','criado_link_publico','criado_manual','aprovado','rejeitado','retificacao_solicitada','retificado','marcado_pago','documento_anexado'];
+    const hist = auditoria.filter(a => acoesRelevantes.includes(a.acao));
+    document.getElementById('hist-body').innerHTML = hist.length === 0 ? '<tr><td>Sem histórico relevante</td></tr>' :
+      hist.map(a => `<tr><td class="lbl">${fmtData(a.criado_em)}</td><td>${statusLabel(a.acao)} ${a.usuario_nome ? '· por ' + a.usuario_nome : ''}</td></tr>`).join('');
+  } catch (e) {
+    document.querySelector('.pagina').innerHTML = `<h1>Erro</h1><p>${e.message}</p>`;
+  }
+}
+</script>
+</body>
+</html>

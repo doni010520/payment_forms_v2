@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Novo envio · Portal do Fornecedor</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  .mod-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+  .mod-card{padding:18px;border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all .15s}
+  .mod-card:hover{border-color:var(--primary);box-shadow:0 4px 12px rgba(91,84,153,.1);transform:translateY(-1px)}
+  .mod-card.sel{border-color:var(--primary);background:var(--primary-soft)}
+  .mod-card h3{margin:0 0 6px;font-size:14.5px}
+  .mod-card .cat{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;font-weight:700}
+  .mod-card.indenizatorio .cat{color:var(--accent)}
+  .mod-card.normal .cat{color:var(--primary)}
+  .mod-card p{margin:0;font-size:12.5px;color:var(--muted)}
+  .mod-card .meta{margin-top:8px;font-size:11.5px;color:var(--text-3)}
+  .mod-card .meta code{background:rgba(0,0,0,.05);padding:1px 5px;border-radius:3px;font-size:10.5px}
+  .form-step{display:none}
+  .form-step.active{display:block}
+  .step-indicator{display:flex;gap:8px;margin-bottom:24px}
+  .step-indicator .s{flex:1;height:4px;background:var(--border);border-radius:2px}
+  .step-indicator .s.done{background:var(--accent)}
+  .step-indicator .s.active{background:var(--primary)}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div>
+      <strong>Portal do Fornecedor</strong>
+      <span class="muted" style="font-size:11px;display:block">Novo envio · escolher modalidade</span>
+    </div>
+  </div>
+  <div class="userbox">
+    <a href="/app/portal.html" style="padding:8px 12px;border-radius:6px;background:var(--surface-2)">← Voltar ao portal</a>
+  </div>
+</nav>
+
+<div class="page" style="max-width: 880px">
+
+  <div class="step-indicator">
+    <div class="s active" id="step-ind-1"></div>
+    <div class="s" id="step-ind-2"></div>
+    <div class="s" id="step-ind-3"></div>
+  </div>
+
+  <!-- Step 1: Escolher modalidade -->
+  <div class="form-step active" id="step-1">
+    <div class="card">
+      <h1>1. Qual é o tipo de pagamento?</h1>
+      <p class="muted">Selecione a modalidade que corresponde ao serviço/insumo que você está prestando.</p>
+
+      <h3 style="margin-top:22px;font-size:11.5px;text-transform:uppercase;letter-spacing:1.2px;color:var(--accent)">Pagamentos Indenizatórios</h3>
+      <div class="mod-grid">
+        <div class="mod-card indenizatorio" data-codigo="indenizatorio_moe">
+          <div class="cat">Indenizatório</div>
+          <h3>Mão de Obra Exclusiva</h3>
+          <p>Pagamento com dedicação exclusiva (limpeza, vigilância, manutenção contínua).</p>
+          <div class="meta"><code>41 campos</code> · folha + INSS + FGTS + benefícios</div>
+        </div>
+        <div class="mod-card indenizatorio" data-codigo="indenizatorio_servicos">
+          <div class="cat">Indenizatório</div>
+          <h3>Serviços</h3>
+          <p>Serviços sem mão-de-obra exclusiva, com nota fiscal.</p>
+          <div class="meta"><code>26 campos</code> · contrato + medições + comprovantes</div>
+        </div>
+        <div class="mod-card indenizatorio" data-codigo="indenizatorio_insumos">
+          <div class="cat">Indenizatório</div>
+          <h3>Insumos</h3>
+          <p>Aquisição de bens, materiais e insumos hospitalares.</p>
+          <div class="meta"><code>24 campos</code> · NF + descrição detalhada</div>
+        </div>
+      </div>
+
+      <h3 style="margin-top:24px;font-size:11.5px;text-transform:uppercase;letter-spacing:1.2px;color:var(--primary)">Pagamentos Normais</h3>
+      <div class="mod-grid">
+        <div class="mod-card normal" data-codigo="pagamento_moe">
+          <div class="cat">Pagamento</div>
+          <h3>c/ Mão de Obra Exclusiva</h3>
+          <p>Pagamento normal com dedicação exclusiva.</p>
+          <div class="meta"><code>35 campos</code></div>
+        </div>
+        <div class="mod-card normal" data-codigo="pagamento_servico">
+          <div class="cat">Pagamento</div>
+          <h3>Serviço</h3>
+          <p>Pagamento normal de serviços avulsos.</p>
+          <div class="meta"><code>22 campos</code></div>
+        </div>
+        <div class="mod-card normal" data-codigo="pagamento_insumos">
+          <div class="cat">Pagamento</div>
+          <h3>Insumos</h3>
+          <p>Pagamento normal de aquisição de insumos.</p>
+          <div class="meta"><code>19 campos</code></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Unidade -->
+  <div class="form-step" id="step-2">
+    <div class="card">
+      <h1>2. Qual unidade vai receber este envio?</h1>
+      <p class="muted">Selecione a unidade FESF para a qual você está prestando este serviço.</p>
+      <div id="unidades-lista" class="mod-grid" style="margin-top:18px"></div>
+      <div style="margin-top:18px;display:flex;justify-content:space-between">
+        <button onclick="voltarPasso(1)">← Voltar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Competencia -->
+  <div class="form-step" id="step-3">
+    <div class="card">
+      <h1>3. Competência</h1>
+      <p class="muted">Mês de referência deste envio (YYYY-MM).</p>
+      <div class="row" style="max-width:380px;margin-top:16px">
+        <div class="field">
+          <label>Competência</label>
+          <select id="comp-select"></select>
+        </div>
+      </div>
+      <div class="alert info">Após confirmar, você será redirecionado ao formulário completo da modalidade. Lá você preenche todos os campos exigidos pela FESF, anexa documentos e faz o envio.</div>
+      <div style="margin-top:18px;display:flex;justify-content:space-between">
+        <button onclick="voltarPasso(2)">← Voltar</button>
+        <button class="primary" id="btn-abrir-form" style="padding:12px 24px;font-size:14px">Abrir formulário →</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { api, requireSession, toast } from '/app/api.js';
+
+const usuario = requireSession('fornecedor');
+if (!usuario) throw new Error('sem sessao');
+
+let modalidadeSel = null;
+let unidadeSel = null;
+
+// Carrega modalidades dinamicamente para garantir codigos corretos
+const { modalidades } = await api.modalidades();
+const codigoToId = Object.fromEntries(modalidades.map(m => [m.codigo, m.id]));
+const codigoToForm = {
+  indenizatorio_moe: '/formulario-hcc.html',
+  indenizatorio_servicos: '/formulario-hcc-servicos.html',
+  indenizatorio_insumos: '/formulario-hcc-insumos.html',
+  pagamento_moe: '/formulario-hcc-pgto-mao-obra.html',
+  pagamento_servico: '/formulario-hcc-pgto-servico.html',
+  pagamento_insumos: '/formulario-hcc-pgto-insumos.html',
+};
+
+document.querySelectorAll('.mod-card').forEach(c => c.addEventListener('click', () => {
+  modalidadeSel = c.dataset.codigo;
+  document.querySelectorAll('.mod-card').forEach(x => x.classList.remove('sel'));
+  c.classList.add('sel');
+  setTimeout(() => irPasso(2), 200);
+}));
+
+window.voltarPasso = (n) => irPasso(n);
+function irPasso(n) {
+  document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + n).classList.add('active');
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('step-ind-' + i);
+    el.classList.toggle('done', i < n);
+    el.classList.toggle('active', i === n);
+  }
+}
+
+// V214/F1.5: usa /api/me/unidades para mostrar SO as unidades que o fornecedor atende.
+// Antes o portal mostrava todas 8, e fornecedor preenchia formulario inteiro para
+// descobrir que nao atende a unidade escolhida (NOT_LINKED no submit).
+let unidades;
+try {
+  const r = await api.minhasUnidades();
+  unidades = r.unidades;
+} catch {
+  // fallback gracioso se backend antigo nao tem o endpoint
+  unidades = (await api.unidades()).unidades;
+}
+if (!unidades || unidades.length === 0) {
+  document.getElementById('unidades-lista').innerHTML =
+    '<div class="alert warn">Voce nao esta vinculado a nenhuma unidade ativa. Procure a FESF Sede para adicionar suas unidades de atuacao antes de submeter envios.</div>';
+} else {
+  document.getElementById('unidades-lista').innerHTML = unidades.map(u => `
+  <div class="mod-card normal" data-id="${u.id}" data-sigla="${u.sigla}">
+    <h3>${u.sigla}</h3>
+    <p>${u.nome}</p>
+    <div class="meta">${u.cidade}, ${u.estado}</div>
+  </div>
+`).join('');
+  document.querySelectorAll('#unidades-lista .mod-card').forEach(c => c.addEventListener('click', () => {
+    unidadeSel = c.dataset.sigla;
+    document.querySelectorAll('#unidades-lista .mod-card').forEach(x => x.classList.remove('sel'));
+    c.classList.add('sel');
+    setTimeout(() => irPasso(3), 200);
+  }));
+}
+
+// Competencias (12 ultimos meses)
+const hoje = new Date();
+const compSel = document.getElementById('comp-select');
+const opts = [];
+for (let i = 0; i < 12; i++) {
+  const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+  const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}`;
+  opts.push(`<option value="${v}"${i === 0 ? ' selected' : ''}>${v}${i === 0 ? ' (atual)' : ''}</option>`);
+}
+compSel.innerHTML = opts.join('');
+
+document.getElementById('btn-abrir-form').addEventListener('click', () => {
+  const competencia = compSel.value;
+  const form = codigoToForm[modalidadeSel];
+  if (!form) { toast('Formulario nao mapeado', 'erro'); return; }
+  const url = `${form}?modalidade=${modalidadeSel}&unidade=${unidadeSel}&competencia=${competencia}`;
+  location.href = url;
+});
+</script>
+</body>
+</html>

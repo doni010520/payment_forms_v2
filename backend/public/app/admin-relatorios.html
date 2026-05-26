@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Relatórios · FESF Sede</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  .bar{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:13px}
+  .bar .lbl{width:200px;font-weight:500;font-size:12.5px}
+  .bar .track{flex:1;height:18px;background:var(--surface-2);border-radius:4px;overflow:hidden;position:relative}
+  .bar .fill{height:100%;background:linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);position:relative}
+  .bar .val{font-family:ui-monospace,monospace;font-weight:600;color:var(--text);min-width:80px;text-align:right}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div><strong>FESF Sede · Administração</strong><span class="muted" style="font-size:11px;display:block">Relatórios consolidados</span></div>
+  </div>
+  <div class="tabs">
+    <a href="/app/admin.html">Dashboard</a>
+    <a href="/app/admin-pagamentos.html">Pagamentos</a>
+    <a href="/app/admin-unidades.html">Unidades</a>
+    <a href="/app/admin-fornecedores.html">Fornecedores</a>
+    <a href="/app/admin-usuarios.html">Usuários</a>
+    <a class="active">Relatórios</a>
+    <a href="/app/admin-auditoria.html">Auditoria</a>
+    <a href="/app/admin-emails.html">E-mails</a>
+    <a href="/app/admin-smtp.html">SMTP</a>
+    <a href="/app/admin-status.html">Status</a>
+    <a href="/app/admin-api.html">API</a>
+    <a href="/app/admin-config.html">Configurações</a>
+  </div>
+  <div class="userbox">
+    <div><strong id="userNome">—</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · Admin</span></div>
+    <div class="avatar" id="userAvatar">—</div>
+    <button onclick="sair()">Sair</button>
+  </div>
+</nav>
+
+<div class="page">
+  <!-- V255: header rico alinhado ao mockup screen-relatorios -->
+  <div class="between" style="align-items:flex-start;margin-bottom:18px;gap:18px;flex-wrap:wrap">
+    <div>
+      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:4px">Inteligência operacional</div>
+      <h1 style="margin:0 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">Relatórios
+        <span class="pill" style="background:var(--accent-soft, #e3f0ec);color:var(--accent, #4fa590);font-size:11.5px;padding:3px 10px;border-radius:14px;font-weight:600">● Visão: FESF Sede</span>
+      </h1>
+      <p class="muted" id="sub" style="margin:0;font-size:13.5px">—</p>
+    </div>
+    <div class="filters" style="gap:8px;align-items:center">
+      <select id="f-comp" title="Período / competência"><option value="">Todas competências</option></select>
+      <button onclick="carregar()">Atualizar</button>
+      <button class="primary" onclick="exportar()">⬇ Exportar CSV</button>
+      <button onclick="imprimir()">🖨 Imprimir / PDF</button>
+    </div>
+  </div>
+
+  <div class="kpi-row" id="kpis"></div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>SLA · tempo médio de processamento</h2>
+      <div id="sla-content"></div>
+    </div>
+    <div class="card">
+      <h2>Envios por semana (últimas 8)</h2>
+      <div id="serie-content"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Distribuição por hora do dia (últimos 90d)</h2>
+    <p class="muted">Identifica horário de pico para planejar manutenções fora dele.</p>
+    <div id="horas-content"></div>
+  </div>
+
+  <div class="card">
+    <h2>Por unidade · ranking de movimento</h2>
+    <div id="bars-unidade"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Por origem</h3>
+      <div id="bars-origem"></div>
+    </div>
+    <div class="card">
+      <h3>Por status</h3>
+      <div id="bars-status"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Por modalidade</h2>
+    <div id="bars-modalidade"></div>
+  </div>
+
+  <div class="card">
+    <h2>Pendências (expectativas)</h2>
+    <div id="pend-tabela"></div>
+  </div>
+
+</div>
+
+<script type="module">
+import { api, requireSession, clearSession, brl, toast, statusLabel} from '/app/api.js';
+const usuario = requireSession();
+if (!usuario || usuario.papel !== 'admin_fesf') location.href = '/app/login.html';
+document.getElementById('userNome').textContent = usuario.nome;
+document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+
+function compsOpts() {
+  const sel = document.getElementById('f-comp');
+  const opts = ['<option value="">Todas competências</option>'];
+  const hoje = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    opts.push(`<option value="${v}">${v}</option>`);
+  }
+  sel.innerHTML = opts.join('');
+}
+
+function renderBar(container, items, total) {
+  total = total || items.reduce((a, x) => a + Number(x.n||0), 0) || 1;
+  container.innerHTML = items.map(i => {
+    const v = Number(i.n || 0);
+    const pct = (v / total * 100).toFixed(1);
+    const valBrl = i.total_centavos != null ? ` <span class="muted" style="font-size:11px">${brl(i.total_centavos)}</span>` : '';
+    return `
+      <div class="bar">
+        <div class="lbl">${i.label}</div>
+        <div class="track"><div class="fill" style="width:${pct}%"></div></div>
+        <div class="val">${v}${valBrl}</div>
+      </div>`;
+  }).join('') || '<div class="muted">Sem dados</div>';
+}
+
+async function carregar() {
+  try {
+    const comp = document.getElementById('f-comp').value;
+    const m = await api.metricas(comp ? { competencia: comp } : {});
+    // V255: subtitle dinâmico com exportação + visão consolidada + inadimplentes
+    const totalEnvios = m.totais.total_envios || 0;
+    const unidadesAtivas = m.por_unidade.filter(u => u.total_envios > 0).length;
+    const inadimplentes = m.fornecedores_inadimplentes || 0;
+    const inadStr = inadimplentes > 0 ? ` · ${inadimplentes} fornecedor(es) inadimplente(s)` : '';
+    document.getElementById('sub').textContent = m.competencia
+      ? `Competência ${m.competencia} · ${totalEnvios} envios${inadStr} · exportação CSV / PDF`
+      : `Indicadores consolidados da rede FESF · ${unidadesAtivas} unidade(s) ativa(s)${inadStr} · exportação CSV / PDF`;
+
+    // V255: KPIs com sub-stats descritivas (estilo mockup)
+    const slaApr = m.sla?.dias_ate_aprovado;
+    const pendentesCriticas = (m.pendencias.find(p=>p.status==='atrasada')||{n:0}).n + (m.pendencias.find(p=>p.status==='sem_resposta')||{n:0}).n;
+    const retificados = (m.por_status.find(s => s.status === 'retificacao_solicitada')||{n:0}).n;
+    const rejeitados = (m.por_status.find(s => s.status === 'rejeitado')||{n:0}).n;
+    const pctRet = totalEnvios > 0 ? (retificados / totalEnvios * 100) : 0;
+    const pctRej = totalEnvios > 0 ? (rejeitados / totalEnvios * 100) : 0;
+    document.getElementById('kpis').innerHTML = `
+      <div class="kpi accent"><div class="label">Movimento</div><div class="value mono" style="font-size:22px">${brl(m.totais.total_centavos)}</div><div class="sub">${totalEnvios} envios · ${unidadesAtivas} unid.</div></div>
+      <div class="kpi"><div class="label">Tempo médio (aprovação)</div><div class="value">${slaApr != null ? slaApr.toFixed(1) : '—'}<span style="font-size:14px;font-weight:500"> d</span></div><div class="sub">${m.sla?.n_aprovados || 0} aprovações no período</div></div>
+      <div class="kpi warn"><div class="label">Índice de retificação</div><div class="value">${pctRet.toFixed(1)}<span style="font-size:14px;font-weight:500">%</span></div><div class="sub">${retificados} de ${totalEnvios} envios</div></div>
+      <div class="kpi danger"><div class="label">Índice de rejeição</div><div class="value">${pctRej.toFixed(1)}<span style="font-size:14px;font-weight:500">%</span></div><div class="sub">${rejeitados} rejeitados · ${pendentesCriticas} pendência(s) crítica(s)</div></div>
+    `;
+
+    // SLA
+    const sla = m.sla || {};
+    const fmt = (x) => x ? x.toFixed(1) + ' dia(s)' : '—';
+    document.getElementById('sla-content').innerHTML = `
+      <div class="bar"><div class="lbl">Envio → Aprovação</div><div class="track"><div class="fill" style="width:${Math.min(100, (sla.dias_ate_aprovado||0)*10)}%;background:var(--primary)"></div></div><div class="val">${fmt(sla.dias_ate_aprovado)}</div></div>
+      <div class="bar"><div class="lbl">Aprovação → Pagamento</div><div class="track"><div class="fill" style="width:${Math.min(100, (sla.dias_ate_pago||0)*10)}%;background:var(--accent)"></div></div><div class="val">${fmt(sla.dias_ate_pago)}</div></div>
+      <div class="muted" style="font-size:11px;margin-top:8px">Baseado em ${sla.n_aprovados || 0} aprovações e ${sla.n_pagos || 0} pagamentos no período.</div>
+    `;
+
+    // Distribuição por hora do dia (heatmap simples)
+    const horas = m.por_hora_dia || [];
+    if (horas.length === 0 || horas.every(h => h.n === 0)) {
+      document.getElementById('horas-content').innerHTML = '<div class="muted">Sem envios nos últimos 90 dias para análise por hora</div>';
+    } else {
+      const maxH = Math.max(...horas.map(h => h.n)) || 1;
+      const pico = horas.reduce((a, b) => b.n > a.n ? b : a, horas[0]);
+      document.getElementById('horas-content').innerHTML = `
+        <div style="margin-bottom:10px;font-size:12.5px;color:var(--muted)">Horário de pico: <strong style="color:var(--primary)">${String(pico.hora).padStart(2,'0')}h</strong> (${pico.n} envios)</div>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:90px;border-bottom:1px solid var(--border);margin-bottom:6px">
+          ${horas.map(h => `
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px" title="${String(h.hora).padStart(2,'0')}:00 — ${h.n} envio(s)">
+              <div style="font-size:9px;color:var(--text-2);font-weight:600">${h.n > 0 ? h.n : ''}</div>
+              <div style="width:100%;background:${h.n === pico.n && h.n > 0 ? 'var(--primary)' : (h.n > 0 ? '#9c95cf' : 'var(--surface-2)')};height:${(h.n/maxH)*70}px;border-radius:3px 3px 0 0;min-height:${h.n > 0 ? 2 : 0}px"></div>
+            </div>`).join('')}
+        </div>
+        <div style="display:flex;gap:3px;font-size:10px;color:var(--muted)">
+          ${horas.map(h => `<div style="flex:1;text-align:center">${h.hora % 3 === 0 ? String(h.hora).padStart(2,'0') : ''}</div>`).join('')}
+        </div>`;
+    }
+
+    // Serie semanal
+    const serie = m.serie_semanal || [];
+    if (serie.length === 0) {
+      document.getElementById('serie-content').innerHTML = '<div class="muted">Sem envios recentes nas últimas 8 semanas</div>';
+    } else {
+      const maxN = Math.max(...serie.map(s => s.n)) || 1;
+      document.getElementById('serie-content').innerHTML = `
+        <div style="display:flex;align-items:flex-end;gap:6px;height:120px;border-bottom:1px solid var(--border);margin-bottom:8px">
+          ${serie.map(s => `
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px" title="${s.semana}: ${s.n} envio(s)">
+              <div style="font-size:10px;color:var(--text-2);font-weight:600">${s.n}</div>
+              <div style="width:100%;background:var(--primary);height:${(s.n/maxN)*100}px;border-radius:4px 4px 0 0;min-height:2px"></div>
+            </div>`).join('')}
+        </div>
+        <div style="display:flex;gap:6px;font-size:10px;color:var(--muted)">
+          ${serie.map(s => `<div style="flex:1;text-align:center">${s.semana.substring(5)}</div>`).join('')}
+        </div>`;
+    }
+    renderBar(document.getElementById('bars-unidade'), m.por_unidade.map(u => ({ label: `${u.sigla} · ${u.nome}`, n: u.total_envios, total_centavos: u.total_centavos })));
+    renderBar(document.getElementById('bars-origem'), m.por_origem.map(o => ({ label: o.origem, n: o.n, total_centavos: o.total_centavos })));
+    renderBar(document.getElementById('bars-status'), m.por_status.map(s => ({ label: statusLabel(s.status), n: s.n })));
+    renderBar(document.getElementById('bars-modalidade'), m.por_modalidade.map(x => ({ label: x.nome, n: x.n, total_centavos: x.total_centavos })));
+
+    document.getElementById('pend-tabela').innerHTML = m.pendencias.length === 0 ?
+      '<div class="muted">Sem expectativas</div>' :
+      `<table><thead><tr><th>Status</th><th>Quantidade</th></tr></thead><tbody>
+        ${m.pendencias.map(p => `<tr><td><span class="pill ${p.status}">${statusLabel(p.status)}</span></td><td><strong>${p.n}</strong></td></tr>`).join('')}
+      </tbody></table>`;
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); console.error(e); }
+}
+window.carregar = carregar;
+document.getElementById('f-comp').addEventListener('change', carregar);
+
+window.imprimir = () => {
+  const comp = document.getElementById('f-comp').value;
+  window.open(`/app/relatorio-print.html${comp ? `?competencia=${comp}` : ''}`, '_blank');
+};
+
+window.exportar = async () => {
+  try {
+    const comp = document.getElementById('f-comp').value;
+    const q = comp ? `?competencia=${comp}` : '';
+    const r = await fetch(`/api/envios/export.csv${q}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('fesf_token')}` }
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const blob = await r.blob();
+    // V211: anexa ao DOM (Firefox exige) + revoga URL (evita leak)
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `relatorio-fesf-${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Relatório exportado', 'sucesso');
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+};
+
+compsOpts();
+carregar();
+</script>
+
+</body>
+</html>

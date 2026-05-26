@@ -1,0 +1,378 @@
+/* =====================================================================
+ * Form Adapter · FESF-SUS
+ * Liga os formulários reais (formulario-hcc*.html) ao backend.
+ *
+ * Estratégia: monkey-patch da função finalizeSubmission() que existe
+ * em cada form. Quando o usuário clica "Enviar formulário", o submit
+ * vai ao backend ao invés de salvar localmente.
+ *
+ * Configuração via URL params:
+ *   ?modalidade=indenizatorio_moe  (codigo da modalidade)
+ *   ?unidade=1                     (id ou sigla)
+ *   ?competencia=2026-12
+ *   ?public_token=pub_xxx          (se for via link publico)
+ * ===================================================================== */
+(function () {
+  'use strict';
+
+  // ------------------- Config & helpers -------------------
+  const params = new URLSearchParams(location.search);
+  const cfg = {
+    modalidadeCodigo: params.get('modalidade') || 'indenizatorio_moe',
+    unidadeIdent: params.get('unidade') || null, // pode ser sigla ou id
+    competencia: params.get('competencia') || formatDefaultCompetencia(),
+    publicToken: params.get('public_token') || null,
+  };
+
+  function formatDefaultCompetencia() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  function brlToCentavos(s) {
+    if (!s) return 0;
+    // aceita "1.234,56" ou "1234,56" ou "1234.56" ou "1234"
+    const clean = String(s).replace(/[^\d,.-]/g, '');
+    // se tem virgula, virgula = decimal
+    if (clean.includes(',')) {
+      const [intPart, decPart] = clean.split(',');
+      return Math.round((Number(intPart.replace(/\./g, '')) + Number('0.' + (decPart || '0'))) * 100);
+    }
+    // sem virgula: pode ser numero inteiro ou decimal com ponto
+    return Math.round(Number(clean.replace(/\./g, '')) * 100) || Math.round(Number(clean) * 100);
+  }
+
+  function getToken() {
+    return localStorage.getItem('fesf_token');
+  }
+  function getUsuario() {
+    try { return JSON.parse(localStorage.getItem('fesf_usuario') || 'null'); } catch { return null; }
+  }
+
+  async function api(method, path, body) {
+    const headers = { 'Content-Type': 'application/json' };
+    const t = getToken();
+    if (t) headers.Authorization = `Bearer ${t}`;
+    const r = await fetch(path, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await r.text();
+    let json = null; try { json = JSON.parse(text); } catch {}
+    if (!r.ok) {
+      const err = new Error((json && json.error) || `HTTP ${r.status}`);
+      err.status = r.status; err.body = json; throw err;
+    }
+    return json;
+  }
+
+  // ------------------- Resolver modalidade/unidade -------------------
+  let modalidades = null, unidades = null;
+  async function resolveContext() {
+    if (!modalidades) modalidades = (await fetch('/api/modalidades').then(r => r.json())).modalidades;
+    if (!unidades)    unidades    = (await fetch('/api/unidades').then(r => r.json())).unidades;
+    const modalidade = modalidades.find(m => m.codigo === cfg.modalidadeCodigo);
+    let unidade = null;
+    if (cfg.unidadeIdent) {
+      unidade = unidades.find(u => String(u.id) === cfg.unidadeIdent) ||
+                unidades.find(u => u.sigla === cfg.unidadeIdent);
+    }
+    return { modalidade, unidade };
+  }
+
+  // ------------------- Extracao dos dados do form -------------------
+  function getStateData() {
+    // O form usa window.state.data e window.state.files
+    return (window.state && window.state.data) ? window.state.data : {};
+  }
+  function getStateFiles() {
+    return (window.state && window.state.files) ? window.state.files : {};
+  }
+
+  // ------------------- V221: captura de Files reais -------------------
+  // O formulário só guarda metadados em state.files. Aqui interceptamos
+  // o evento `change` dos <input type="file"> (capture-phase, antes do
+  // listener do form) para preservar o objeto File real em window._fesfFiles.
+  // Mapeia por campo (input.id começa com "fld_" + nome do campo).
+  // V299: SEMPRE reinicia ao montar — evita vazamento de arquivos entre
+  // envios consecutivos na mesma sessão (bug reportado pelo usuário).
+  window._fesfFiles = {};
+  document.addEventListener('change', (e) => {
+    const inp = e.target;
+    if (!inp || inp.tagName !== 'INPUT' || inp.type !== 'file') return;
+    const id = inp.id || '';
+    const m = id.match(/^fld_(.+)$/);
+    if (!m) return;
+    const campo = m[1];
+    const files = Array.from(inp.files || []);
+    if (!files.length) return;
+    // Acumula (modo multiple) ou substitui (single). Como nao sabemos qual e
+    // a config, sempre acumulamos por nome — duplicatas pelo nome o backend
+    // filtra via SHA256 (V25 hash dedup).
+    if (!window._fesfFiles[campo]) window._fesfFiles[campo] = [];
+    for (const f of files) {
+      // Substitui se ja existe arquivo com mesmo nome
+      window._fesfFiles[campo] = window._fesfFiles[campo].filter(x => x.name !== f.name);
+      window._fesfFiles[campo].push(f);
+    }
+  }, true);
+  // Drop tambem: capture phase pega antes do form
+  document.addEventListener('drop', (e) => {
+    // Procura input.file irmao do elemento dropável
+    let el = e.target;
+    while (el && el !== document) {
+      const inp = el.querySelector && el.querySelector('input[type="file"][id^="fld_"]');
+      if (inp) {
+        const campo = inp.id.replace(/^fld_/, '');
+        const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+        if (files.length) {
+          if (!window._fesfFiles[campo]) window._fesfFiles[campo] = [];
+          for (const f of files) {
+            window._fesfFiles[campo] = window._fesfFiles[campo].filter(x => x.name !== f.name);
+            window._fesfFiles[campo].push(f);
+          }
+        }
+        break;
+      }
+      el = el.parentNode;
+    }
+  }, true);
+
+  function pickSummary(stateData) {
+    // Diferentes formularios usam ids ligeiramente diferentes.
+    // Tentamos varias possibilidades para valor, NF, descricao.
+    const valor = stateData.q3_valor || stateData.q3_valorTotalServico ||
+                  stateData.q3_valorTotalInsumos || stateData.q3_valorTotal || '';
+    const nf = stateData.q10_nfNumero || stateData.q10_numeroNF ||
+               stateData.q5_nfNumero || stateData.q5_numeroNF || '';
+    const descricao = stateData.q4_descricaoServico || stateData.q4_descricaoInsumos ||
+                      stateData.q4_descricao || stateData.q1_nomeFornecedor || '';
+    return {
+      valor_brl: valor,
+      valor_centavos: brlToCentavos(valor),
+      numero_nf: nf,
+      descricao: descricao.toString().substring(0, 500),
+    };
+  }
+
+  // ------------------- V221: Upload de arquivos -------------------
+  async function uploadArquivo(envio, campo, file) {
+    const fd = new FormData();
+    fd.append('arquivo', file);
+    fd.append('campo', campo);
+    let url, headers = {};
+    if (cfg.publicToken) {
+      url = '/api/envios/publico/' + encodeURIComponent(cfg.publicToken) + '/' + envio.id + '/documentos';
+    } else {
+      const t = getToken();
+      if (!t) throw new Error('Sem token para upload');
+      url = '/api/envios/' + envio.id + '/documentos';
+      headers.Authorization = 'Bearer ' + t;
+    }
+    const r = await fetch(url, { method: 'POST', headers, body: fd });
+    const text = await r.text();
+    let json = null; try { json = JSON.parse(text); } catch {}
+    if (!r.ok) {
+      const e = new Error((json && json.error) || ('HTTP ' + r.status));
+      e.status = r.status; throw e;
+    }
+    return json.documento;
+  }
+
+  // ------------------- Submit -------------------
+  async function submitToBackend() {
+    const stateData = getStateData();
+    const stateFiles = getStateFiles();
+    const { modalidade, unidade } = await resolveContext();
+
+    if (!modalidade) {
+      throw new Error('Modalidade nao reconhecida: ' + cfg.modalidadeCodigo);
+    }
+
+    const summary = pickSummary(stateData);
+    const fullDados = { ...stateData, files_meta: stateFiles, modalidade_codigo: cfg.modalidadeCodigo };
+
+    let envio;
+    if (cfg.publicToken) {
+      // Submissao via link publico (anonimo)
+      const r = await api('POST', `/api/envios/publico/${cfg.publicToken}`, {
+        competencia: cfg.competencia,
+        valor_centavos: summary.valor_centavos,
+        numero_nf: summary.numero_nf,
+        descricao: summary.descricao,
+        submetente_nome: stateData.q1_nomeFornecedor || stateData.q1_nomeRepresentante || null,
+        submetente_documento: stateData.q2_cnpj || stateData.q2_cpf || null,
+        dados: fullDados,
+      });
+      envio = r.envio;
+    } else if (getToken()) {
+      // Submissao como fornecedor logado
+      const u = getUsuario();
+      if (!unidade && !cfg.unidadeIdent) {
+        throw new Error('Selecione uma unidade na URL ?unidade=SIGLA');
+      }
+      const unidadeId = unidade ? unidade.id : null;
+      if (!unidadeId) throw new Error('Unidade nao resolvida');
+      const r = await api('POST', '/api/envios/portal', {
+        unidade_id: unidadeId,
+        modalidade_id: modalidade.id,
+        competencia: cfg.competencia,
+        valor_centavos: summary.valor_centavos,
+        numero_nf: summary.numero_nf,
+        descricao: summary.descricao,
+        dados: fullDados,
+      });
+      envio = r.envio;
+    } else {
+      throw new Error('Sem token nem link publico — login necessario');
+    }
+
+    return envio;
+  }
+
+  // ------------------- Bridge: intercepta o click do botão Enviar -------------------
+  // V220 fix: o monkey-patch antigo de window.finalizeSubmission não funcionava
+  // porque o handler de click do botão (no formulário) chama finalizeSubmission()
+  // direto (referência local da function declaration), nao window.finalizeSubmission.
+  // Solução: clonamos o botão (perdendo handlers antigos) e instalamos nosso próprio
+  // handler que faz validacao basica + POST ao backend.
+  function installBridge() {
+    const btn = document.getElementById('btnSubmit');
+    if (!btn) {
+      // formulário ainda nao montou — tenta de novo em 200ms
+      setTimeout(installBridge, 200);
+      return;
+    }
+    // Clone substitui — handlers antigos perdidos (intencional)
+    const clone = btn.cloneNode(true);
+    btn.parentNode.replaceChild(clone, btn);
+    clone.addEventListener('click', async (e) => {
+      e.preventDefault();
+      // Reaproveita validacao do form se disponivel
+      if (typeof window.allRequiredFilled === 'function' && !window.allRequiredFilled()) {
+        // Form mostra os erros sozinho via renderReview / setErr
+        if (typeof window.renderReview === 'function') window.renderReview();
+        return;
+      }
+      const txt = clone.textContent;
+      clone.disabled = true;
+      clone.textContent = 'Enviando ao FESF…';
+      try {
+        const envio = await submitToBackend();
+
+        // V221: upload de arquivos REAL apos criar envio.
+        // window._fesfFiles foi populado em capture-phase. Para cada campo,
+        // intersectamos com state.files (filtro do form) por nome — assim
+        // arquivos rejeitados pela validacao do form nao sao enviados.
+        // V299: guarda STRICT — se aceitos[campo] for vazio/undefined, pula
+        // o campo inteiro (evita vazamento de arquivos de envios anteriores
+        // ainda presentes em window._fesfFiles).
+        const filesPorCampo = window._fesfFiles || {};
+        const aceitos = getStateFiles();
+        const totais = Object.keys(filesPorCampo).reduce((a, k) => a + filesPorCampo[k].length, 0);
+        const uploaded = []; const falhas = [];
+        if (totais > 0) {
+          clone.textContent = 'Enviando ' + totais + ' arquivo(s)…';
+          for (const [campo, fileList] of Object.entries(filesPorCampo)) {
+            // V299: se o usuário não anexou nada neste campo no envio atual, pula
+            const aceitosCampo = aceitos[campo] || [];
+            if (aceitosCampo.length === 0) continue;
+            const aceitosNomes = aceitosCampo.map(f => f.name);
+            for (const file of fileList) {
+              // Só envia arquivos que estão na lista de aceitos do envio atual
+              if (!aceitosNomes.includes(file.name)) continue;
+              try {
+                await uploadArquivo(envio, campo, file);
+                uploaded.push({ campo, name: file.name });
+              } catch (uerr) {
+                falhas.push({ campo, name: file.name, erro: uerr.message });
+                console.warn('[form-adapter] upload falhou:', campo, file.name, uerr);
+              }
+            }
+          }
+        }
+        // V299: limpa cache de arquivos após upload completo. Próximo envio
+        // começa com slate limpo — mesmo se usuário não recarregar a página.
+        window._fesfFiles = {};
+
+        // Se houve falha de upload, avisa o usuario (envio foi criado)
+        if (falhas.length) {
+          alert('Envio criado (protocolo ' + envio.protocolo + '), mas ' + falhas.length +
+                ' arquivo(s) falharam ao subir:\n' +
+                falhas.map(f => '• ' + f.name + ' (' + f.erro + ')').join('\n') +
+                '\n\nEntre em contato com a unidade para reenviar.');
+        }
+
+        // V220: redireciona para sucesso.html SO se o usuario tiver token (cenario portal).
+        // Para link publico (anonimo) sucesso.html quebra porque chama api.envio() autenticado —
+        // entao usamos a view-success local do form, populando com o protocolo REAL do backend.
+        if (getToken() && envio.id) {
+          location.href = `/app/sucesso.html?id=${envio.id}`;
+          return;
+        }
+        // Cenario publico: usa view-success local
+        try {
+          const setText = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+          setText('protocolNum', envio.protocolo);
+          setText('sentAt', new Date(envio.criado_em).toLocaleString('pt-BR'));
+          if (window.state) {
+            setText('sentSupplier', window.state.data?.q1_nomeFornecedor || '—');
+            setText('sentValue', window.state.data?.q3_valor ? 'R$ ' + window.state.data.q3_valor : '—');
+          }
+          if (typeof window.showView === 'function') {
+            window.showView('view-success');
+          }
+        } catch (uierr) {
+          // fallback: mostra protocolo em alert se nao consegue popular UI
+          alert('Envio recebido pela FESF!\n\nProtocolo: ' + envio.protocolo +
+                '\n\nGuarde este número — você pode consultar em /app/consulta.html');
+        }
+      } catch (err) {
+        const msg = err.message + (err.body ? '\n\n' + JSON.stringify(err.body) : '');
+        alert('Não foi possível enviar à FESF: ' + msg);
+        clone.disabled = false;
+        clone.textContent = txt;
+      }
+    });
+    console.log('[form-adapter] bridge instalado · modalidade=' + cfg.modalidadeCodigo + ' unidade=' + cfg.unidadeIdent + ' competencia=' + cfg.competencia);
+
+    // Mostra contexto no topo da pagina (preenche um overlay informativo)
+    showContextBanner();
+  }
+
+  function showContextBanner() {
+    resolveContext().then(({ modalidade, unidade }) => {
+      // Cria banner topo
+      const b = document.createElement('div');
+      b.id = 'fesf-context-banner';
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#5B5499;color:#fff;padding:8px 16px;font-size:12.5px;z-index:1000;display:flex;align-items:center;gap:14px;font-family:-apple-system,sans-serif';
+      const u = getUsuario();
+      const quem = cfg.publicToken
+        ? `Envio via link público <code style="background:rgba(255,255,255,.15);padding:1px 5px;border-radius:3px">${cfg.publicToken.substring(0,20)}…</code>`
+        : (u ? `Logado como ${u.nome}` : 'Não autenticado');
+      // V238 fix FH1: só renderiza o segmento "Unidade ..." se houver unidade real (evita "Unidade —" vazio quando admin testa o form sem unidade vinculada).
+      const unidadeSigla = unidade ? unidade.sigla : cfg.unidadeIdent;
+      const unidadeFrag = unidadeSigla ? `<span style="opacity:.8">· Unidade ${unidadeSigla}</span>` : '';
+      const competenciaFrag = cfg.competencia ? `<span style="opacity:.8">· Competência ${cfg.competencia}</span>` : '';
+      b.innerHTML = `
+        <strong>FESF-SUS · ${modalidade ? modalidade.nome : cfg.modalidadeCodigo}</strong>
+        ${unidadeFrag}
+        ${competenciaFrag}
+        <span style="flex:1"></span>
+        <span style="opacity:.8">${quem}</span>
+        <a href="/app/portal.html" style="color:#fff;text-decoration:underline">← portal</a>
+      `;
+      document.body.appendChild(b);
+      // Empurra o conteudo pra baixo
+      document.body.style.paddingTop = '36px';
+    }).catch(e => console.warn(e));
+  }
+
+  // Inicializa quando a pagina ja carregou (o form define finalizeSubmission no proprio script)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', installBridge);
+  } else {
+    installBridge();
+  }
+})();

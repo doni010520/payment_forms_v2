@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unidades · FESF Sede</title>
+<link rel="stylesheet" href="/app/style.css">
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div><strong>FESF Sede · Administração</strong><span class="muted" style="font-size:11px;display:block">Gestão de unidades</span></div>
+  </div>
+  <div class="tabs">
+    <a href="/app/admin.html">Dashboard</a>
+    <a href="/app/admin-pagamentos.html">Pagamentos</a>
+    <a class="active">Unidades</a>
+    <a href="/app/admin-fornecedores.html">Fornecedores</a>
+    <a href="/app/admin-usuarios.html">Usuários</a>
+    <a href="/app/admin-relatorios.html">Relatórios</a>
+    <a href="/app/admin-auditoria.html">Auditoria</a>
+    <a href="/app/admin-emails.html">E-mails</a>
+    <a href="/app/admin-smtp.html">SMTP</a>
+    <a href="/app/admin-status.html">Status</a>
+    <a href="/app/admin-api.html">API</a>
+    <a href="/app/admin-config.html">Configurações</a>
+  </div>
+  <div class="userbox">
+    <div><strong id="userNome">—</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · Admin</span></div>
+    <div class="avatar" id="userAvatar">—</div>
+    <button onclick="sair()">Sair</button>
+  </div>
+</nav>
+
+<div class="page">
+  <!-- V252: header rico alinhado ao mockup screen-gerunidades -->
+  <div class="between" style="align-items:flex-start;margin-bottom:18px;gap:18px;flex-wrap:wrap">
+    <div>
+      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:4px">Administração da rede</div>
+      <h1 style="margin:0 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">Unidades
+        <span class="pill" style="background:var(--accent-soft, #e3f0ec);color:var(--accent, #4fa590);font-size:11.5px;padding:3px 10px;border-radius:14px;font-weight:600">● Visão: FESF Sede</span>
+      </h1>
+      <p class="muted" id="unidades-sub" style="margin:0;font-size:13.5px">—</p>
+    </div>
+    <div class="filters" style="gap:8px">
+      <button onclick="exportarUnidadesCSV()" title="Exportar lista de unidades em CSV">⬇ Exportar</button>
+      <button class="primary" onclick="abrirModal('modal-unidade')">+ Cadastrar unidade</button>
+    </div>
+  </div>
+
+  <div class="kpi-row" id="kpis"></div>
+  <div class="card">
+    <div class="between">
+      <h2 style="margin:0">Lista de unidades</h2>
+      <div class="filters" style="gap:8px">
+        <input type="search" id="f-busca-uni" placeholder="Buscar por nome, sigla ou cidade…" style="min-width:240px">
+        <select id="f-status-uni">
+          <option value="">Todos os status</option>
+          <option value="ativa">Ativas</option>
+          <option value="inativa">Inativas</option>
+        </select>
+      </div>
+    </div>
+    <div id="lista-unidades" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-unidade">
+  <div class="modal">
+    <h2 id="modal-title">Nova unidade</h2>
+    <form id="form-unidade">
+      <input type="hidden" id="un-id">
+      <div class="row">
+        <div class="field"><label>Sigla</label><input id="un-sigla" required maxlength="20" placeholder="Ex: HECC"></div>
+        <div class="field"><label>Estado (UF)</label><input id="un-uf" value="BA" maxlength="2"></div>
+      </div>
+      <div class="field"><label>Nome completo</label><input id="un-nome" required placeholder="Ex: Hospital Estadual Costa dos Coqueiros"></div>
+      <div class="field"><label>Cidade</label><input id="un-cidade" required></div>
+      <div class="actions">
+        <button type="button" onclick="fecharModal('modal-unidade')">Cancelar</button>
+        <button type="submit" class="primary">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+import { api, requireSession, clearSession, brl, dataBR, toast } from '/app/api.js';
+const usuario = requireSession();
+if (!usuario || usuario.papel !== 'admin_fesf') location.href = '/app/login.html';
+document.getElementById('userNome').textContent = usuario.nome;
+document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+window.abrirModal = id => { document.getElementById(id).classList.add('open'); };
+window.fecharModal = id => { document.getElementById(id).classList.remove('open'); };
+document.querySelectorAll('.modal-bg').forEach(bg => bg.addEventListener('click', (e) => { if (e.target === bg) bg.classList.remove('open'); }));
+
+let _unidadesCache = []; let _metricasCache = [];
+async function carregar() {
+  const { unidades } = await api.unidadesTodas();
+  _unidadesCache = unidades;
+  // KPIs gerais
+  const ativas = unidades.filter(u => u.ativa).length;
+  const inativas = unidades.length - ativas;
+  // Carregar metricas
+  let metricas = null;
+  try { metricas = await api.metricas(); } catch {}
+  const m = metricas?.por_unidade || [];
+  _metricasCache = m;
+  const totalEnvios = m.reduce((a, x) => a + x.total_envios, 0);
+  const totalValor = m.reduce((a, x) => a + Number(x.total_centavos||0), 0);
+
+  // V252: subtitle dinâmico (mockup-alike)
+  document.getElementById('unidades-sub').textContent =
+    `${unidades.length} unidades cadastradas · ${ativas} ativa${ativas !== 1 ? 's' : ''} · ${inativas} inativa${inativas !== 1 ? 's' : ''}`;
+
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="label">Unidades ativas</div><div class="value">${ativas}</div><div class="sub">de ${unidades.length} totais</div></div>
+    <div class="kpi accent"><div class="label">Envios da rede</div><div class="value">${totalEnvios}</div><div class="sub">somatório</div></div>
+    <div class="kpi accent"><div class="label">Movimento total</div><div class="value mono" style="font-size:20px">${brl(totalValor)}</div></div>
+    <div class="kpi warn"><div class="label">Inativas</div><div class="value">${inativas}</div></div>
+  `;
+  renderListaUnidades();
+}
+
+function renderListaUnidades() {
+  const busca = (document.getElementById('f-busca-uni')?.value || '').toLowerCase();
+  const status = document.getElementById('f-status-uni')?.value || '';
+  let lista = _unidadesCache;
+  if (busca) lista = lista.filter(u => `${u.sigla} ${u.nome} ${u.cidade}`.toLowerCase().includes(busca));
+  if (status === 'ativa') lista = lista.filter(u => u.ativa);
+  if (status === 'inativa') lista = lista.filter(u => !u.ativa);
+  const m = _metricasCache;
+  if (lista.length === 0) {
+    document.getElementById('lista-unidades').innerHTML = '<div class="muted" style="padding:24px;text-align:center">Nenhuma unidade encontrada com esses filtros.</div>';
+    return;
+  }
+  const unidades = lista;
+  document.getElementById('lista-unidades').innerHTML = `
+    <table>
+      <thead><tr><th>Sigla</th><th>Nome</th><th>Cidade</th><th>UF</th><th>Status</th><th>Envios</th><th>Movimento</th><th></th></tr></thead>
+      <tbody>
+        ${unidades.map(u => {
+          const met = m.find(x => x.sigla === u.sigla) || { total_envios: 0, total_centavos: 0 };
+          return `
+          <tr style="${u.ativa ? '' : 'opacity:.55'}">
+            <td><strong>${u.sigla}</strong></td>
+            <td>${u.nome}</td>
+            <td>${u.cidade}</td>
+            <td>${u.estado}</td>
+            <td>${u.ativa ? '<span class="pill aprovado">Ativa</span>' : '<span class="pill cancelada">Inativa</span>'}</td>
+            <td>${met.total_envios}</td>
+            <td style="font-family:ui-monospace,monospace">${brl(met.total_centavos)}</td>
+            <td style="white-space:nowrap">
+              <button onclick="verDetalhe(${u.id})">Detalhes</button>
+              <button onclick="editar(${u.id}, ${JSON.stringify(u).replace(/"/g,'&quot;')})">Editar</button>
+              ${u.ativa ? `<button class="warn" onclick="desativar(${u.id})">Desativar</button>` : `<button class="success" onclick="ativar(${u.id})">Reativar</button>`}
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+window.editar = (id, u) => {
+  if (typeof u === 'string') u = JSON.parse(u.replace(/&quot;/g,'"'));
+  document.getElementById('modal-title').textContent = `Editar ${u.sigla}`;
+  document.getElementById('un-id').value = id;
+  document.getElementById('un-sigla').value = u.sigla;
+  document.getElementById('un-sigla').disabled = true;
+  document.getElementById('un-nome').value = u.nome;
+  document.getElementById('un-cidade').value = u.cidade;
+  document.getElementById('un-uf').value = u.estado;
+  abrirModal('modal-unidade');
+};
+window.ativar = async (id) => { try { await api.ativarUnidade(id); toast('Unidade reativada','sucesso'); carregar(); } catch(e){toast(e.message,'erro');} };
+window.desativar = async (id) => { if (!confirm('Desativar unidade?')) return; try { await api.desativarUnidade(id); toast('Unidade desativada','sucesso'); carregar(); } catch(e){toast(e.message,'erro');} };
+window.verDetalhe = (id) => { location.href = `/app/admin-unidade.html?id=${id}`; };
+
+document.getElementById('form-unidade').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('un-id').value;
+  const dados = {
+    sigla: document.getElementById('un-sigla').value.trim().toUpperCase(),
+    nome: document.getElementById('un-nome').value.trim(),
+    cidade: document.getElementById('un-cidade').value.trim(),
+    estado: document.getElementById('un-uf').value.trim().toUpperCase(),
+  };
+  try {
+    if (id) await api.atualizarUnidade(Number(id), dados);
+    else    await api.criarUnidade(dados);
+    fecharModal('modal-unidade');
+    document.getElementById('form-unidade').reset();
+    document.getElementById('un-id').value = '';
+    document.getElementById('un-sigla').disabled = false;
+    document.getElementById('modal-title').textContent = 'Nova unidade';
+    toast('Salvo', 'sucesso'); carregar();
+  } catch (err) { toast(err.message, 'erro'); }
+});
+
+document.getElementById('modal-unidade').addEventListener('click', (e) => {
+  // ao abrir limpa estado de edicao se nao tem id
+  if (e.target.id === 'modal-unidade') return;
+});
+// Reset ao abrir o modal vazio
+const btnNovo = document.querySelector('.between button.primary');
+btnNovo.addEventListener('click', () => {
+  document.getElementById('form-unidade').reset();
+  document.getElementById('un-id').value = '';
+  document.getElementById('un-sigla').disabled = false;
+  document.getElementById('modal-title').textContent = 'Nova unidade';
+});
+
+carregar();
+
+// V252: filtros + exportar
+document.getElementById('f-busca-uni')?.addEventListener('input', renderListaUnidades);
+document.getElementById('f-status-uni')?.addEventListener('change', renderListaUnidades);
+window.exportarUnidadesCSV = () => {
+  const lista = _unidadesCache;
+  const linhas = ['Sigla;Nome;Cidade;UF;Tipo;Status'];
+  lista.forEach(u => linhas.push([u.sigla, `"${u.nome.replace(/"/g,'""')}"`, u.cidade, u.estado, u.tipo || '', u.ativa ? 'Ativa' : 'Inativa'].join(';')));
+  const csv = '﻿' + linhas.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `unidades-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+};
+</script>
+
+</body>
+</html>

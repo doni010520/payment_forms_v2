@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bem-vindo · FESF-SUS</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  body{background:linear-gradient(135deg, #5B5499 0%, #4FA590 100%); min-height:100vh; padding:40px 20px}
+  .wrap{background:#fff;padding:36px;border-radius:16px;max-width:920px;margin:0 auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+  .brand-mark{width:48px;height:48px;background:var(--primary);color:#fff;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+  h1{font-size:28px;margin:0 0 8px}
+  .lead{color:var(--text-3);font-size:15px;margin:0 0 30px}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:30px}
+  .step{padding:20px;border:1px solid var(--border);border-radius:12px}
+  .step .num{width:34px;height:34px;border-radius:50%;background:var(--primary-soft);color:var(--primary-2);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;margin-bottom:12px}
+  .step h3{margin:0 0 6px;font-size:15px}
+  .step p{margin:0;font-size:13px;color:var(--text-3);line-height:1.5}
+  .roles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:14px}
+  .role{padding:18px;border-radius:10px;border-left:4px solid var(--primary)}
+  .role.indenizatorio{border-left-color:var(--accent);background:var(--accent-soft)}
+  .role.warn{border-left-color:var(--warning);background:var(--warning-soft)}
+  .role.primary{border-left-color:var(--primary);background:var(--primary-soft)}
+  .role strong{display:block;margin-bottom:6px;font-size:14.5px}
+  .role p{margin:0;font-size:12.5px;color:var(--text-2);line-height:1.5}
+  .footer{margin-top:30px;padding-top:20px;border-top:1px solid var(--border);text-align:center}
+  /* V262: hero "Cadastro aprovado" + checklist 5 passos (estilo mockup screen-onboarding) */
+  .hero-onb{padding:24px 26px;border-radius:14px;background:linear-gradient(135deg,rgba(91,84,153,.06),rgba(79,165,144,.06));border:1px solid rgba(91,84,153,.16);margin-bottom:24px}
+  .hero-onb .badge{display:inline-block;padding:3px 10px;background:#d4f0d6;color:#2f7d5c;border-radius:14px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:10px}
+  .hero-onb h2{margin:0 0 6px;font-size:22px}
+  .hero-onb p{margin:0;color:var(--text-2);font-size:13.5px}
+  .checklist{margin:24px 0;display:flex;flex-direction:column;gap:8px}
+  .check-item{display:grid;grid-template-columns:42px 1fr auto;gap:14px;align-items:center;padding:14px 16px;border:1px solid var(--border);border-radius:10px;background:#fff}
+  .check-item.done{background:rgba(79,165,144,.06);border-color:rgba(79,165,144,.3)}
+  .check-item.active{background:rgba(91,84,153,.04);border-color:rgba(91,84,153,.35);box-shadow:0 0 0 3px rgba(91,84,153,.06)}
+  .check-item .num{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:var(--surface-2);color:var(--text-2)}
+  .check-item.done .num{background:var(--accent);color:#fff}
+  .check-item.active .num{background:var(--primary);color:#fff}
+  .check-item h4{margin:0 0 2px;font-size:14px}
+  .check-item .desc{margin:0;font-size:12.5px;color:var(--text-3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-mark">FESF</div>
+    <div>
+      <h1 style="margin:0">Bem-vindo ao Portal de Pagamentos</h1>
+      <p class="muted" style="margin:4px 0 0;font-size:13px">FESF-SUS · Fundação Estatal Saúde da Família</p>
+    </div>
+  </div>
+
+  <p class="lead">Este portal centraliza o envio, análise e aprovação de documentação para pagamentos da rede FESF-SUS. Conheça os 3 cenários de uso e o ciclo de vida de cada envio.</p>
+
+  <!-- V262: hero + checklist 5 passos (estilo mockup screen-onboarding) — visível para fornecedor logado -->
+  <div id="hero-fornecedor" class="hero-onb" style="display:none">
+    <span class="badge">Cadastro aprovado</span>
+    <h2 id="hero-titulo">Bem-vinda(o) ao portal</h2>
+    <p>Sua conta foi ativada pela FESF e você já pode começar a enviar pagamentos. Antes, complete os passos abaixo para garantir agilidade nos seus envios.</p>
+  </div>
+
+  <div id="checklist-fornecedor" class="checklist" style="display:none">
+    <div class="check-item done">
+      <div class="num">✓</div>
+      <div><h4>Cadastro aprovado pela FESF</h4><p class="desc">Sua conta foi validada e ativada pela operação FESF.</p></div>
+      <span class="pill aprovado">Concluído</span>
+    </div>
+    <div class="check-item active">
+      <div class="num">2</div>
+      <div><h4>Confirme os dados da empresa</h4><p class="desc">Reveja telefone, e-mail e endereço — usaremos para notificações oficiais.</p></div>
+      <button class="primary" onclick="location.href='/app/perfil.html'">Confirmar dados</button>
+    </div>
+    <div class="check-item">
+      <div class="num">3</div>
+      <div><h4>Anexe certidões vigentes (recomendado)</h4><p class="desc">Mantenha CND, CRF/FGTS, CNDT e CGU atualizadas — agilizam aprovação.</p></div>
+      <button onclick="location.href='/app/perfil.html#documentos'">Anexar agora</button>
+    </div>
+    <div class="check-item">
+      <div class="num">4</div>
+      <div><h4>Cadastre seu time</h4><p class="desc">Adicione operadores da sua empresa que também possam fazer envios.</p></div>
+      <button onclick="location.href='/app/perfil.html#equipe'">Convidar pessoas</button>
+    </div>
+    <div class="check-item">
+      <div class="num">5</div>
+      <div><h4>Faça seu primeiro envio</h4><p class="desc">Você já pode enviar pagamentos para as unidades onde tem contrato vigente.</p></div>
+      <button class="primary" onclick="location.href='/app/portal.html'">Ir para o portal</button>
+    </div>
+  </div>
+
+  <h2 style="font-size:18px;margin:30px 0 14px">Como funciona em 3 passos</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="num">1</div>
+      <h3>O fornecedor envia documentação</h3>
+      <p>Pelo Portal (logado), por Link Público (sem login) ou via Lançamento Manual feito pela própria unidade FESF.</p>
+    </div>
+    <div class="step">
+      <div class="num">2</div>
+      <h3>A unidade FESF analisa</h3>
+      <p>O operador da unidade revisa, aprova, rejeita ou solicita retificação. Toda ação fica registrada na trilha de auditoria.</p>
+    </div>
+    <div class="step">
+      <div class="num">3</div>
+      <h3>Pagamento liberado</h3>
+      <p>Aprovado, o envio segue para FESF Sede consolidar e processar o pagamento. Fornecedor é notificado em cada etapa.</p>
+    </div>
+  </div>
+
+  <h2 style="font-size:18px;margin:30px 0 14px">Os 3 cenários de envio</h2>
+  <div class="roles">
+    <div class="role primary">
+      <strong><span class="origin portal">Portal</span> Fornecedor logado</strong>
+      <p><strong>Caminho padrão (recomendado).</strong> Fornecedor se cadastra em /app/cadastro.html, recebe usuário e senha temporária após aprovação da FESF, e usa o portal para enviar documentação a qualquer unidade da rede.</p>
+    </div>
+    <div class="role indenizatorio">
+      <strong><span class="origin link_publico">Link público</span> Sem login</strong>
+      <p><strong>Exceção.</strong> A FESF gera um link com token único, envia ao fornecedor por e-mail. O fornecedor preenche e submete sem precisar criar conta.</p>
+    </div>
+    <div class="role warn">
+      <strong><span class="origin manual">Manual</span> Operador opera</strong>
+      <p><strong>Última alternativa.</strong> Quando o fornecedor não se cadastra e se recusa, o operador da unidade lança o envio em nome dele, com justificativa obrigatória.</p>
+    </div>
+  </div>
+
+  <h2 style="font-size:18px;margin:30px 0 14px">Para fornecedores: ciclo de vida do seu envio</h2>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:13px;align-items:center">
+    <span class="pill em-analise">Em análise</span> →
+    <span class="muted">a unidade pode pedir retificação</span> →
+    <span class="pill aguardando_ret">Aguardando retificação</span> →
+    <span class="pill retificado">Retificado</span> →
+    <span class="pill aprovado">Aprovado</span> →
+    <span class="pill pago">Pago</span>
+  </div>
+  <p class="muted" style="font-size:12.5px;margin-top:10px">A qualquer momento, você pode ser notificado de mudanças via sino de notificações 🔔</p>
+
+  <h2 style="font-size:18px;margin:30px 0 14px">Para operadores: ferramentas</h2>
+  <div class="roles">
+    <div class="role primary"><strong>Painel</strong><p>Dashboard da unidade com KPIs, lista filtrável de envios e ações rápidas (aprovar, retificar, rejeitar).</p></div>
+    <div class="role indenizatorio"><strong>Pendências</strong><p>Expectativas de envio criadas para fornecedores. O sistema dispara lembretes automaticamente.</p></div>
+    <div class="role warn"><strong>Lançamento manual</strong><p>Para casos onde o fornecedor não respondeu. Você cadastra o externo e lança o envio em nome dele.</p></div>
+  </div>
+
+  <h2 style="font-size:18px;margin:30px 0 14px">Para a FESF Sede: visão consolidada</h2>
+  <ul style="font-size:13.5px;color:var(--text-2);line-height:1.7">
+    <li><strong>Dashboard</strong> com KPIs da rede inteira</li>
+    <li><strong>Unidades</strong> · CRUD de unidades operacionais</li>
+    <li><strong>Usuários</strong> · Gestão de operadores, admins e fornecedores</li>
+    <li><strong>Relatórios</strong> · Gráficos por unidade, origem, modalidade, status. Export CSV</li>
+    <li><strong>Configurações</strong> · Modalidades, cadência de lembretes, origens permitidas</li>
+  </ul>
+
+  <div class="footer" id="footer-default">
+    <a href="/app/login.html" style="font-weight:600">← Acessar o portal</a>
+  </div>
+  <div class="footer" id="footer-primeiro" style="display:none">
+    <button class="primary" onclick="concluirOnboarding()" style="padding:12px 24px;font-size:14px;font-weight:600">Começar a usar →</button>
+  </div>
+</div>
+
+<script type="module">
+import { api, getUsuario } from '/app/api.js';
+const primeiro = new URLSearchParams(location.search).get('primeiro') === '1';
+const u = getUsuario();
+if (primeiro && u) {
+  document.getElementById('footer-default').style.display = 'none';
+  document.getElementById('footer-primeiro').style.display = '';
+}
+// V262: hero + checklist visíveis apenas para fornecedor logado (alinhado ao mockup screen-onboarding)
+if (u && u.papel === 'fornecedor') {
+  document.getElementById('hero-fornecedor').style.display = '';
+  document.getElementById('checklist-fornecedor').style.display = '';
+  const t = document.getElementById('hero-titulo');
+  if (t && u.fornecedor_razao) t.textContent = `Bem-vinda(o), ${u.fornecedor_razao}`;
+  else if (t && u.nome) t.textContent = `Bem-vinda(o), ${u.nome}`;
+}
+window.concluirOnboarding = async () => {
+  try { await api.concluirOnboarding(); } catch {}
+  // Atualiza sessao local
+  const u = getUsuario();
+  if (u) { u.primeiro_acesso = false; localStorage.setItem('fesf_usuario', JSON.stringify(u)); }
+  const dest = u?.papel === 'fornecedor' ? '/app/portal.html' : u?.papel === 'admin_fesf' ? '/app/admin.html' : '/app/painel.html';
+  location.href = dest;
+};
+</script>
+</body>
+</html>

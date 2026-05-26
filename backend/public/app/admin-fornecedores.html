@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fornecedores · FESF Sede</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  .tipo-chip{display:inline-block;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+  .tipo-chip.com_portal{background:#d4f0d6;color:#2f7d5c}
+  .tipo-chip.externo_pj{background:#e3e7f5;color:#3d5ca6}
+  .tipo-chip.externo_pf{background:#fff4d6;color:#a06800}
+  .eng-chip{display:inline-block;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+  .eng-chip.ativo{background:#d4f0d6;color:#2f7d5c}
+  .eng-chip.inadimplente{background:#ffd6d6;color:#b22828}
+  .eng-chip.inativo{background:#e5e5e5;color:#666}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div><strong>FESF Sede · Fornecedores</strong><span class="muted" style="font-size:11px;display:block">Cadastro consolidado</span></div>
+  </div>
+  <div class="tabs">
+    <a href="/app/admin.html">Dashboard</a>
+    <a href="/app/admin-pagamentos.html">Pagamentos</a>
+    <a href="/app/admin-unidades.html">Unidades</a>
+    <a class="active">Fornecedores</a>
+    <a href="/app/admin-usuarios.html">Usuários</a>
+    <a href="/app/admin-relatorios.html">Relatórios</a>
+    <a href="/app/admin-auditoria.html">Auditoria</a>
+    <a href="/app/admin-emails.html">E-mails</a>
+    <a href="/app/admin-smtp.html">SMTP</a>
+    <a href="/app/admin-status.html">Status</a>
+    <a href="/app/admin-api.html">API</a>
+    <a href="/app/admin-config.html">Configurações</a>
+  </div>
+  <div class="userbox">
+    <div><strong id="userNome">—</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · Admin</span></div>
+    <div class="avatar" id="userAvatar">—</div>
+    <button onclick="sair()">Sair</button>
+  </div>
+</nav>
+
+<div class="page">
+  <!-- V253: header rico alinhado ao mockup screen-fornecedores -->
+  <div class="between" style="align-items:flex-start;margin-bottom:18px;gap:18px;flex-wrap:wrap">
+    <div>
+      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:4px">Administração da rede</div>
+      <h1 style="margin:0 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">Fornecedores
+        <span class="pill" style="background:var(--accent-soft, #e3f0ec);color:var(--accent, #4fa590);font-size:11.5px;padding:3px 10px;border-radius:14px;font-weight:600">● Visão: FESF Sede</span>
+      </h1>
+      <p class="muted" id="fornecedores-sub" style="margin:0;font-size:13.5px">—</p>
+    </div>
+    <div class="filters" style="gap:8px">
+      <button onclick="exportarFornecedoresCSV()" title="Exportar lista em CSV">⬇ Exportar</button>
+      <button class="primary" onclick="location.href='/app/cadastro.html'">+ Cadastrar fornecedor</button>
+    </div>
+  </div>
+
+  <div class="kpi-row" id="kpis-fornecedores"></div>
+
+  <div class="card">
+    <div class="between" style="margin-bottom:14px;flex-wrap:wrap;gap:10px">
+      <div class="filters" style="gap:8px">
+        <input type="search" id="f-busca" placeholder="Buscar por razão social/CNPJ..." style="min-width:240px">
+        <select id="f-tipo">
+          <option value="">Todos os tipos</option>
+          <option value="com_portal">Com portal (auto-cadastro)</option>
+          <option value="externo_pj">Externo PJ (sem portal)</option>
+          <option value="externo_pf">Externo PF</option>
+        </select>
+        <select id="f-engajamento">
+          <option value="">Todos engajamentos</option>
+          <option value="ativo">Ativo</option>
+          <option value="inadimplente">Inadimplente</option>
+          <option value="inativo">Inativo</option>
+        </select>
+        <button onclick="carregar()">Aplicar</button>
+      </div>
+      <span id="contador" class="muted">—</span>
+    </div>
+    <div id="lista"></div>
+  </div>
+</div>
+
+<script type="module">
+import { api, requireSession, clearSession, dataBR, toast } from '/app/api.js';
+const usuario = requireSession();
+if (!usuario || usuario.papel !== 'admin_fesf') location.href = '/app/login.html';
+document.getElementById('userNome').textContent = usuario.nome;
+document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+
+let todos = [];
+
+async function carregar() {
+  try {
+    // V253: carrega TODOS para computar KPIs corretos, então aplica filtro de tipo no client
+    const r = await api.fornecedores(null);
+    todosForn = r.fornecedores || [];
+    todos = todosForn;
+    atualizarKPIs();
+    renderizar();
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+}
+window.carregar = carregar;
+
+let todosForn = [];
+
+function atualizarKPIs() {
+  // V253: KPIs e subtitle dinâmicos ao estilo mockup
+  const total = todosForn.length;
+  const comPortal = todosForn.filter(f => f.tipo === 'com_portal').length;
+  const externos = todosForn.filter(f => f.tipo !== 'com_portal').length;
+  const pendentes = todosForn.filter(f => f.pendente_aprovacao).length;
+  const inadimplentes = todosForn.filter(f => f.status_engajamento === 'inadimplente').length;
+  const inativos = todosForn.filter(f => f.status_engajamento === 'inativo' || !f.ativo).length;
+  document.getElementById('fornecedores-sub').textContent =
+    `${comPortal} com portal + ${externos} externo${externos !== 1 ? 's' : ''} (sem portal) · ${total} fornecedores totais na rede`;
+  document.getElementById('kpis-fornecedores').innerHTML = `
+    <div class="kpi ${pendentes > 0 ? 'danger' : ''}"><div class="label">Pendentes aprovação</div><div class="value">${pendentes}</div><div class="sub">${pendentes > 0 ? 'aguardando análise' : '— sem pendências'}</div></div>
+    <div class="kpi accent"><div class="label">Com portal · ativos</div><div class="value">${comPortal}</div><div class="sub">auto-serviço</div></div>
+    <div class="kpi"><div class="label">Externos (sem portal)</div><div class="value">${externos}</div><div class="sub">operador opera</div></div>
+    <div class="kpi warn"><div class="label">Inadimplentes / inativos</div><div class="value">${inadimplentes + inativos}</div><div class="sub">${inadimplentes} inadimp · ${inativos} inativ</div></div>
+  `;
+}
+
+window.exportarFornecedoresCSV = () => {
+  const lista = todosForn;
+  const linhas = ['Razão Social;CNPJ/CPF;Tipo;Engajamento;E-mail'];
+  lista.forEach(f => {
+    const tipo = ({com_portal:'Portal', externo_pj:'Externo PJ', externo_pf:'Externo PF'})[f.tipo] || f.tipo || '';
+    const eng = f.status_engajamento || 'ativo';
+    linhas.push([`"${(f.razao_social||'').replace(/"/g,'""')}"`, f.documento || '', tipo, eng, f.email || ''].join(';'));
+  });
+  const csv = '﻿' + linhas.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `fornecedores-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+};
+
+function renderizar() {
+  const busca = (document.getElementById('f-busca').value || '').toLowerCase();
+  const eng = document.getElementById('f-engajamento')?.value || '';
+  const tipo = document.getElementById('f-tipo')?.value || '';
+  const lista = todos.filter(f => {
+    if (tipo && f.tipo !== tipo) return false;
+    if (busca && !(f.razao_social.toLowerCase().includes(busca) || (f.documento || '').includes(busca))) return false;
+    if (eng && (f.status_engajamento || 'ativo') !== eng) return false;
+    return true;
+  });
+  document.getElementById('contador').textContent = `${lista.length} fornecedor(es)` + (lista.length !== todos.length ? ` (de ${todos.length})` : '');
+  if (lista.length === 0) {
+    document.getElementById('lista').innerHTML = '<div class="empty"><div style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:40px">∅</div><h3>Nenhum fornecedor encontrado</h3><p>Tente ajustar a busca ou o filtro de tipo.</p></div></div>';
+    return;
+  }
+  document.getElementById('lista').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Razão social</th><th>CNPJ/CPF</th><th>Tipo</th><th>Engajamento</th><th>E-mail</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${lista.map(f => {
+          const eng = f.status_engajamento || 'ativo';
+          const engLabel = { ativo: 'Ativo', inadimplente: 'Inadimplente', inativo: 'Inativo' }[eng] || eng;
+          const engTitle = f.motivo_engajamento ? ` title="${f.motivo_engajamento.replace(/"/g,'&quot;')}"` : '';
+          return `
+          <tr>
+            <td><strong>${f.razao_social}</strong></td>
+            <td><code>${f.documento || '—'}</code></td>
+            <td><span class="tipo-chip ${f.tipo}">${({com_portal:'Portal', externo_pj:'Externo PJ', externo_pf:'Externo PF'})[f.tipo] || f.tipo}</span></td>
+            <td><span class="eng-chip ${eng}"${engTitle}>${engLabel}</span></td>
+            <td>${f.email || '—'}</td>
+            <td>
+              <button onclick="location.href='/app/admin-fornecedor.html?id=${f.id}'">Detalhe</button>
+              <button data-eng="${f.id}" data-current="${eng}">Engajamento</button>
+            </td>
+          </tr>
+        `;}).join('')}
+      </tbody>
+    </table>`;
+}
+
+document.getElementById('f-busca').addEventListener('input', renderizar);
+document.getElementById('f-tipo').addEventListener('change', carregar);
+document.getElementById('f-engajamento').addEventListener('change', renderizar);
+
+// Toggle engajamento
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-eng]');
+  if (!btn) return;
+  const id = Number(btn.dataset.eng);
+  const atual = btn.dataset.current || 'ativo';
+  const opcoes = '\n[1] ativo\n[2] inadimplente (recusa-se a enviar)\n[3] inativo';
+  const escolha = prompt(`Engajamento atual: ${atual}\n\nQual o novo status?${opcoes}\n\nDigite 1, 2 ou 3:`);
+  if (!escolha) return;
+  const novo = { '1':'ativo', '2':'inadimplente', '3':'inativo' }[escolha.trim()];
+  if (!novo) return toast('Opção inválida', 'erro');
+  let motivo = null;
+  if (novo === 'inadimplente') {
+    motivo = prompt('Justificativa da inadimplência (mín. 5 caracteres):');
+    if (!motivo || motivo.length < 5) return toast('Motivo obrigatório', 'erro');
+  }
+  try { await api.atualizarEngajamentoFornecedor(id, novo, motivo); toast('Engajamento atualizado','sucesso'); carregar(); }
+  catch (err) { toast(err.message, 'erro'); }
+});
+
+carregar();
+</script>
+
+</body>
+</html>

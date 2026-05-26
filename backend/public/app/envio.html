@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Análise de envio · FESF-SUS</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  /* ---- Detail header ---- */
+  .back-link{font-size:13px;color:var(--primary-2);display:inline-block;margin-bottom:14px;text-decoration:none}
+  .back-link:hover{text-decoration:underline}
+  /* V269: detail-header com pill status maior + eyebrow rico + valor monospace prominente */
+  .detail-header{display:grid;grid-template-columns:1fr auto;gap:24px;padding:22px 26px;background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:18px;align-items:start;box-shadow:0 1px 2px rgba(20,20,30,.04)}
+  .detail-header .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);font-weight:600;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .detail-header .eyebrow > span:first-child{color:var(--text-2)}
+  .detail-header h1{margin:0 0 8px;font-family:ui-monospace,monospace;font-size:26px;letter-spacing:.5px;font-weight:700}
+  .detail-header .desc{margin:0;color:var(--text-2);font-size:13.5px;line-height:1.6}
+  .detail-header .desc strong{color:var(--text);font-weight:600}
+  .detail-header .right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+  .detail-header .right .pill{font-size:12px;padding:5px 14px}
+  .detail-header .right .value{font-family:ui-monospace,monospace;font-weight:700;font-size:24px;color:var(--text);margin-top:4px;letter-spacing:.3px}
+  .detail-header .right .competencia{font-size:11.5px;color:var(--muted);margin-top:2px}
+  /* ---- Timeline (V294: alinhamento preciso com mockup screen-details — dots minimalistas 14px via ::before, halo no active) ---- */
+  .timeline-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px 28px 18px;margin-bottom:20px;box-shadow:0 1px 2px rgba(20,20,30,.04)}
+  .timeline-wrap h3{margin:0 0 18px;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600}
+  .timeline{display:flex;gap:0;align-items:flex-start;position:relative}
+  .timeline-step{flex:1;text-align:center;padding-top:28px;position:relative;min-width:0;background:none}
+  /* Dot 14px via ::before (mockup) — borda branca de 3px que cria efeito flutuante */
+  .timeline-step::before{content:"";position:absolute;top:8px;left:50%;width:14px;height:14px;background:var(--border);border-radius:50%;transform:translateX(-50%);border:3px solid var(--surface);box-shadow:0 0 0 1px var(--border);z-index:2;transition:all .18s ease}
+  /* Linha conectora 2px (mockup) */
+  .timeline-step::after{content:"";position:absolute;top:14px;left:calc(50% + 8px);right:calc(-50% + 8px);height:2px;background:var(--border);z-index:1}
+  .timeline-step:last-child::after{display:none}
+  .timeline-step .label{font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:2px;line-height:1.3;text-transform:none;letter-spacing:0}
+  .timeline-step .when{font-size:11px;color:var(--muted);font-family:ui-monospace,monospace}
+  /* DONE: dot accent verde + linha accent — mockup */
+  .timeline-step.done::before{background:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .timeline-step.done::after{background:var(--accent)}
+  /* ACTIVE: dot primary roxo com halo 4px primary-soft — mockup */
+  .timeline-step.active::before{background:var(--primary);box-shadow:0 0 0 1px var(--primary),0 0 0 4px var(--primary-soft)}
+  .timeline-step.active .label{color:var(--text);font-weight:700}
+  /* PENDING: label cinza + peso menor (mockup) */
+  .timeline-step.pending .label{color:var(--muted);font-weight:500}
+  .timeline-arrow{display:none}
+  /* ---- Detail tabs ---- */
+  .detail-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px;margin-bottom:16px}
+  /* V269: detail-tabs com transição suave + count chip bg melhor */
+  .dtab{flex:1;padding:11px 14px;border-radius:8px;font-size:13.5px;font-weight:500;background:none;border:none;cursor:pointer;color:var(--text-2);text-align:center;transition:all .15s ease;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+  .dtab:hover{background:var(--surface-2);color:var(--text)}
+  .dtab.active{background:var(--primary-soft);color:var(--primary-2);font-weight:600;box-shadow:0 1px 2px rgba(91,84,153,.08)}
+  .dtab .count{font-size:10.5px;color:var(--muted);font-weight:600;background:var(--surface-2);padding:1px 7px;border-radius:10px;min-width:18px;display:inline-block}
+  .dtab.active .count{background:var(--primary);color:#fff}
+  .dtab-panel{display:none}
+  .dtab-panel.active{display:block}
+  /* ---- Layout ---- */
+  .detail-grid{display:grid;grid-template-columns:2.2fr 1fr;gap:16px}
+  /* ---- Section card (V270: sombra sutil + tipografia + spacing refinado) ---- */
+  .section-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden;box-shadow:0 1px 2px rgba(20,20,30,.04)}
+  .section-card header{padding:15px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface)}
+  .section-card header h3{margin:0;font-size:14px;font-weight:600;color:var(--text)}
+  .section-card header .meta{font-size:11.5px;color:var(--muted);font-weight:500}
+  .section-card .body{padding:16px 20px}
+  /* KV grid melhor espaçada */
+  .kv{padding:12px 0;border-bottom:1px dotted var(--border)}
+  .kv:last-child{border-bottom:none}
+  .kv .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+  .kv .v{font-size:13.5px;color:var(--text);margin-top:3px;font-weight:500}
+  /* ---- KV grid ---- */
+  .kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  .kv{padding:10px 0;border-bottom:1px dotted var(--border)}
+  .kv .k{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+  .kv .v{font-size:13.5px;color:var(--text);margin-top:2px}
+  .kv .v.mono{font-family:ui-monospace,monospace}
+  /* ---- Form readout (formulario completo) ---- */
+  .form-readout-section{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden}
+  .form-readout-section header{padding:12px 18px;background:var(--surface-2);display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--border)}
+  .form-readout-section header .num{width:26px;height:26px;border-radius:50%;background:var(--primary);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+  .form-readout-section header h4{margin:0;flex:1;font-size:13.5px}
+  .form-readout-section header .meta{font-size:11.5px;color:var(--muted)}
+  .form-readout-fields{padding:8px 18px;display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+  .form-readout-field{padding:8px 0;border-bottom:1px dotted var(--border)}
+  .form-readout-field.full{grid-column:span 2}
+  .form-readout-field .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600;display:flex;gap:6px;align-items:baseline}
+  .form-readout-field .qnum{font-family:ui-monospace,monospace;background:rgba(91,84,153,.08);color:var(--primary-2);padding:1px 5px;border-radius:3px;font-size:10px}
+  .form-readout-field .value{margin-top:3px;font-size:13.5px;color:var(--text)}
+  .form-readout-field .value.mono{font-family:ui-monospace,monospace}
+  /* ---- Documentos ---- */
+  .doc-card{display:grid;grid-template-columns:42px 1fr auto auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px}
+  .doc-card .ext{width:42px;height:42px;border-radius:6px;background:var(--surface-2);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:var(--text-3)}
+  .doc-card .info{min-width:0}
+  .doc-card .info .nome{font-weight:500;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .doc-card .info .meta{font-size:11.5px;color:var(--muted)}
+  .doc-card .actions{display:flex;gap:6px}
+  .doc-card button{padding:6px 12px;font-size:12px}
+  /* ---- Sidebar acoes ---- */
+  .sidebar-actions{display:flex;flex-direction:column;gap:8px}
+  .sidebar-actions h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+  /* ---- Preview modal ---- */
+  .preview-modal-content{width:90vw;max-width:1100px;height:80vh;display:flex;flex-direction:column}
+  .preview-modal-content iframe, .preview-modal-content img{flex:1;width:100%;height:100%;border:none;background:#f4f4f0;border-radius:6px;object-fit:contain}
+  /* ---- Comentarios ---- */
+  .com-msg{padding:10px 14px;border-radius:8px;margin:8px 0}
+  .com-msg.fornecedor{background:var(--primary-soft)}
+  .com-msg.operador, .com-msg.admin{background:var(--surface-2)}
+  .com-msg .head{font-size:11.5px;color:var(--muted);margin-bottom:4px}
+  .com-msg .body{font-size:13px;white-space:pre-wrap;color:var(--text)}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div><strong>Portal de Pagamentos</strong><span class="muted" style="font-size:11px;display:block">Análise de envio</span></div>
+  </div>
+  <div class="tabs" id="topnav-tabs"></div>
+  <div class="userbox">
+    <div><strong id="userNome">—</strong><span id="userInfo" class="muted" style="font-size:11px;display:block"></span></div>
+    <div class="avatar" id="userAvatar">—</div>
+    <button onclick="sair()">Sair</button>
+  </div>
+</nav>
+
+<div class="page">
+  <a id="back-link" class="back-link" href="#">← Voltar</a>
+  <div id="conteudo"></div>
+</div>
+
+<!-- Modal preview documento -->
+<div class="modal-bg" id="modal-preview">
+  <div class="modal preview-modal-content">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px">
+      <h2 id="prev-titulo" style="margin:0;font-size:14px;font-family:ui-monospace,monospace;flex:1">—</h2>
+      <button id="toggle-split" onclick="toggleSplit()">⇆ Comparar com formulário</button>
+      <button onclick="fecharModal('modal-preview')">Fechar</button>
+    </div>
+    <div id="prev-container" style="flex:1;display:flex;gap:10px;overflow:hidden">
+      <div id="prev-conteudo" style="flex:1;display:flex;min-width:0"></div>
+      <div id="prev-form" style="flex:1;display:none;overflow:auto;background:var(--surface-2);padding:14px;border-radius:8px;font-size:12.5px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Marcar como pago (estruturado, com upload de comprovante) -->
+<div class="modal-bg" id="modal-pagamento">
+  <div class="modal" style="width:560px">
+    <h2>Registrar pagamento</h2>
+    <p class="sub">Dados estruturados para auditoria SEI.</p>
+    <form id="form-pagamento">
+      <div class="field"><label>Nº TED / transferência</label><input id="pag-numero-ted" required placeholder="ex: TED-2026-05-001"></div>
+      <div class="row">
+        <div class="field"><label>Banco pagador</label><input id="pag-banco-pagador" required placeholder="Banco do Brasil"></div>
+        <div class="field"><label>Data efetiva</label><input id="pag-data-efetiva" type="date" required></div>
+      </div>
+      <div class="field"><label>Valor pago (R$, opcional — usa valor do envio se vazio)</label><input id="pag-valor-pago" type="number" step="0.01" placeholder="0,00"></div>
+      <div class="field"><label>Observação (opcional)</label><textarea id="pag-observacao" rows="2"></textarea></div>
+      <div class="field"><label>Comprovante (PDF/imagem, opcional)</label><input id="pag-comprovante" type="file" accept=".pdf,image/*"></div>
+      <div class="actions">
+        <button type="button" onclick="fecharModal('modal-pagamento')">Cancelar</button>
+        <button class="success" type="submit">💰 Registrar pagamento</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+import { api, requireSession, clearSession, brl, dataBR, toast, formatarRespostasForm, formatarRespostasFormSecoes, statusLabel} from '/app/api.js';
+
+const usuario = requireSession();
+if (!usuario) location.href = '/app/login.html';
+
+document.getElementById('userNome').textContent = usuario.nome;
+document.getElementById('userInfo').textContent =
+  usuario.papel === 'admin_fesf' ? 'FESF Sede · Admin' :
+  usuario.papel === 'operador_unidade' ? `Operador · ${usuario.unidade_sigla || ''}` :
+  'Fornecedor';
+document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+window.abrirModal = id => document.getElementById(id).classList.add('open');
+window.fecharModal = id => document.getElementById(id).classList.remove('open');
+document.querySelectorAll('.modal-bg').forEach(bg => bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); }));
+
+// Topnav tabs por papel
+const topnav = document.getElementById('topnav-tabs');
+if (usuario.papel === 'fornecedor') {
+  topnav.innerHTML = '<a href="/app/portal.html">Meus envios</a>';
+  document.getElementById('back-link').href = '/app/portal.html';
+} else if (usuario.papel === 'admin_fesf') {
+  topnav.innerHTML = '<a href="/app/admin.html">Dashboard</a><a href="/app/painel.html">Envios</a><a href="/app/admin-unidades.html">Unidades</a>';
+  document.getElementById('back-link').href = '/app/painel.html';
+} else {
+  topnav.innerHTML = '<a href="/app/painel.html">Painel</a>';
+  document.getElementById('back-link').href = '/app/painel.html';
+}
+
+const id = Number(new URLSearchParams(location.search).get('id'));
+if (!id) document.getElementById('conteudo').innerHTML = '<h1>Envio nao especificado</h1>';
+else {
+  carregar();
+}
+
+async function carregar() {
+  try {
+    const d = await api.envio(id);
+    const e = d.envio;
+    const acoes = d.auditoria || [];
+
+    // Constroi timeline com timestamps reais
+    const findAcao = (acao) => acoes.find(a => a.acao === acao);
+    const findOneOf = (lista) => acoes.find(a => lista.includes(a.acao));
+    const tCriado = findOneOf(['criado_portal','criado_link_publico','criado_manual']);
+    const tAnalise = tCriado; // recebido = em analise inicial
+    const tAgRet = findAcao('retificacao_solicitada');
+    const tRetificado = findAcao('retificado');
+    const tAprovado = findAcao('aprovado');
+    const tPago = findAcao('marcado_pago');
+    const tRejeitado = findAcao('rejeitado');
+
+    const fmtT = (a) => a ? new Date(a.criado_em).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '—';
+
+    const statusClass = (s, gateAcoes, atualStatus) => {
+      // done: ja passou (acao existe e nao eh o atual)
+      if (gateAcoes && gateAcoes.length > 0) {
+        if (atualStatus === s) return 'active';
+        return 'done';
+      }
+      return 'pending';
+    };
+
+    // V268: lógica refeita para distinguir corretamente done/active/pending — Recebido sempre done quando envio existe; só o stage atual é active
+    // Mapa de "qual o índice mínimo já alcançado" dado o status atual
+    const statusToIdx = { em_analise: 1, aguardando_ret: 2, retificado: 3, aprovado: 4, pago: 5, rejeitado: -1 };
+    const idxAtual = statusToIdx[e.status] ?? 0;
+    const stages = [
+      { lbl: 'Recebido',         acao: tCriado,     idx: 0 },
+      { lbl: 'Em análise',       acao: tAnalise,    idx: 1 },
+      { lbl: 'Aguardando ret.',  acao: tAgRet,      idx: 2 },
+      { lbl: 'Retificado',       acao: tRetificado, idx: 3 },
+      { lbl: 'Aprovado',         acao: tAprovado,   idx: 4 },
+      { lbl: 'Pago',             acao: tPago,       idx: 5 },
+    ];
+    const timelineHtml = stages.map((s, i) => {
+      let cls;
+      if (e.status === 'rejeitado') {
+        // Rejeitado: só Recebido + Em análise como done; resto pending
+        cls = s.idx <= 1 ? 'done' : 'pending';
+      } else if (i < idxAtual) {
+        cls = 'done';
+      } else if (i === idxAtual) {
+        cls = 'active';
+      } else {
+        cls = 'pending';
+      }
+      // V294: dots minimalistas via ::before — sem <span class="dot-num"> (mockup screen-details)
+      return `<div class="timeline-step ${cls}" data-step="${i + 1}"><div class="label">${s.lbl}</div><div class="when">${fmtT(s.acao)}</div></div>`;
+    }).join('');
+
+    const podeAtuar = (usuario.papel === 'operador_unidade' || usuario.papel === 'admin_fesf');
+    const podeDecidir = podeAtuar && e.status === 'em_analise';
+    const podePagar = usuario.papel === 'admin_fesf' && e.status === 'aprovado';
+    const fornecedorPodeRet = usuario.papel === 'fornecedor' && e.status === 'aguardando_ret';
+
+    // V263: banner "Ação necessária" para fornecedor com status aguardando_ret (alinhado ao mockup screen-details-fornec)
+    const ultimaRetificacao = acoes.find(a => a.acao === 'retificacao_solicitada');
+    const prazoRet = e.prazo_retificacao || (ultimaRetificacao ? new Date(new Date(ultimaRetificacao.criado_em).getTime() + 5*24*60*60*1000) : null);
+    const motivoRet = ultimaRetificacao?.detalhe || '';
+    const bannerRet = fornecedorPodeRet ? `
+      <div class="alert warn" style="margin-bottom:20px;padding:18px 20px;border-left:4px solid var(--warning);border-radius:10px;background:var(--warning-soft)">
+        <div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#a06800;margin-bottom:6px">⚠ Ação necessária</div>
+        <h3 style="margin:0 0 4px;font-size:16px">A FESF solicitou ajustes neste envio</h3>
+        <p style="margin:0 0 10px;font-size:13px;color:var(--text-2)">${motivoRet ? motivoRet.substring(0, 220) + (motivoRet.length > 220 ? '…' : '') : 'Veja os detalhes na aba "Comentários" e na seção de Auditoria.'}${prazoRet ? ` <strong>Prazo: ${new Date(prazoRet).toLocaleDateString('pt-BR')}</strong>.` : ''}</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="warn" onclick="acaoEnviarRet()" style="font-weight:600">Iniciar retificação →</button>
+          <a href="#tab-comentarios" onclick="document.querySelector('[data-tab=comentarios]')?.click(); return false;" style="font-size:12.5px;color:#a06800;font-weight:500">Ver comentários da FESF</a>
+        </div>
+      </div>` : '';
+
+    document.getElementById('conteudo').innerHTML = `
+      ${bannerRet}
+      <div class="detail-header">
+        <div>
+          <div class="eyebrow">
+            <span>${e.modalidade_nome} · v${(d.versoes||[]).length}</span>
+            <span class="origin ${e.origem}">${statusLabel(e.origem)}</span>
+          </div>
+          <h1>${e.protocolo}</h1>
+          <p class="desc"><strong>${e.razao_social}</strong> · ${e.documento}<br>${e.descricao || '—'}</p>
+        </div>
+        <div class="right">
+          <span class="pill ${e.status}">${statusLabel(e.status)}</span>
+          <div class="value">${brl(e.valor_centavos)}</div>
+          <div class="competencia">Competência: ${e.competencia} · ${e.unidade_sigla}</div>
+        </div>
+      </div>
+
+      <div class="timeline-wrap">
+        <h3>Trajetória do envio</h3>
+        <div class="timeline">${timelineHtml}</div>
+      </div>
+
+      <div class="detail-tabs" role="tablist">
+        <button class="dtab active" data-tab="resumo">Resumo</button>
+        <button class="dtab" data-tab="formulario">Formulário <span class="count">${d.form_data ? Object.keys(d.form_data).length : 0}</span></button>
+        <button class="dtab" data-tab="documentos">Documentos <span class="count">${d.documentos.length}</span></button>
+        <button class="dtab" data-tab="comentarios">Comentários <span class="count">${(d.comentarios||[]).length}</span></button>
+        <button class="dtab" data-tab="auditoria">Auditoria <span class="count">${acoes.length}</span></button>
+      </div>
+
+      <div class="detail-grid">
+        <div>
+          <div class="dtab-panel active" data-panel="resumo">
+            <div class="section-card">
+              <header><h3>Dados do envio</h3><span class="meta">Resumo dos principais campos</span></header>
+              <div class="body">
+                <div class="kv-grid">
+                  <div class="kv"><div class="k">Fornecedor</div><div class="v">${e.razao_social}</div></div>
+                  <div class="kv"><div class="k">Documento</div><div class="v mono">${e.documento}</div></div>
+                  <div class="kv"><div class="k">Unidade</div><div class="v">${e.unidade_sigla} · ${e.unidade_nome || ''}</div></div>
+                  <div class="kv"><div class="k">Competência</div><div class="v">${e.competencia}</div></div>
+                  <div class="kv"><div class="k">Valor</div><div class="v mono">${brl(e.valor_centavos)}</div></div>
+                  <div class="kv"><div class="k">NF</div><div class="v">${e.numero_nf || '—'}</div></div>
+                  <div class="kv"><div class="k">Origem</div><div class="v">${e.origem === 'portal' ? 'Portal (logado)' : e.origem === 'link_publico' ? 'Link público' : 'Manual (operador)'}</div></div>
+                  <div class="kv"><div class="k">Criado em</div><div class="v">${new Date(e.criado_em).toLocaleString('pt-BR')}</div></div>
+                </div>
+                ${e.motivo_manual ? `<div class="alert warn" style="margin-top:14px"><strong>Motivo do lançamento manual:</strong><br>${e.motivo_manual}</div>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <div class="dtab-panel" data-panel="formulario">
+            ${podeAtuar ? (() => {
+              const ans = d.anotacoes || [];
+              const verif = ans.filter(a => a.status === 'verificado').length;
+              const duv = ans.filter(a => a.status === 'duvida').length;
+              const prob = ans.filter(a => a.status === 'problema').length;
+              const totalCampos = d.form_data ? Object.keys(d.form_data).filter(k => !['seed','files_meta','modalidade_codigo'].includes(k) && d.form_data[k]).length : 0;
+              const naoAnotados = Math.max(0, totalCampos - ans.length);
+              return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+                <div style="padding:10px 14px;background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:6px">
+                  <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600">✓ Verificados</div>
+                  <div style="font-size:22px;font-weight:700;color:var(--accent);margin-top:2px">${verif}</div>
+                </div>
+                <div style="padding:10px 14px;background:var(--warning-soft);border-left:3px solid var(--warning);border-radius:6px">
+                  <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600">? Em dúvida</div>
+                  <div style="font-size:22px;font-weight:700;color:#b96f00;margin-top:2px">${duv}</div>
+                </div>
+                <div style="padding:10px 14px;background:var(--danger-soft);border-left:3px solid var(--danger);border-radius:6px">
+                  <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600">! Problemas</div>
+                  <div style="font-size:22px;font-weight:700;color:var(--danger);margin-top:2px">${prob}</div>
+                </div>
+                <div style="padding:10px 14px;background:var(--surface-2);border-left:3px solid var(--border-strong);border-radius:6px">
+                  <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600">Não revisados</div>
+                  <div style="font-size:22px;font-weight:700;color:var(--text-3);margin-top:2px">${naoAnotados}</div>
+                </div>
+              </div>
+              ${prob > 0 ? `<div class="alert danger" style="margin-bottom:12px">⚠️ <strong>${prob} campo(s) marcado(s) como problema.</strong> Recomenda-se solicitar retificação ao fornecedor antes de aprovar.</div>` : ''}
+              <div class="alert info" style="margin-bottom:12px">📝 Marque cada campo como ✓ verificado, ? em dúvida ou ! problema durante a análise.</div>`;
+            })() : ''}
+            ${formatarRespostasFormSecoes(d.form_data, d.anotacoes || [])}
+          </div>
+
+          <div class="dtab-panel" data-panel="documentos">
+            ${(() => {
+              const esperados = d.documentos_esperados || [];
+              if (esperados.length === 0) return '';
+              const recebidosCampos = new Set(d.documentos.map(x => (x.campo || '').toLowerCase()));
+              const recebidos = esperados.filter(esp => recebidosCampos.has(esp.campo.toLowerCase()));
+              const pct = esperados.length === 0 ? 100 : Math.round((recebidos.length * 100) / esperados.length);
+              const obrigFaltando = esperados.filter(esp => esp.obrigatorio && !recebidosCampos.has(esp.campo.toLowerCase()));
+              return `
+                <div class="section-card">
+                  <header><h3>Checklist da modalidade</h3><span class="meta">${recebidos.length} de ${esperados.length} (${pct}%)${obrigFaltando.length > 0 ? ` · ${obrigFaltando.length} obrigatório(s) faltando` : ''}</span></header>
+                  <div class="body">
+                    <div style="background:var(--surface-2);border-radius:8px;height:8px;overflow:hidden;margin-bottom:14px"><div style="background:${obrigFaltando.length > 0 ? '#a06800' : '#2f7d5c'};height:100%;width:${pct}%"></div></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                      ${esperados.map(esp => {
+                        const ok = recebidosCampos.has(esp.campo.toLowerCase());
+                        const cor = ok ? '#2f7d5c' : (esp.obrigatorio ? '#b22828' : '#a06800');
+                        const icone = ok ? '✓' : (esp.obrigatorio ? '✕' : '○');
+                        return `<div style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+                          <div style="display:flex;align-items:center;gap:8px"><span style="color:${cor};font-weight:700;font-size:14px">${icone}</span><span style="font-size:13px">${esp.label}${esp.obrigatorio ? ' <span class="muted" style="font-size:10px">obrigatório</span>' : ''}</span></div>
+                          <code style="font-size:10.5px;color:var(--muted)">${esp.campo}</code>
+                        </div>`;
+                      }).join('')}
+                    </div>
+                  </div>
+                </div>`;
+            })()}
+
+            <div class="section-card">
+              <header>
+                <h3>Documentos anexados</h3>
+                <span class="meta">${d.documentos.length} arquivo(s) · ${(d.documentos.reduce((a,x)=>a+(x.tamanho_bytes||0),0)/1024).toFixed(1)} KB total</span>
+              </header>
+              <div class="body">
+                ${d.documentos.length === 0 ? '<div class="muted">Nenhum documento anexado</div>' :
+                  (() => {
+                    // Resumo por tipo
+                    const tipos = {};
+                    d.documentos.forEach(doc => { const e=(doc.nome_original.split('.').pop()||'').toLowerCase(); tipos[e] = (tipos[e]||0)+1; });
+                    const tipoCores = { pdf: '#b22828', xml: '#3b6ea5', xls: '#2d8659', xlsx: '#2d8659', doc: '#3b6ea5', docx: '#3b6ea5', jpg: '#d99020', jpeg: '#d99020', png: '#d99020', zip: '#7a7a7a' };
+                    const tipoHeader = `<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">${Object.entries(tipos).map(([t, n]) => `<span style="padding:4px 10px;background:${tipoCores[t]||'#7a7a7a'};color:#fff;border-radius:14px;font-size:11.5px;font-weight:600;text-transform:uppercase">${t} · ${n}</span>`).join('')}</div>`;
+                    const ehOperador = ['operador_unidade','admin_fesf'].includes(usuario.papel);
+                    const anotMap = {};
+                    (d.anotacoes_documento || []).forEach(a => { anotMap[a.documento_id] = a; });
+                    const reenviosAbertos = (d.reenvios || []).filter(r => r.status === 'aberta');
+                    const statusBadge = {
+                      verificado: '<span style="background:#d4f0d6;color:#2f7d5c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">✓ verificado</span>',
+                      duvida:     '<span style="background:#fff4d6;color:#a06800;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">? em dúvida</span>',
+                      problema:   '<span style="background:#ffd6d6;color:#b22828;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">! problema</span>',
+                    };
+                    const ultimaVersaoNum = Math.max(...(d.versoes || []).map(v => v.numero), 0);
+                    const cards = d.documentos.map(doc => {
+                      const ext = (doc.nome_original.split('.').pop() || '').toUpperCase().substring(0,4);
+                      const extLow = ext.toLowerCase();
+                      const cor = tipoCores[extLow] || '#7a7a7a';
+                      const anot = anotMap[doc.id];
+                      const badge = anot ? `<div style="margin-top:6px">${statusBadge[anot.status]} ${anot.observacao ? `<span class="muted" style="font-size:11.5px;margin-left:6px">${anot.observacao}</span>` : ''}</div>` : '';
+                      const novoBadge = (doc.versao_numero && doc.versao_numero === ultimaVersaoNum && ultimaVersaoNum > 1)
+                        ? `<span style="background:#0066cc;color:#fff;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-left:6px">novo em v${doc.versao_numero}</span>`
+                        : '';
+                      const anotActions = ehOperador ? `
+                        <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+                          <button class="success" style="padding:3px 8px;font-size:11px" data-anot-doc="${doc.id}" data-status="verificado" title="Marcar como verificado">✓</button>
+                          <button class="warn"    style="padding:3px 8px;font-size:11px" data-anot-doc="${doc.id}" data-status="duvida"     title="Marcar como em dúvida">?</button>
+                          <button class="danger"  style="padding:3px 8px;font-size:11px" data-anot-doc="${doc.id}" data-status="problema"   title="Marcar como problema">!</button>
+                          <button style="padding:3px 8px;font-size:11px" data-reenvio-doc="${doc.id}" data-campo="${doc.campo}" title="Pedir reenvio deste arquivo">↻ Reenvio</button>
+                        </div>` : '';
+                      const uploaderInfo = doc.uploaded_por_nome ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">Enviado por: ${doc.uploaded_por_nome}</div>` : '';
+                      return `
+                        <div class="doc-card">
+                          <div class="ext" style="background:${cor};color:#fff">${ext}</div>
+                          <div class="info">
+                            <div class="nome">${doc.nome_original}${novoBadge}</div>
+                            <div class="meta">Campo: <code>${doc.campo}</code> · ${(doc.tamanho_bytes/1024).toFixed(1)} KB · ${dataBR(doc.criado_em)}</div>
+                            ${uploaderInfo}
+                            ${badge}
+                          </div>
+                          <div class="actions">
+                            <button onclick="visualizar(${e.id},${doc.id},'${(doc.nome_original||'').replace(/'/g,"\\'")}','${doc.mime_type||''}')">👁 Visualizar</button>
+                            <button onclick="baixar(${e.id},${doc.id})">⬇ Baixar</button>
+                            ${anotActions}
+                          </div>
+                        </div>`;
+                    }).join('');
+                    const reenviosBanner = reenviosAbertos.length > 0 ? `
+                      <div class="alert info" style="margin-bottom:12px">↻ <strong>${reenviosAbertos.length} solicitação(ões) de reenvio aberta(s):</strong> ${reenviosAbertos.map(r => `<code>${r.campo}</code>`).join(', ')}</div>` : '';
+                    return reenviosBanner + tipoHeader + cards;
+                  })()
+                }
+              </div>
+            </div>
+
+            ${d.pagamento ? `
+              <div class="section-card">
+                <header><h3>Pagamento processado</h3><span class="meta">${dataBR(d.pagamento.data_efetiva)} · ${d.pagamento.banco_pagador}</span></header>
+                <div class="body" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+                  <div><div class="muted" style="font-size:11px;text-transform:uppercase">Nº TED</div><div style="font-family:ui-monospace,monospace;font-size:14px">${d.pagamento.numero_ted}</div></div>
+                  <div><div class="muted" style="font-size:11px;text-transform:uppercase">Banco pagador</div><div style="font-size:14px">${d.pagamento.banco_pagador}</div></div>
+                  <div><div class="muted" style="font-size:11px;text-transform:uppercase">Valor pago</div><div style="font-family:ui-monospace,monospace;font-size:14px">R$ ${(Number(d.pagamento.valor_pago_centavos)/100).toLocaleString('pt-BR', {minimumFractionDigits:2})}</div></div>
+                  <div style="grid-column:1/-1"><div class="muted" style="font-size:11px;text-transform:uppercase">Registrado por</div><div style="font-size:13px">${d.pagamento.registrado_por_nome || '—'} em ${new Date(d.pagamento.criado_em).toLocaleString('pt-BR')}</div></div>
+                  ${d.pagamento.observacao ? `<div style="grid-column:1/-1"><div class="muted" style="font-size:11px;text-transform:uppercase">Observação</div><div style="font-size:13px">${d.pagamento.observacao}</div></div>` : ''}
+                  ${d.pagamento.comprovante_doc_id ? `<div style="grid-column:1/-1"><button onclick="baixar(${e.id}, ${d.pagamento.comprovante_doc_id})">⬇ Baixar comprovante anexado</button></div>` : ''}
+                </div>
+              </div>` : ''}
+          </div>
+
+          <div class="dtab-panel" data-panel="comentarios">
+            <div class="section-card">
+              <header><h3>Comentários</h3><span class="meta">${(d.comentarios||[]).length} mensagem(ns)</span></header>
+              <div class="body">
+                <div id="lista-coments">
+                  ${(d.comentarios||[]).length === 0 ? '<div class="muted">Sem comentários ainda.</div>' :
+                    (d.comentarios||[]).map(c => `
+                      <div class="com-msg ${c.usuario_papel || 'sistema'}">
+                        <div class="head"><strong>${c.usuario_nome || '<i>sistema</i>'}</strong> <span class="muted">(${c.usuario_papel || ''})</span> · ${new Date(c.criado_em).toLocaleString('pt-BR')}</div>
+                        <div class="body">${c.texto}</div>
+                      </div>`).join('')}
+                </div>
+                <form id="form-com" style="display:flex;gap:8px;margin-top:12px">
+                  <textarea id="coment-txt" rows="2" style="flex:1" placeholder="Escreva um comentário..."></textarea>
+                  <button class="primary" type="submit">Enviar</button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <div class="dtab-panel" data-panel="auditoria">
+            <div class="section-card">
+              <header><h3>Trilha de auditoria</h3><span class="meta">${acoes.length} registro(s)</span></header>
+              <div class="body">
+                <table>
+                  <thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Detalhe</th></tr></thead>
+                  <tbody>
+                    ${acoes.map(a => `<tr><td>${new Date(a.criado_em).toLocaleString('pt-BR')}</td><td>${a.usuario_nome || '<i>sistema</i>'}</td><td><code>${statusLabel(a.acao)}</code></td><td>${(a.detalhe||'').substring(0,100)}</td></tr>`).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="sidebar-actions">
+          <div class="section-card">
+            <header><h3>Ações</h3></header>
+            <div class="body sidebar-actions">
+              ${podeDecidir ? `
+                <button class="success" onclick="acaoAprovar()">✓ Aprovar envio</button>
+                <button class="warn" onclick="acaoSolicitarRet()">⚠ Solicitar retificação</button>
+                <button class="danger" onclick="acaoRejeitar()">✕ Rejeitar</button>
+              ` : ''}
+              ${usuario.papel === 'operador_unidade' && ['em_analise','retificado'].includes(e.status) ? `<button onclick="acaoEncaminharSede()">🔺 Encaminhar para FESF Sede</button>` : ''}
+              ${podePagar ? `<button class="success" onclick="acaoMarcarPago()">💰 Marcar como pago</button>` : ''}
+              ${fornecedorPodeRet ? `<button class="warn" onclick="acaoEnviarRet()">⚠ Submeter retificação</button>` : ''}
+              <button onclick="window.open('/app/recibo.html?id=${e.id}','_blank')">🖨 Imprimir recibo</button>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <header><h3>Versões</h3></header>
+            <div class="body">
+              ${(d.versoes||[]).map(v => `<div style="padding:6px 0;font-size:13px;border-bottom:1px dotted var(--border)">v${v.numero} · ${dataBR(v.criada_em)}</div>`).join('')}
+            </div>
+          </div>
+        </aside>
+      </div>
+    `;
+
+    // Tabs
+    document.querySelectorAll('.dtab').forEach(t => t.addEventListener('click', () => {
+      document.querySelectorAll('.dtab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      document.querySelectorAll('.dtab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelector(`[data-panel=${t.dataset.tab}]`).classList.add('active');
+    }));
+
+    // Anotacoes de campos (operador)
+    document.querySelectorAll('[data-anotar]').forEach(btn => btn.addEventListener('click', async (ev) => {
+      const campo = ev.target.dataset.anotar;
+      const status = ev.target.dataset.status;
+      const obs = prompt(`Anotação para "${campo}" (status: ${status})\n\nObservação opcional:`, '') || null;
+      try {
+        await api.anotarCampo(id, { campo, status, observacao: obs });
+        toast('Anotado: ' + campo + ' = ' + status, 'sucesso');
+        carregar();
+      } catch (err) { toast(err.message, 'erro'); }
+    }));
+
+    // Anotacoes de documentos (operador)
+    document.querySelectorAll('[data-anot-doc]').forEach(btn => btn.addEventListener('click', async (ev) => {
+      const docId = Number(ev.currentTarget.dataset.anotDoc);
+      const status = ev.currentTarget.dataset.status;
+      const obs = prompt(`Observação opcional (status: ${status})`, '') || null;
+      try {
+        await api.anotarDocumento(id, docId, { status, observacao: obs });
+        toast('Documento marcado como ' + status, 'sucesso');
+        carregar();
+      } catch (err) { toast(err.message, 'erro'); }
+    }));
+
+    // Solicitar reenvio
+    document.querySelectorAll('[data-reenvio-doc]').forEach(btn => btn.addEventListener('click', async (ev) => {
+      const docId = Number(ev.currentTarget.dataset.reenvioDoc);
+      const campo = ev.currentTarget.dataset.campo;
+      const motivo = prompt(`Solicitar reenvio de "${campo}"\n\nMotivo (mínimo 5 caracteres):`);
+      if (!motivo || motivo.length < 5) return;
+      try {
+        await api.solicitarReenvio(id, { campo, motivo, documento_id: docId });
+        toast('Reenvio solicitado · fornecedor notificado', 'sucesso');
+        carregar();
+      } catch (err) { toast(err.message, 'erro'); }
+    }));
+
+    // Comentar
+    document.getElementById('form-com')?.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const txt = document.getElementById('coment-txt').value.trim();
+      if (txt.length < 2) return;
+      try { await api.comentar(id, txt); carregar(); }
+      catch (err) { toast(err.message, 'erro'); }
+    });
+  } catch (err) {
+    document.getElementById('conteudo').innerHTML = `<div class="alert danger">Erro: ${err.message}</div>`;
+  }
+}
+
+// Acoes
+window.acaoAprovar = async () => {
+  // verifica se ha anotacoes de problema nao resolvidas
+  try {
+    const d = await api.envio(id);
+    const probs = (d.anotacoes || []).filter(a => a.status === 'problema');
+    if (probs.length > 0) {
+      if (!confirm(`Atenção: ${probs.length} campo(s) marcado(s) como PROBLEMA.\n\n${probs.map(p => `- ${p.campo}: ${p.observacao || '(sem obs)'}`).join('\n')}\n\nDeseja mesmo assim aprovar este envio? (recomenda-se solicitar retificação)`)) return;
+    } else {
+      if (!confirm('Aprovar este envio?')) return;
+    }
+    await api.aprovarEnvio(id); toast('Envio aprovado','sucesso'); carregar();
+  } catch (e) { toast(e.message, 'erro'); }
+};
+window.acaoRejeitar = async () => {
+  const m = prompt('Motivo da rejeição (mín. 5 chars):');
+  if (!m || m.length < 5) return;
+  try { await api.rejeitarEnvio(id, m); toast('Envio rejeitado','sucesso'); carregar(); }
+  catch (e) { toast(e.message, 'erro'); }
+};
+window.acaoSolicitarRet = async () => {
+  const m = prompt('Descreva o que precisa ser corrigido (mín. 5 chars):');
+  if (!m || m.length < 5) return;
+  try { await api.solicitarRet(id, m); toast('Retificação solicitada','sucesso'); carregar(); }
+  catch (e) { toast(e.message, 'erro'); }
+};
+window.acaoMarcarPago = () => {
+  // Preenche data padrão
+  document.getElementById('pag-data-efetiva').value = new Date().toISOString().substring(0, 10);
+  document.getElementById('pag-numero-ted').value = '';
+  document.getElementById('pag-banco-pagador').value = '';
+  document.getElementById('pag-valor-pago').value = '';
+  document.getElementById('pag-observacao').value = '';
+  document.getElementById('pag-comprovante').value = '';
+  abrirModal('modal-pagamento');
+};
+
+document.getElementById('form-pagamento')?.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const numero_ted = document.getElementById('pag-numero-ted').value.trim();
+  const banco_pagador = document.getElementById('pag-banco-pagador').value.trim();
+  const data_efetiva = document.getElementById('pag-data-efetiva').value;
+  const valorReais = document.getElementById('pag-valor-pago').value;
+  const observacao = document.getElementById('pag-observacao').value.trim() || null;
+  const arquivo = document.getElementById('pag-comprovante').files[0];
+  if (!numero_ted || !banco_pagador || !data_efetiva) return toast('Preencha TED, banco e data', 'erro');
+  try {
+    // Upload comprovante PRIMEIRO (se houver), captura ID
+    let comprovante_doc_id = null;
+    if (arquivo) {
+      const r = await api.uploadComprovantePagamento(id, arquivo);
+      comprovante_doc_id = r.documento.id;
+    }
+    await api.marcarPagoEstruturado(id, {
+      numero_ted, banco_pagador, data_efetiva,
+      valor_pago_centavos: valorReais ? Math.round(Number(valorReais) * 100) : null,
+      observacao, comprovante_doc_id,
+    });
+    fecharModal('modal-pagamento');
+    toast('Pagamento registrado · fornecedor notificado', 'sucesso');
+    carregar();
+  } catch (e) { toast(e.message, 'erro'); }
+});
+window.acaoEnviarRet = () => {
+  // fornecedor — redireciona ao portal passando o id; portal abre o modal
+  // de retificacao automaticamente em vez de fazer o fornecedor procurar.
+  location.href = `/app/portal.html?retificar=${id}`;
+};
+window.acaoEncaminharSede = async () => {
+  const m = prompt('Por que esse envio precisa de análise da FESF Sede? (mín. 5 chars)');
+  if (!m || m.length < 5) return;
+  try { await api.encaminharSede(id, m); toast('Encaminhado para FESF Sede','sucesso'); carregar(); }
+  catch (e) { toast(e.message, 'erro'); }
+};
+
+// Preview/Download
+window.toggleSplit = async () => {
+  const formPanel = document.getElementById('prev-form');
+  const btn = document.getElementById('toggle-split');
+  if (formPanel.style.display === 'none') {
+    formPanel.style.display = 'block';
+    btn.textContent = '◯ Esconder formulário';
+    // carrega resumo do form
+    try {
+      const d = await api.envio(id);
+      formPanel.innerHTML = `<div style="font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-3);margin-bottom:10px">Respostas do formulário</div>${formatarRespostasForm(d.form_data || {})}`;
+    } catch (e) { formPanel.innerHTML = `<div style="color:var(--danger)">Erro: ${e.message}</div>`; }
+  } else {
+    formPanel.style.display = 'none';
+    btn.textContent = '⇆ Comparar com formulário';
+  }
+};
+
+window.visualizar = async (envioId, docId, nome, mime) => {
+  const cont = document.getElementById('prev-conteudo');
+  document.getElementById('prev-titulo').textContent = nome;
+  const token = localStorage.getItem('fesf_token');
+  if (!token) { toast('Sessão expirada — faça login novamente', 'erro'); return; }
+  const url = `/api/envios/${envioId}/documentos/${docId}/preview`;
+  try {
+    // V224: header Authorization (não dá pra usar iframe src direto sem CORS/auth).
+    // Faz fetch, vira blob, exibe via URL.createObjectURL.
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) {
+      let msg = `HTTP ${r.status}`;
+      try { const j = await r.json(); if (j.error) msg = j.error; } catch {}
+      throw new Error(msg);
+    }
+    const blob = await r.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const isImg = /^image\//.test(mime);
+    const isPdf = mime === 'application/pdf';
+    if (isImg) {
+      cont.innerHTML = `<img src="${blobUrl}">`;
+    } else if (isPdf) {
+      cont.innerHTML = `<iframe src="${blobUrl}#toolbar=1"></iframe>`;
+    } else {
+      cont.innerHTML = `<div style="margin:auto;text-align:center;padding:40px"><p>Pré-visualização não disponível para este tipo (${mime || 'desconhecido'}).</p><a class="btn primary" href="${blobUrl}" download="${nome}">⬇ Baixar arquivo</a></div>`;
+    }
+    abrirModal('modal-preview');
+  } catch (e) {
+    toast('Erro ao visualizar: ' + e.message, 'erro');
+  }
+};
+window.baixar = async (envioId, docId) => {
+  try { await api.downloadDocumento(envioId, docId); }
+  catch (e) { toast('Erro ao baixar: ' + e.message, 'erro'); }
+};
+
+// V230/O1: Hotkeys de triagem no envio.html
+// A=aprovar, R=retificar (envia direto modal), C=foco no comentário,
+// Esc=fecha modal aberto, ?=ajuda. Ignora se estiver digitando.
+function _hkEnvioAjuda() {
+  const id = 'modal-hotkeys-envio';
+  let m = document.getElementById(id);
+  if (m) { m.style.display = 'flex'; return; }
+  m = document.createElement('div');
+  m.id = id;
+  m.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
+  m.innerHTML = `
+    <div style="background:#fff;padding:24px;border-radius:10px;max-width:440px;width:90%">
+      <h2 style="margin:0 0 14px;font-size:18px">⌨ Atalhos nesta tela</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:13.5px">
+        <tbody>
+          <tr><td style="padding:5px 0"><kbd style="background:#eee;border:1px solid #ccc;padding:1px 6px;border-radius:3px;font-family:monospace">A</kbd></td><td>Aprovar envio</td></tr>
+          <tr><td style="padding:5px 0"><kbd style="background:#eee;border:1px solid #ccc;padding:1px 6px;border-radius:3px;font-family:monospace">R</kbd></td><td>Solicitar retificação</td></tr>
+          <tr><td style="padding:5px 0"><kbd style="background:#eee;border:1px solid #ccc;padding:1px 6px;border-radius:3px;font-family:monospace">C</kbd></td><td>Foco no campo de comentário</td></tr>
+          <tr><td style="padding:5px 0"><kbd style="background:#eee;border:1px solid #ccc;padding:1px 6px;border-radius:3px;font-family:monospace">Esc</kbd></td><td>Fechar modal aberto</td></tr>
+          <tr><td style="padding:5px 0"><kbd style="background:#eee;border:1px solid #ccc;padding:1px 6px;border-radius:3px;font-family:monospace">?</kbd></td><td>Mostrar esta ajuda</td></tr>
+        </tbody>
+      </table>
+      <div style="text-align:right;margin-top:16px"><button onclick="document.getElementById('${id}').style.display='none'" style="padding:8px 14px;border:1px solid #cfcfcb;background:#fff;border-radius:6px;cursor:pointer">Fechar (Esc)</button></div>
+    </div>`;
+  m.addEventListener('click', (e) => { if (e.target === m) m.style.display = 'none'; });
+  document.body.appendChild(m);
+}
+document.addEventListener('keydown', (ev) => {
+  const tag = (ev.target.tagName || '').toLowerCase();
+  if (['input','textarea','select'].includes(tag) || ev.target.isContentEditable) return;
+  const modaisAbertos = Array.from(document.querySelectorAll('.modal-bg, [id^="modal-hotkeys"]'))
+    .filter(m => { const d = window.getComputedStyle(m).display; return d === 'flex' || m.classList.contains('open'); });
+  if (modaisAbertos.length && ev.key !== 'Escape') return;
+  if (ev.key === 'Escape' && modaisAbertos.length) {
+    const ultimo = modaisAbertos[modaisAbertos.length - 1];
+    if (ultimo.classList.contains('open')) ultimo.classList.remove('open');
+    else ultimo.style.display = 'none';
+    ev.preventDefault();
+    return;
+  }
+  if (ev.key === 'a' || ev.key === 'A') {
+    if (typeof window.acaoAprovar === 'function') { window.acaoAprovar(); ev.preventDefault(); }
+  } else if (ev.key === 'r' || ev.key === 'R') {
+    if (typeof window.acaoSolicitarRet === 'function') { window.acaoSolicitarRet(); ev.preventDefault(); }
+  } else if (ev.key === 'c' || ev.key === 'C') {
+    const ta = document.getElementById('coment-txt');
+    if (ta) { ta.focus(); ta.scrollIntoView({ block: 'center' }); ev.preventDefault(); }
+  } else if (ev.key === '?' || ev.key === '/') {
+    _hkEnvioAjuda(); ev.preventDefault();
+  }
+});
+</script>
+
+</body>
+</html>

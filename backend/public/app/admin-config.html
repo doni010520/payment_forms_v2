@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Configurações · FESF Sede</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  .config-card{margin-bottom:14px}
+  .config-row{display:grid;grid-template-columns:200px 1fr;gap:14px;padding:10px 0;border-bottom:1px solid var(--border);align-items:center}
+  .config-row:last-child{border-bottom:none}
+  .config-row .lbl{font-weight:500;font-size:13px}
+  .config-row .lbl .sub{font-size:11.5px;color:var(--muted);display:block;font-weight:400;margin-top:2px}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand"><div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div><strong>Configurações</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · Sistema</span></div></div>
+  <div class="tabs">
+    <a href="/app/admin.html">Dashboard</a>
+    <a href="/app/admin-pagamentos.html">Pagamentos</a>
+    <a href="/app/admin-unidades.html">Unidades</a>
+    <a href="/app/admin-fornecedores.html">Fornecedores</a>
+    <a href="/app/admin-usuarios.html">Usuários</a>
+    <a href="/app/admin-relatorios.html">Relatórios</a>
+    <a href="/app/admin-auditoria.html">Auditoria</a>
+    <a href="/app/admin-emails.html">E-mails</a>
+    <a href="/app/admin-smtp.html">SMTP</a>
+    <a href="/app/admin-status.html">Status</a>
+    <a href="/app/admin-api.html">API</a>
+    <a class="active">Configurações</a>
+  </div>
+  <div class="userbox"><div><strong id="userNome">—</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · Admin</span></div><div class="avatar" id="userAvatar">—</div><button onclick="sair()">Sair</button></div>
+</nav>
+
+<div class="page">
+  <!-- V261: header rico alinhado ao mockup screen-config -->
+  <div class="between" style="align-items:flex-start;margin-bottom:18px;gap:18px;flex-wrap:wrap">
+    <div>
+      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:4px">Administração do sistema</div>
+      <h1 style="margin:0 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">Configurações
+        <span class="pill" style="background:var(--accent-soft, #e3f0ec);color:var(--accent, #4fa590);font-size:11.5px;padding:3px 10px;border-radius:14px;font-weight:600">● Visão: FESF Sede</span>
+      </h1>
+      <p class="muted" style="margin:0;font-size:13.5px">Parâmetros gerais do Portal de Pagamentos · válidos para toda a rede FESF.</p>
+    </div>
+  </div>
+
+  <!-- Navegação rápida entre seções -->
+  <div class="card" style="padding:10px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px">
+    <a href="#modalidades" style="font-weight:500">📋 Modalidades</a>
+    <a href="#cadencia" style="font-weight:500">📧 Lembretes e cadência</a>
+    <a href="#prazos" style="font-weight:500">⏱ Prazos e SLA</a>
+    <a href="/app/admin-smtp.html" style="font-weight:500">✉ SMTP</a>
+    <a href="/app/admin-auditoria.html" style="font-weight:500">📜 Auditoria</a>
+    <a href="/app/admin-api.html" style="font-weight:500">🔌 API / OpenAPI</a>
+    <a href="/app/admin-status.html" style="font-weight:500">💚 Status</a>
+  </div>
+
+  <div class="card config-card" id="modalidades">
+    <h2>Modalidades habilitadas</h2>
+    <p class="muted">Tipos de envio que fornecedores podem usar. Cada modalidade tem seu próprio formulário.</p>
+    <div id="lista-modalidades"></div>
+  </div>
+
+  <div class="card config-card" id="cadencia">
+    <h2>Cadência de lembretes e escalonamento</h2>
+    <p class="muted">Como o sistema cobra fornecedores. Esses valores são gravados em <code>configuracoes.cadencia_lembretes</code> e usados como padrão quando expectativas não definem cadência própria.</p>
+    <div class="config-row">
+      <div class="lbl">1º lembrete<span class="sub">Quanto antes do prazo</span></div>
+      <div><input type="number" id="cad-antes-1" min="0" max="60" style="max-width:80px;display:inline-block"> dias antes do prazo</div>
+    </div>
+    <div class="config-row">
+      <div class="lbl">2º lembrete<span class="sub">Aviso final</span></div>
+      <div><input type="number" id="cad-antes-2" min="0" max="60" style="max-width:80px;display:inline-block"> dia(s) antes do prazo</div>
+    </div>
+    <div class="config-row">
+      <div class="lbl">Marcar como "Sem resposta"<span class="sub">Status no painel</span></div>
+      <div><input type="number" id="cad-depois-1" min="0" max="60" style="max-width:80px;display:inline-block"> dias após prazo</div>
+    </div>
+    <div class="config-row">
+      <div class="lbl">Marcar como "Atrasada"<span class="sub">Aciona ação obrigatória</span></div>
+      <div><input type="number" id="cad-depois-2" min="0" max="60" style="max-width:80px;display:inline-block"> dias após prazo</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="primary" onclick="salvarCadencia()">Salvar cadência</button>
+      <button class="warn" onclick="forcarEscalonamento()">Forçar escalonamento agora</button>
+    </div>
+  </div>
+
+  <div class="card config-card" id="prazos">
+    <h2>SLA (metas de tempo)</h2>
+    <p class="muted">Metas referenciais usadas no relatório SLA. Não bloqueiam ações.</p>
+    <div class="config-row">
+      <div class="lbl">SLA · Envio → Aprovação<span class="sub">Dias úteis ideais</span></div>
+      <div><input type="number" id="sla-aprov" min="1" max="90" style="max-width:80px;display:inline-block"> dias</div>
+    </div>
+    <div class="config-row">
+      <div class="lbl">SLA · Aprovação → Pagamento<span class="sub">Dias úteis ideais</span></div>
+      <div><input type="number" id="sla-pago" min="1" max="90" style="max-width:80px;display:inline-block"> dias</div>
+    </div>
+    <div class="config-row">
+      <div class="lbl">Bloqueio de inadimplentes<span class="sub">Exige confirmação para criar expectativa</span></div>
+      <div><label><input type="checkbox" id="bloqueio-inad"> Bloquear novas expectativas para fornecedores marcados como inadimplentes</label></div>
+    </div>
+    <button class="primary" onclick="salvarSLA()" style="margin-top:10px">Salvar SLA</button>
+  </div>
+
+  <div class="card config-card">
+    <h2>Origens permitidas</h2>
+    <p class="muted">Como o fornecedor pode submeter documentação.</p>
+    <div class="config-row">
+      <div class="lbl"><span class="origin portal">Portal</span> Fornecedor logado<span class="sub">Auto-cadastro recomendado</span></div>
+      <div>Habilitado para toda a rede ✓</div>
+    </div>
+    <div class="config-row">
+      <div class="lbl"><span class="origin link_publico">Link público</span> Sem login<span class="sub">FESF gera link para o fornecedor</span></div>
+      <div>Habilitado para toda a rede ✓</div>
+    </div>
+    <div class="config-row">
+      <div class="lbl"><span class="origin manual">Manual</span> Operador opera<span class="sub">Quando fornecedor se recusa</span></div>
+      <div>Habilitado · exige motivo de no mínimo 5 caracteres ✓</div>
+    </div>
+  </div>
+
+  <div class="card config-card">
+    <h2>Auditoria e LGPD</h2>
+    <p class="muted">Configurações de privacidade e trilha de auditoria.</p>
+    <div class="config-row">
+      <div class="lbl">Auditoria completa<span class="sub">Toda ação relevante é registrada</span></div>
+      <div>Habilitada ✓ <span class="muted">(envio, expectativa, fornecedor, usuario, link_publico)</span></div>
+    </div>
+    <div class="config-row">
+      <div class="lbl">Notificações in-app<span class="sub">Sino no topo do painel</span></div>
+      <div>Habilitadas para fornecedores, operadores e admins ✓</div>
+    </div>
+  </div>
+
+  <div class="card config-card">
+    <h2>Minha conta</h2>
+    <p class="muted">Alterar senha do usuário logado.</p>
+    <form id="form-senha" style="max-width:480px;margin-top:14px">
+      <div class="field"><label>Senha atual</label><input type="password" id="senha-atual" required></div>
+      <div class="field"><label>Nova senha (mín. 6 chars)</label><input type="password" id="senha-nova" minlength="6" required></div>
+      <button class="primary" type="submit">Alterar senha</button>
+    </form>
+  </div>
+
+</div>
+
+<script type="module">
+import { api, requireSession, clearSession, setSession, toast } from '/app/api.js';
+const usuario = requireSession();
+if (!usuario || usuario.papel !== 'admin_fesf') location.href = '/app/login.html';
+document.getElementById('userNome').textContent = usuario.nome;
+document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+
+// Carrega configuracoes persistidas
+try {
+  const { configuracoes } = await api.obterConfiguracoes();
+  const cad = configuracoes.cadencia_lembretes || { antes: [5, 1], depois: [3, 7] };
+  document.getElementById('cad-antes-1').value = (cad.antes || [])[0] ?? 5;
+  document.getElementById('cad-antes-2').value = (cad.antes || [])[1] ?? 1;
+  document.getElementById('cad-depois-1').value = (cad.depois || [])[0] ?? 3;
+  document.getElementById('cad-depois-2').value = (cad.depois || [])[1] ?? 7;
+  document.getElementById('sla-aprov').value = configuracoes.sla_dias_aprovacao ?? 5;
+  document.getElementById('sla-pago').value = configuracoes.sla_dias_pagamento ?? 10;
+  document.getElementById('bloqueio-inad').checked = configuracoes.bloqueio_inadimplente !== false;
+} catch (e) { toast('Erro carregando configurações: ' + e.message, 'erro'); }
+
+window.salvarCadencia = async () => {
+  const cad = {
+    antes: [Number(document.getElementById('cad-antes-1').value), Number(document.getElementById('cad-antes-2').value)].filter(n => !Number.isNaN(n)),
+    depois: [Number(document.getElementById('cad-depois-1').value), Number(document.getElementById('cad-depois-2').value)].filter(n => !Number.isNaN(n)),
+  };
+  try { await api.salvarConfiguracoes({ cadencia_lembretes: cad }); toast('Cadência salva', 'sucesso'); }
+  catch (e) { toast('Erro: ' + e.message, 'erro'); }
+};
+
+window.salvarSLA = async () => {
+  try {
+    await api.salvarConfiguracoes({
+      sla_dias_aprovacao: Number(document.getElementById('sla-aprov').value),
+      sla_dias_pagamento: Number(document.getElementById('sla-pago').value),
+      bloqueio_inadimplente: document.getElementById('bloqueio-inad').checked,
+    });
+    toast('Configurações de SLA salvas', 'sucesso');
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+};
+
+const { modalidades } = await api.modalidades();
+document.getElementById('lista-modalidades').innerHTML = `
+  <table><thead><tr><th>Código</th><th>Nome</th><th>Categoria</th><th>Formulário</th></tr></thead><tbody>
+    ${modalidades.map(m => `<tr>
+      <td><code>${m.codigo}</code></td><td>${m.nome}</td>
+      <td><span class="pill ${m.categoria === 'indenizatorio' ? 'aprovado' : 'retificado'}">${m.categoria}</span></td>
+      <td><code style="font-size:11px">${m.formulario || '—'}</code></td>
+    </tr>`).join('')}
+  </tbody></table>
+`;
+
+window.forcarEscalonamento = async () => {
+  try {
+    const r = await fetch('/api/expectativas/escalonar', { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('fesf_token')}`, 'Content-Type': 'application/json' }, body: '{}' });
+    const j = await r.json();
+    toast(`Escalonamento OK: sem_resposta+${j.promovidasSemResposta}, atrasada+${j.promovidasAtrasada}`, 'sucesso');
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+};
+
+document.getElementById('form-senha').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const atual = document.getElementById('senha-atual').value;
+  const nova = document.getElementById('senha-nova').value;
+  try {
+    const r = await api.alterarMinhaSenha(atual, nova);
+    // V210/V198: o backend invalida tokens antigos e retorna novo_token.
+    // Atualizamos a sessao para o admin continuar logado.
+    if (r && r.novo_token) setSession({ token: r.novo_token, usuario });
+    e.target.reset();
+    toast('Senha alterada · sessao renovada', 'sucesso');
+  } catch (err) { toast(err.message, 'erro'); }
+});
+</script>
+</body>
+</html>

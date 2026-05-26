@@ -1,0 +1,123 @@
+# =====================================================================
+# Portal de Pagamentos FESF-SUS - .gitignore
+# =====================================================================
+
+# ---- Dependências (vão ser instaladas via npm install no deploy) ----
+node_modules/
+backend/node_modules/
+
+# ---- Banco de dados local (PGlite) ----
+# Não versionar — cada ambiente tem seu próprio banco
+.pgdata/
+backend/.pgdata/
+*.db
+*.sqlite
+*.sqlite3
+
+# ---- Uploads de fornecedores (anexos físicos) ----
+# São arquivos de usuário, nunca devem ir pro git
+.uploads/
+backend/.uploads/
+uploads/
+
+# ---- Variáveis de ambiente (segredos) ----
+# Cada ambiente (dev/staging/prod) tem seu .env
+.env
+.env.local
+.env.production
+.env.*.local
+backend/.env
+backend/.env.*
+
+# ---- Logs ----
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- Sistema operacional ----
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ---- Editores ----
+.vscode/
+.idea/
+*.iml
+
+# ---- Build / coverage ----
+dist/
+build/
+coverage/
+.nyc_output/
+
+# ---- Documentos de teste fictícios (gerados localmente) ----
+# Estes são apenas para ambiente de teste/demo
+nfe-teste-hecc.pdf
+nfe-teste-hecc.xml
+contrato-social-teste.pdf
+recibo-folha-pagamento.pdf
+gps-inss-comprovante.pdf
+grf-fgts-comprovante.pdf
+darf-irrf-comprovante.pdf
+cnd-federal.pdf
+crf-fgts.pdf
+cndt.pdf
+
+# ---- Arquivos pessoais da pasta /Downloads/Claude ----
+# (mantém o foco do repo só no app)
+Analise_RP_x_PCA_HECC.xlsx
+Análise Cessão HECC.xlsx
+CI_Pagamento_*.docx
+Comprovacao_*.docx
+Despachos*.docx
+Mapa_*.docx
+Modelo *.docx
+Nota *.docx
+Nota_*.docx
+PCA*.xlsx
+PCA *.xlsx
+RegistroDePreço*.xlsx
+apostila-*.docx
+Laudos *.md
+DFDs_PCA_2026/
+auto_claude.py
+
+# ---- Skill agents (não fazem parte do app) ----
+.claude/
+
+# =====================================================================
+# Outros projetos misturados na pasta /Downloads/Claude
+# (mantém o repo focado APENAS no Portal de Pagamentos FESF-SUS)
+# =====================================================================
+fesf-landing/
+gestao-de-escalas-hecc/
+juridico-system/
+passagem-plantao/
+pesquisa_precos_saude/
+tenacitOS/
+
+# HTMLs / scripts soltos de outros projetos
+dashboard-antimicrobianos.html
+landing-escudo-digital.html
+sbar-enfermagem.html
+passagem-plantao-sbar.html
+nfx_extractor.py
+pdf2md.py
+pdf2md_app.py
+serve_hcc.py
+serve_sbar.py
+sbar_server.py
+supabase-schema.sql
+proteja-filhos-digital.pptx
+
+# Lock files do Office (.~lock.*)
+.~lock.*
+~$*
+
+# RELATORIO-BUGS-V237 já foi superado pelo CHANGELOG estruturado
+RELATORIO-BUGS-V237.md
+

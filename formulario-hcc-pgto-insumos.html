@@ -1,0 +1,2131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pagamento Insumos HCC | FESF-SUS</title>
+<style>
+  :root {
+    --primary: #0a5275;
+    --primary-dark: #073d58;
+    --primary-light: #e8f2f8;
+    --primary-soft: #d3e4ee;
+    --accent: #1b8a5c;
+    --accent-soft: #e3f4ec;
+    --danger: #c0392b;
+    --danger-soft: #fbeae8;
+    --warning: #b07b00;
+    --warning-soft: #fff5dc;
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --surface-2: #fafbfc;
+    --border: #dde3ea;
+    --border-strong: #c4cdd6;
+    --text: #1a2733;
+    --text-soft: #4a5968;
+    --muted: #6c7a89;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow-sm: 0 1px 2px rgba(15, 30, 50, 0.06);
+    --shadow-md: 0 4px 14px rgba(15, 30, 50, 0.08);
+    --shadow-lg: 0 12px 32px rgba(15, 30, 50, 0.12);
+    --transition: 160ms ease;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.55;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--primary); }
+  a:hover { color: var(--primary-dark); }
+
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Header */
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-mark {
+    width: 36px; height: 36px;
+    background: var(--primary);
+    border-radius: 8px;
+    display: grid; place-items: center;
+    color: #fff; font-weight: 700; font-size: 14px;
+    letter-spacing: -0.5px;
+  }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+  .brand-text strong { font-size: 14px; color: var(--text); }
+  .brand-text span { font-size: 12px; color: var(--muted); }
+
+  .top-progress {
+    flex: 1;
+    margin: 0 28px;
+    max-width: 540px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .top-progress .bar {
+    flex: 1; height: 6px; background: var(--border);
+    border-radius: 999px; overflow: hidden;
+  }
+  .top-progress .fill {
+    height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent));
+    width: 0%; transition: width 320ms ease;
+  }
+  .top-progress .pct { font-size: 13px; color: var(--muted); min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+
+  .save-status {
+    font-size: 12px; color: var(--muted);
+    display: flex; align-items: center; gap: 6px;
+    min-width: 150px;
+    justify-content: flex-end;
+  }
+  .save-status .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  /* Layout */
+  .shell {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 28px 28px 80px;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 36px;
+  }
+
+  /* Stepper sidebar */
+  .stepper {
+    position: sticky;
+    top: 100px;
+    align-self: start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: var(--shadow-sm);
+  }
+  .stepper h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin: 0 0 14px;
+    font-weight: 600;
+  }
+  .steps { list-style: none; padding: 0; margin: 0; }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background var(--transition);
+    margin-bottom: 4px;
+    user-select: none;
+  }
+  .step:hover { background: var(--surface-2); }
+  .step.active { background: var(--primary-light); }
+  .step.active .step-num { background: var(--primary); color: #fff; }
+  .step.active .step-label { color: var(--primary-dark); font-weight: 600; }
+  .step.done .step-num {
+    background: var(--accent); color: #fff;
+  }
+  .step.done .step-num::after { content: "✓"; font-size: 13px; }
+  .step.done .step-num span { display: none; }
+  .step.locked { opacity: 0.6; cursor: not-allowed; }
+  .step.locked:hover { background: transparent; }
+  .step-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--border); color: var(--text-soft);
+    display: grid; place-items: center;
+    font-size: 13px; font-weight: 600;
+    flex-shrink: 0;
+    transition: all var(--transition);
+  }
+  .step-content { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+  .step-label { font-size: 14px; color: var(--text); }
+  .step-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Panel */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 28px 32px 18px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(to bottom, var(--surface), var(--surface-2));
+  }
+  .panel-eyebrow {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--primary);
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+  .panel-title {
+    margin: 0 0 8px;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }
+  .panel-desc {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 14px;
+    max-width: 720px;
+  }
+  .panel-body { padding: 28px 32px; }
+  .panel-footer {
+    border-top: 1px solid var(--border);
+    background: var(--surface-2);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .panel-footer .actions-left { display: flex; gap: 8px; }
+  .panel-footer .actions-right { display: flex; gap: 10px; }
+
+  /* Cover */
+  .cover {
+    text-align: center;
+    padding: 60px 40px;
+  }
+  .cover-tag {
+    display: inline-block;
+    padding: 6px 14px;
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    margin-bottom: 18px;
+  }
+  .cover h1 {
+    font-size: 32px;
+    margin: 0 0 14px;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+  }
+  .cover p {
+    color: var(--text-soft);
+    max-width: 640px;
+    margin: 0 auto 26px;
+    font-size: 16px;
+  }
+  .cover-meta {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    max-width: 640px;
+    margin: 30px auto;
+    text-align: left;
+  }
+  .meta-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+  }
+  .meta-card .k {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .meta-card .v {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 4px;
+    letter-spacing: -0.3px;
+  }
+  .meta-card .v small { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+  .cover-list {
+    text-align: left;
+    max-width: 640px;
+    margin: 24px auto 32px;
+    background: var(--primary-light);
+    border-radius: var(--radius);
+    padding: 18px 22px;
+  }
+  .cover-list h4 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    color: var(--primary-dark);
+  }
+  .cover-list ul { margin: 0; padding-left: 20px; }
+  .cover-list li { margin: 4px 0; font-size: 14px; color: var(--text-soft); }
+  .cover-resume {
+    background: var(--accent-soft);
+    border: 1px solid #b6e0c9;
+    border-radius: var(--radius-sm);
+    padding: 12px 18px;
+    margin: 20px auto;
+    max-width: 640px;
+    font-size: 14px;
+    color: #145c3c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  /* Fields */
+  .field { margin-bottom: 22px; }
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .field-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .field-label .lbl {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .field-label .req {
+    color: var(--danger);
+    font-weight: 700;
+    margin-left: 3px;
+  }
+  .field-label .opt {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .field-help {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0 0 8px;
+    line-height: 1.5;
+  }
+  .field-help a { color: var(--primary); }
+
+  /* Inputs */
+  .input, .textarea, .select {
+    width: 100%;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    padding: 11px 14px;
+    font-size: 15px;
+    font-family: inherit;
+    color: var(--text);
+    transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+  }
+  .input:hover, .textarea:hover, .select:hover { border-color: var(--primary); }
+  .input:focus, .textarea:focus, .select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(10, 82, 117, 0.15);
+  }
+  .input.valid { border-color: var(--accent); background: var(--accent-soft); }
+  .input.invalid { border-color: var(--danger); background: var(--danger-soft); }
+  .textarea { min-height: 96px; resize: vertical; }
+  .input-prefix { position: relative; }
+  .input-prefix .prefix {
+    position: absolute;
+    left: 14px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-weight: 500;
+    pointer-events: none;
+  }
+  .input-prefix .input { padding-left: 38px; }
+
+  .error-msg {
+    color: var(--danger);
+    font-size: 12.5px;
+    margin-top: 6px;
+    min-height: 16px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .error-msg:empty { display: none; }
+  .hint-msg {
+    color: var(--accent);
+    font-size: 12.5px;
+    margin-top: 6px;
+  }
+
+  /* File upload */
+  .drop {
+    border: 2px dashed var(--border-strong);
+    border-radius: var(--radius);
+    padding: 22px 18px;
+    text-align: center;
+    background: var(--surface-2);
+    transition: all var(--transition);
+    cursor: pointer;
+  }
+  .drop:hover, .drop.dragging {
+    border-color: var(--primary);
+    background: var(--primary-light);
+  }
+  .drop.has-files {
+    border-style: solid;
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .drop .icon {
+    width: 36px; height: 36px;
+    margin: 0 auto 8px;
+    color: var(--primary);
+  }
+  .drop .title {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+  .drop .sub {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .file-input { display: none; }
+  .file-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  .file-item .fi-icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    display: grid; place-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .file-item .fi-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .file-item .fi-size { color: var(--muted); font-size: 12px; flex-shrink: 0; }
+  .file-item .fi-remove {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 8px;
+    border-radius: 4px;
+    transition: all var(--transition);
+  }
+  .file-item .fi-remove:hover { background: var(--danger-soft); color: var(--danger); }
+
+  /* Callout */
+  .callout {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--primary-light);
+    border: 1px solid var(--primary-soft);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: var(--primary-dark);
+  }
+  .callout .ci { flex-shrink: 0; margin-top: 2px; font-weight: 700; }
+  .callout a {
+    color: var(--primary-dark);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .callout.warning {
+    background: var(--warning-soft);
+    border-color: #f0d68a;
+    color: #6b4d00;
+  }
+  .callout.warning a { color: #6b4d00; }
+  .callout.section-notice {
+    margin-bottom: 22px;
+    padding: 14px 18px;
+    font-size: 14px;
+    align-items: flex-start;
+  }
+  .callout.section-notice .ci { font-size: 18px; }
+  .callout.section-notice strong { display: block; margin-bottom: 2px; }
+
+  /* Buttons */
+  .btn {
+    border: 1px solid transparent;
+    padding: 10px 22px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all var(--transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+  .btn-secondary:hover { border-color: var(--primary); color: var(--primary); }
+  .btn-link {
+    background: transparent;
+    color: var(--muted);
+    border-color: transparent;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 10px 8px;
+    font-weight: 500;
+  }
+  .btn-link:hover { color: var(--danger); }
+  .btn-success { background: var(--accent); color: #fff; }
+  .btn-success:hover { background: #146a44; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* Section card */
+  .group-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 18px 20px;
+    margin-bottom: 22px;
+  }
+
+  /* Review */
+  .review-section {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .review-section header {
+    background: var(--surface-2);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .review-section header h4 {
+    margin: 0;
+    font-size: 14px;
+    color: var(--primary-dark);
+  }
+  .review-section .edit {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+  .review-section .edit:hover { background: var(--primary-light); }
+  .review-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+  .review-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    min-height: 64px;
+  }
+  .review-item:nth-child(even) { border-right: none; }
+  .review-item:last-child, .review-item:nth-last-child(2):nth-child(odd) { border-bottom: none; }
+  .review-item .k {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .review-item .v {
+    font-size: 14px;
+    color: var(--text);
+    word-break: break-word;
+  }
+  .review-item .v.missing {
+    color: var(--danger);
+    font-style: italic;
+  }
+  .review-item .v.optional-missing {
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* Success */
+  .success-screen {
+    text-align: center;
+    padding: 60px 32px;
+  }
+  .success-icon {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: grid; place-items: center;
+    margin: 0 auto 20px;
+    font-size: 36px;
+    font-weight: 700;
+  }
+  .success-screen h2 {
+    margin: 0 0 12px;
+    font-size: 26px;
+    letter-spacing: -0.3px;
+  }
+  .success-screen p {
+    color: var(--text-soft);
+    max-width: 520px;
+    margin: 0 auto 24px;
+  }
+  .protocol-block {
+    display: inline-block;
+    text-align: left;
+    background: var(--primary-light);
+    border: 1px solid var(--primary-soft);
+    border-radius: var(--radius-sm);
+    padding: 14px 22px;
+    margin-bottom: 18px;
+  }
+  .protocol-block .lbl {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--primary-dark);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .protocol-block .num {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-weight: 700;
+    color: var(--primary-dark);
+    letter-spacing: 1px;
+    font-size: 22px;
+  }
+  .success-summary {
+    margin: 24px auto;
+    max-width: 520px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    text-align: left;
+  }
+  .success-summary .meta-card { background: var(--surface); }
+
+  .hidden { display: none !important; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(15, 30, 50, 0.5);
+    display: grid; place-items: center;
+    padding: 20px;
+    z-index: 100;
+    backdrop-filter: blur(2px);
+    animation: fadeIn 160ms ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    max-width: 520px; width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideUp 200ms ease;
+  }
+  @keyframes slideUp { from { transform: translateY(8px); opacity: 0.8; } to { transform: translateY(0); opacity: 1; } }
+  .modal-header {
+    padding: 22px 26px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-header h3 { margin: 0 0 4px; font-size: 18px; }
+  .modal-header p { margin: 0; font-size: 13px; color: var(--muted); }
+  .modal-body { padding: 22px 26px; }
+  .modal-footer {
+    padding: 16px 26px;
+    border-top: 1px solid var(--border);
+    background: var(--surface-2);
+    display: flex; justify-content: flex-end; gap: 10px;
+  }
+  .modal-close {
+    position: absolute; right: 12px; top: 12px;
+    background: none; border: none; cursor: pointer;
+    width: 32px; height: 32px; border-radius: 6px;
+    font-size: 20px; color: var(--muted);
+  }
+  .modal-close:hover { background: var(--surface-2); color: var(--text); }
+
+  /* Retification banner */
+  .banner-retification {
+    background: var(--warning-soft);
+    border-bottom: 1px solid #f0d68a;
+    padding: 12px 32px;
+    display: flex; align-items: center; gap: 12px;
+    color: #6b4d00;
+    font-size: 13px;
+  }
+  .banner-retification .icon { font-size: 16px; }
+  .banner-retification strong { font-weight: 600; }
+  .banner-retification code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background: rgba(255,255,255,0.6);
+    padding: 1px 6px; border-radius: 4px;
+  }
+
+  /* Diff list */
+  .diff-list {
+    list-style: none; padding: 0; margin: 12px 0 0;
+    max-height: 300px; overflow-y: auto;
+  }
+  .diff-item {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .diff-item:last-child { border-bottom: none; }
+  .diff-item .field { font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .diff-item .change { color: var(--muted); font-size: 12px; }
+  .diff-item .change s { color: var(--danger); opacity: 0.7; }
+  .diff-item .change b { color: var(--accent); font-weight: 600; }
+  .diff-item.added { border-left: 3px solid var(--accent); padding-left: 9px; }
+  .diff-item.removed { border-left: 3px solid var(--danger); padding-left: 9px; }
+  .diff-item.modified { border-left: 3px solid var(--warning); padding-left: 9px; }
+  .diff-empty {
+    text-align: center; padding: 20px;
+    color: var(--muted); font-size: 13px; font-style: italic;
+  }
+
+  /* Version history */
+  .version-history {
+    margin-top: 30px;
+    text-align: left;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+  .version-history summary {
+    padding: 12px 16px;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--primary-dark);
+    font-size: 14px;
+    list-style: none;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .version-history summary::-webkit-details-marker { display: none; }
+  .version-history summary::after { content: "▾"; color: var(--muted); transition: transform var(--transition); }
+  .version-history[open] summary::after { transform: rotate(180deg); }
+  .version-history summary:hover { background: var(--surface-2); }
+  .version-items { padding: 4px 16px 14px; }
+  .version-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .version-item:last-child { border-bottom: none; }
+  .version-item .vnum {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 12px;
+  }
+  .version-item .vnum.current {
+    background: var(--accent); color: #fff;
+  }
+  .version-item .vinfo { font-size: 13px; }
+  .version-item .vinfo .vtype { font-weight: 600; color: var(--text); }
+  .version-item .vinfo .vmeta { color: var(--muted); font-size: 12px; }
+  .version-item .vbadge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .version-item .vbadge.current { background: var(--accent-soft); color: var(--accent); }
+
+  /* Print */
+  @media print {
+    .topbar, .stepper, .panel-footer, .success-summary, #view-cover, #view-form, #view-review { display: none !important; }
+    body { background: #fff; }
+    .shell { display: block; padding: 0; }
+    .panel { border: none; box-shadow: none; }
+    .success-screen { padding: 20px; }
+  }
+
+  /* Responsive */
+  @media (max-width: 960px) {
+    .shell { grid-template-columns: 1fr; padding: 16px; }
+    .stepper { position: static; }
+    .field-row { grid-template-columns: 1fr; }
+    .top-progress { margin: 0 12px; }
+    .save-status { display: none; }
+    .panel-body { padding: 22px 20px; }
+    .panel-header { padding: 22px 20px 14px; }
+    .panel-footer { padding: 14px 20px; flex-wrap: wrap; gap: 8px; }
+    .panel-footer .actions-left, .panel-footer .actions-right { width: 100%; justify-content: space-between; }
+    .cover-meta, .success-summary { grid-template-columns: 1fr; }
+    .review-grid { grid-template-columns: 1fr; }
+    .review-item { border-right: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">HCC</div>
+    <div class="brand-text">
+      <strong>Hospital Estadual Costa dos Coqueiros</strong>
+      <span>FESF-SUS · Pagamento Insumos</span>
+    </div>
+  </div>
+  <div class="top-progress" role="progressbar" aria-label="Progresso do formulário"
+       aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progBar">
+    <div class="bar"><div class="fill" id="progFill"></div></div>
+    <div class="pct" id="progPct">0%</div>
+  </div>
+  <div class="save-status" id="saveStatus" aria-live="polite">
+    <span class="dot"></span><span id="saveText">Rascunho salvo</span>
+  </div>
+</header>
+
+<main class="shell">
+
+  <!-- Stepper -->
+  <aside class="stepper" aria-label="Etapas do formulário">
+    <h3>Etapas</h3>
+    <ul class="steps" id="stepsList" role="list"></ul>
+  </aside>
+
+  <!-- Panel -->
+  <section class="panel" id="panel" aria-live="polite">
+
+    <!-- COVER -->
+    <div class="panel-body" id="view-cover">
+      <div class="cover">
+        <span class="cover-tag">FORMULÁRIO OFICIAL</span>
+        <h1>Pagamento Insumos HCC</h1>
+        <p>
+          Este formulário foi criado para acelerar significativamente a instrução
+          dos processos e garantir o pagamento ágil dos fornecedores do HCC. Quanto
+          mais completo e correto for o preenchimento, mais rápido ocorre a
+          liberação do pagamento.
+        </p>
+
+        <div class="cover-meta">
+          <div class="meta-card">
+            <div class="k">Etapas</div>
+            <div class="v" id="metaSteps">—</div>
+          </div>
+          <div class="meta-card">
+            <div class="k">Tempo estimado</div>
+            <div class="v">5<small>–8 min</small></div>
+          </div>
+          <div class="meta-card">
+            <div class="k">Documentos</div>
+            <div class="v">11<small>+</small></div>
+          </div>
+        </div>
+
+        <div class="cover-list">
+          <h4>Antes de começar, tenha em mãos:</h4>
+          <ul>
+            <li>Nota fiscal dos insumos (PDF + XML + número da NF)</li>
+            <li>Certidões de regularidade fiscal, trabalhista e previdenciária dentro do prazo</li>
+            <li>Certidão de Fornecedor CGU (CEIS e CNEP)</li>
+          </ul>
+        </div>
+
+        <div id="resumeNotice" class="cover-resume hidden">
+          <span>↩</span>
+          <span>Você tem um rascunho salvo deste formulário. Pode continuar de onde parou.</span>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          <button class="btn btn-primary" id="btnStart" style="padding: 12px 28px; font-size: 15px;">
+            Iniciar preenchimento →
+          </button>
+          <button class="btn btn-link hidden" id="btnDiscard">Descartar rascunho</button>
+        </div>
+        <div style="margin-top: 16px; font-size: 12px; color: var(--muted);">
+          Seus dados são salvos automaticamente neste dispositivo. Você pode pausar e retomar quando quiser.
+        </div>
+
+        <div style="margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-soft);">
+          Já enviou e precisa <strong>retificar</strong> ou <strong>complementar</strong> documentos?<br>
+          <button class="btn btn-secondary" id="btnAccessExisting" style="margin-top: 10px;">
+            Acessar envio existente →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FORM -->
+    <div id="view-form" class="hidden">
+      <div class="banner-retification hidden" id="retBanner" role="status">
+        <span class="icon" aria-hidden="true">✎</span>
+        <div>
+          <strong>Modo retificação</strong> — você está editando o envio
+          <code id="retProtocol">HCC-XXXX-XXXX</code> · Versão <strong id="retVersion">2</strong>.
+          As alterações geram uma nova versão; a anterior fica preservada para auditoria.
+        </div>
+      </div>
+      <div class="panel-header">
+        <p class="panel-eyebrow" id="sectionEyebrow">Seção 1 de 6</p>
+        <h2 class="panel-title" id="sectionTitle"></h2>
+        <p class="panel-desc" id="sectionDesc"></p>
+      </div>
+      <div class="panel-body" id="formBody"></div>
+      <div class="panel-footer">
+        <div class="actions-left">
+          <button class="btn btn-secondary" id="btnPrev">← Voltar</button>
+        </div>
+        <div style="font-size: 13px; color: var(--muted);" id="footerHint"></div>
+        <div class="actions-right">
+          <button class="btn btn-primary" id="btnNext">Continuar →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- REVIEW -->
+    <div id="view-review" class="hidden">
+      <div class="banner-retification hidden" id="retBannerReview" role="status">
+        <span class="icon" aria-hidden="true">✎</span>
+        <div>
+          <strong>Modo retificação</strong> — revise as alterações da versão
+          <strong id="retVersionReview">2</strong> antes de registrar.
+        </div>
+      </div>
+      <div class="panel-header">
+        <p class="panel-eyebrow">Etapa final</p>
+        <h2 class="panel-title" id="reviewTitle">Revise antes de enviar</h2>
+        <p class="panel-desc">Confira os dados preenchidos. Clique em <strong>Editar</strong> em qualquer seção para alterar.</p>
+      </div>
+      <div class="panel-body" id="reviewBody"></div>
+      <div class="panel-footer">
+        <button class="btn btn-secondary" id="btnReviewBack">← Voltar</button>
+        <div id="reviewWarn" style="font-size: 13px; color: var(--danger);"></div>
+        <button class="btn btn-success" id="btnSubmit">Enviar formulário</button>
+      </div>
+    </div>
+
+    <!-- SUCCESS -->
+    <div id="view-success" class="hidden">
+      <div class="success-screen">
+        <div class="success-icon">✓</div>
+        <h2 id="successTitle">Formulário enviado com sucesso</h2>
+        <p id="successDesc">Recebemos sua submissão. O setor financeiro do HCC dará continuidade
+          à instrução do processo. Guarde o número de protocolo abaixo para acompanhamento.</p>
+
+        <div class="protocol-block">
+          <div class="lbl" id="protocolLbl">Protocolo de envio</div>
+          <div class="num" id="protocolNum">HCC-0000-0000</div>
+        </div>
+
+        <div class="success-summary">
+          <div class="meta-card">
+            <div class="k" id="sentAtLbl">Enviado em</div>
+            <div class="v" id="sentAt" style="font-size: 16px;">—</div>
+          </div>
+          <div class="meta-card">
+            <div class="k">Fornecedor</div>
+            <div class="v" id="sentSupplier" style="font-size: 14px;">—</div>
+          </div>
+          <div class="meta-card">
+            <div class="k">Valor</div>
+            <div class="v" id="sentValue" style="font-size: 16px;">—</div>
+          </div>
+        </div>
+
+        <details class="version-history hidden" id="historyContainer">
+          <summary>Histórico de versões deste envio <span id="historyCount" style="color: var(--muted); font-weight: 500;"></span></summary>
+          <div class="version-items" id="historyItems"></div>
+        </details>
+
+        <div style="margin-top: 28px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          <button class="btn btn-secondary" onclick="window.print()">Imprimir comprovante</button>
+          <button class="btn btn-primary" id="btnDownload">Baixar resumo (JSON)</button>
+          <button class="btn btn-link" id="btnNew">Novo preenchimento</button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+
+<!-- Modal: Acessar envio existente -->
+<div class="modal-overlay hidden" id="accessModal" role="dialog" aria-labelledby="accessModalTitle" aria-modal="true">
+  <div class="modal" style="position: relative;">
+    <button class="modal-close" id="closeAccessModal" aria-label="Fechar">×</button>
+    <div class="modal-header">
+      <h3 id="accessModalTitle">Acessar envio existente</h3>
+      <p>Informe o protocolo do envio anterior e o CNPJ do fornecedor para retificar ou complementar documentos.</p>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label class="field-label" for="accessProtocol">
+          <div class="lbl">Protocolo do envio<span class="req">*</span></div>
+        </label>
+        <p class="field-help">Formato: HCC-XXXX-XXXX (você recebeu no envio anterior).</p>
+        <input id="accessProtocol" class="input" placeholder="HCC-0000-0000" maxlength="13" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="field-label" for="accessCnpj">
+          <div class="lbl">CNPJ do fornecedor<span class="req">*</span></div>
+        </label>
+        <p class="field-help">Mesmo CNPJ usado no envio que você quer retificar.</p>
+        <input id="accessCnpj" class="input" placeholder="00.000.000/0000-00" maxlength="18" inputmode="numeric" autocomplete="off">
+      </div>
+      <div class="error-msg" id="accessError"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="cancelAccessModal">Cancelar</button>
+      <button class="btn btn-primary" id="confirmAccess">Acessar envio →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Confirmacao com diff antes de submeter retificacao -->
+<div class="modal-overlay hidden" id="diffModal" role="dialog" aria-labelledby="diffModalTitle" aria-modal="true">
+  <div class="modal" style="position: relative;">
+    <button class="modal-close" id="closeDiffModal" aria-label="Fechar">×</button>
+    <div class="modal-header">
+      <h3 id="diffModalTitle">Confirmar retificação</h3>
+      <p>Esta é a lista de alterações que você está fazendo em relação à versão anterior.</p>
+    </div>
+    <div class="modal-body">
+      <div id="diffContent"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="cancelDiffModal">Continuar editando</button>
+      <button class="btn btn-success" id="confirmRetification">Registrar retificação</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ------------------------------------------------------------------
+   Esquema do formulário
+------------------------------------------------------------------ */
+const SCHEMA = [
+  {
+    id: "dados",
+    title: "Dados Gerais do Serviço e do Fornecedor",
+    desc: "Informe os dados básicos sobre o serviço prestado e a empresa fornecedora.",
+    fields: [
+      { id: "respondente", q: "Nome do respondente", type: "text", required: true,
+        placeholder: "Quem está preenchendo este formulário",
+        help: "Pessoa que está preenchendo o formulário — usado para registro interno." },
+      { id: "q1_nomeFornecedor", q: "1. Nome do Fornecedor", type: "text", required: true,
+        placeholder: "Ex.: Empresa de Serviços Hospitalares Ltda.",
+        help: "Razão social completa da empresa, exatamente como consta no CNPJ." },
+      { id: "q2_cnpj", q: "2. CNPJ do Fornecedor", type: "cnpj", required: true,
+        help: "Digite os 14 dígitos. A formatação 00.000.000/0000-00 é aplicada automaticamente." },
+      { id: "q3_valor", q: "3. Valor Total dos Insumos Fornecidos (antes de descontos)", type: "currency", required: true,
+        help: "Valor bruto dos insumos fornecidos em reais, antes de qualquer desconto ou imposto." },
+      { id: "q4_descricao", q: "4. Descrição dos Insumos Fornecidos", type: "textarea", required: true,
+        placeholder: "Ex.: 200 unidades de luvas de procedimento M, 150 unidades de máscara N95, 50 caixas de seringa 10ml.",
+        help: "Descreva resumidamente os insumos que foram fornecidos." },
+      { id: "q5_competencia", q: "5. Mês/Ano de Referência dos Insumos Fornecidos (Competência)", type: "month", required: true,
+        help: "Mês e ano em que os insumos foram fornecidos.", inline: true },
+      { id: "q6_email", q: "6. E-mail para Contato", type: "email", required: true,
+        placeholder: "contato@empresa.com.br",
+        help: "E-mail válido para contato em caso de dúvidas.", inline: true },
+      { id: "q7_telefone", q: "7. Telefone para Contato", type: "phone", required: true,
+        help: "Telefone com DDD. Formatação (00) 00000-0000 aplicada automaticamente.", inline: true },
+    ]
+  },
+  {
+    id: "nf",
+    title: "Nota Fiscal e Documentação da Empresa",
+    desc: "Anexe a nota fiscal do mês e os documentos da empresa (contrato social e documento do representante legal).",
+    fields: [
+      { id: "q8_nfPdf", q: "8. Nota Fiscal em PDF (da competência/mês corrente)", type: "file", required: true,
+        accept: ".pdf", multiple: true, maxFiles: 10, maxSize: 100,
+        help: "Nota(s) fiscal(is) referente(s) à competência informada, em PDF." },
+      { id: "q9_nfXml", q: "9. Nota Fiscal em XML (da competência/mês corrente)", type: "file", required: true,
+        accept: ".xml", multiple: true, maxFiles: 10, maxSize: 100,
+        help: "Arquivo XML eletrônico original gerado no momento da emissão da NF." },
+      { id: "q10_nfNumero", q: "10. Número da Nota Fiscal", type: "text", required: true,
+        placeholder: "Ex.: 000.000.123",
+        help: "Número que consta impresso na NF — deve corresponder ao mesmo do PDF e do XML anexados acima." },
+      { id: "q10_dataEmissao", q: "11. Data de Emissão da Nota Fiscal", type: "date", required: true,
+        help: "Data que consta impressa na nota fiscal." },
+    ]
+  },
+  {
+    id: "certidoes",
+    title: "Certidões e Regularidade Fiscal",
+    desc: "Anexe as certidões que comprovam a regularidade fiscal, trabalhista e previdenciária. Todas precisam estar dentro do prazo de validade.",
+    notice: {
+      title: "Emita as certidões hoje, na data do preenchimento",
+      body: "Isso garante o maior prazo de vigência possível — todas as certidões precisam estar válidas no momento do pagamento, e não apenas no envio do formulário."
+    },
+    fields: [
+      { id: "q14_cnpj", q: "12. Comprovante de CNPJ", type: "file", required: true,
+        accept: ".pdf", maxFiles: 1, maxSize: 10,
+        link: { label: "Emitir no portal da Receita Federal", url: "https://solucoes.receita.fazenda.gov.br/servicos/cnpjreva/cnpjreva_solicitacao.asp" } },
+      { id: "q15_fiscalFederal", q: "13. Certidão de Regularidade Fiscal Federal", type: "file", required: true,
+        accept: ".pdf", maxFiles: 1, maxSize: 10,
+        link: { label: "Emitir Certidão Conjunta (Receita Federal)", url: "https://solucoes.receita.fazenda.gov.br/Servicos/certidaointernet/PJ/Emitir" } },
+      { id: "q16_fiscalEstadual", q: "14. Certidão de Regularidade Fiscal Estadual", type: "file", required: true,
+        accept: ".pdf", maxFiles: 1, maxSize: 10,
+        link: { label: "Emitir na SEFAZ-BA", url: "https://www.sefaz.ba.gov.br/certidao/" },
+        help: "Certidão Negativa da Secretaria da Fazenda do estado de origem. No caso da Bahia, use o link acima." },
+      { id: "q17_fiscalMunicipal", q: "15. Certidão de Regularidade Fiscal Municipal", type: "file", required: true,
+        accept: ".pdf", maxFiles: 1, maxSize: 10,
+        help: "Emita a Certidão Negativa na Prefeitura do município onde a empresa está registrada." },
+      { id: "q18_cndt", q: "16. CNDT — Certidão Negativa de Débitos Trabalhistas", type: "file", required: true,
+        accept: ".pdf", maxFiles: 1, maxSize: 10,
+        link: { label: "Emitir no portal do TST", url: "https://www.tst.jus.br/certidao" } },
+      { id: "q19_crfFgts", q: "17. CRF/FGTS — Certificado de Regularidade do FGTS", type: "file", required: true,
+        accept: ".pdf", maxFiles: 1, maxSize: 10,
+        link: { label: "Emitir na Caixa Econômica Federal", url: "https://consulta-crf.caixa.gov.br/consultacrf/pages/consultaEmpregador.jsf" } },
+      { id: "q20_alvara", q: "18. Alvará da Vigilância Sanitária", type: "file", required: false,
+        accept: ".pdf,.jpg,.jpeg,.png", maxFiles: 1, maxSize: 10,
+        help: "Obrigatório apenas para serviços que exijam esse licenciamento." },
+      { id: "q21_cgu", q: "19. Certidão de Fornecedor da CGU (CEIS e CNEP)", type: "file", required: true,
+        accept: ".pdf", maxFiles: 1, maxSize: 10,
+        link: { label: "Emitir no portal da CGU", url: "https://certidoes.cgu.gov.br/consulta-certidao" },
+        help: "Verifica pendências em CEIS e CNEP." },
+    ]
+  }
+];
+
+/* ------------------------------------------------------------------
+   State + persistence
+------------------------------------------------------------------ */
+const STORAGE_KEY = "hcc_form_pagamento_v1";
+const SUBMISSIONS_KEY = "hcc_form_submissions_v1";
+const state = {
+  step: -1,
+  data: {},
+  files: {},
+  mode: "new",                 // "new" | "edit"
+  editingProtocol: null,       // protocolo sendo editado
+  editingVersion: null,        // numero da nova versao (n+1)
+  originalSnapshot: null,      // snapshot da ultima versao para diff
+};
+let hadDraft = false;
+
+/* Submissions = historico imutavel de envios finalizados.
+   Estrutura: { "HCC-XXXX-XXXX": { protocol, cnpj, versions: [ {version, type, submittedAt, data, files, diff} ] } }
+*/
+function loadSubmissions() {
+  try {
+    const raw = localStorage.getItem(SUBMISSIONS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+}
+function saveSubmissions(subs) {
+  try { localStorage.setItem(SUBMISSIONS_KEY, JSON.stringify(subs)); } catch(e) {}
+}
+function appendVersion(protocol, cnpj, versionData) {
+  const subs = loadSubmissions();
+  if (!subs[protocol]) subs[protocol] = { protocol, cnpj, versions: [] };
+  subs[protocol].versions.push(versionData);
+  saveSubmissions(subs);
+}
+function lookupSubmission(protocol, cnpj) {
+  const subs = loadSubmissions();
+  const sub = subs[protocol];
+  if (!sub) return null;
+  const normCnpj = (s) => (s || "").replace(/\D/g, "");
+  if (normCnpj(sub.cnpj) !== normCnpj(cnpj)) return null;
+  return sub;
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const obj = JSON.parse(raw);
+    if (obj && typeof obj === "object") {
+      state.data = obj.data || {};
+      state.files = obj.files || {};
+      state.step = typeof obj.step === "number" ? obj.step : -1;
+      hadDraft = Object.keys(state.data).length > 0 || Object.keys(state.files).length > 0;
+    }
+  } catch (e) { /* ignore */ }
+}
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      data: state.data, files: state.files, step: state.step
+    }));
+    flashSave();
+  } catch (e) { /* ignore */ }
+}
+let saveTimer = null;
+function flashSave() {
+  const el = document.getElementById("saveText");
+  if (!el) return;
+  el.textContent = "Salvando…";
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => el.textContent = "Rascunho salvo", 600);
+}
+
+/* ------------------------------------------------------------------
+   Formatadores e validadores
+------------------------------------------------------------------ */
+function maskCNPJ(v) {
+  const d = (v || "").replace(/\D/g, "").slice(0, 14);
+  return d
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
+function maskPhone(v) {
+  const d = (v || "").replace(/\D/g, "").slice(0, 11);
+  if (!d) return "";
+  if (d.length <= 10) {
+    return d.replace(/^(\d{0,2})(\d{0,4})(\d{0,4}).*/, (_, a, b, c) =>
+      [a ? "(" + a : "", a && a.length === 2 ? ") " : "", b, c ? "-" + c : ""].join("").trim());
+  }
+  return d.replace(/^(\d{2})(\d{5})(\d{4}).*/, "($1) $2-$3");
+}
+function maskCurrency(v) {
+  const d = (v || "").replace(/\D/g, "");
+  if (!d) return "";
+  const cents = d.padStart(3, "0");
+  const int = cents.slice(0, -2);
+  const frac = cents.slice(-2);
+  const intFmt = int.replace(/^0+(?=\d)/, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return (intFmt || "0") + "," + frac;
+}
+function validateCNPJ(v) {
+  const d = (v || "").replace(/\D/g, "");
+  if (d.length !== 14) return false;
+  if (/^(\d)\1+$/.test(d)) return false;
+  const calc = (slice) => {
+    const nums = d.slice(0, slice).split("").map(Number);
+    const weights = slice === 12
+      ? [5,4,3,2,9,8,7,6,5,4,3,2]
+      : [6,5,4,3,2,9,8,7,6,5,4,3,2];
+    const sum = nums.reduce((s, n, i) => s + n * weights[i], 0);
+    const r = sum % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  return calc(12) === Number(d[12]) && calc(13) === Number(d[13]);
+}
+function validateEmail(v) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v || "");
+}
+function validatePhone(v) {
+  const d = (v || "").replace(/\D/g, "");
+  return d.length === 10 || d.length === 11;
+}
+function formatBytes(n) {
+  if (n < 1024) return n + " B";
+  if (n < 1024*1024) return (n/1024).toFixed(1) + " KB";
+  return (n/1024/1024).toFixed(2) + " MB";
+}
+function formatMonth(v) {
+  if (!v) return "";
+  const [y, m] = v.split("-");
+  const meses = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  return `${meses[parseInt(m,10)-1]} de ${y}`;
+}
+function formatDate(v) {
+  if (!v) return "";
+  const [y,m,d] = v.split("-");
+  return `${d}/${m}/${y}`;
+}
+function todayISO() {
+  const d = new Date();
+  const z = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`;
+}
+function thisMonthISO() {
+  const d = new Date();
+  const z = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth()+1)}`;
+}
+function cleanAccept(accept) {
+  if (!accept) return "qualquer formato";
+  return accept.split(",").map(s => s.trim().replace(/^\./, "").toUpperCase()).join(", ");
+}
+
+/* ------------------------------------------------------------------
+   State queries
+------------------------------------------------------------------ */
+function sectionHasPending(i) {
+  return SCHEMA[i].fields.some(f => f.required && !isFilled(f));
+}
+function sectionStarted(i) {
+  return SCHEMA[i].fields.some(f => isFilled(f));
+}
+function sectionComplete(i) {
+  return !sectionHasPending(i) && sectionStarted(i);
+}
+function countFilled(i) {
+  return SCHEMA[i].fields.filter(f => isFilled(f)).length;
+}
+function isFilled(f) {
+  if (f.type === "file") {
+    return Array.isArray(state.files[f.id]) && state.files[f.id].length > 0;
+  }
+  const v = state.data[f.id];
+  return v !== undefined && v !== null && String(v).trim() !== "";
+}
+function allRequiredFilled() {
+  return SCHEMA.every((_, i) => !sectionHasPending(i));
+}
+
+/* ------------------------------------------------------------------
+   Renderização
+------------------------------------------------------------------ */
+function renderStepper() {
+  const ul = document.getElementById("stepsList");
+  ul.innerHTML = "";
+  SCHEMA.forEach((sec, i) => {
+    const li = document.createElement("li");
+    const isActive = state.step === i;
+    const isDone = sectionComplete(i);
+    li.className = "step" + (isActive ? " active" : (isDone ? " done" : ""));
+    li.setAttribute("role", "button");
+    li.setAttribute("tabindex", "0");
+    li.setAttribute("aria-current", isActive ? "step" : "false");
+    li.innerHTML = `
+      <div class="step-num"><span>${i + 1}</span></div>
+      <div class="step-content">
+        <div class="step-label">${escapeHTML(sec.title)}</div>
+        <div class="step-meta">${countFilled(i)}/${sec.fields.length} preenchidos</div>
+      </div>`;
+    const goto = () => { if (state.step !== i) { state.step = i; renderAll(); } };
+    li.addEventListener("click", goto);
+    li.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goto(); }
+    });
+    ul.appendChild(li);
+  });
+  // Review step
+  const li = document.createElement("li");
+  const isReview = state.step === SCHEMA.length;
+  const canReview = allRequiredFilled();
+  li.className = "step" + (isReview ? " active" : "") + (!canReview ? " locked" : "");
+  li.setAttribute("role", "button");
+  li.setAttribute("tabindex", canReview ? "0" : "-1");
+  li.setAttribute("aria-disabled", canReview ? "false" : "true");
+  li.innerHTML = `
+    <div class="step-num"><span>✓</span></div>
+    <div class="step-content">
+      <div class="step-label">Revisar e enviar</div>
+      <div class="step-meta">${canReview ? "Pronto para envio" : "Complete as etapas anteriores"}</div>
+    </div>`;
+  const goto = () => { if (canReview && state.step !== SCHEMA.length) { state.step = SCHEMA.length; renderAll(); } };
+  li.addEventListener("click", goto);
+  li.addEventListener("keydown", (e) => {
+    if ((e.key === "Enter" || e.key === " ") && canReview) { e.preventDefault(); goto(); }
+  });
+  ul.appendChild(li);
+}
+
+function renderProgress() {
+  const total = SCHEMA.reduce((s, sec) => s + sec.fields.filter(f => f.required).length, 0);
+  const filled = SCHEMA.reduce((s, sec) => s + sec.fields.filter(f => f.required && isFilled(f)).length, 0);
+  const pct = total === 0 ? 0 : Math.round(filled / total * 100);
+  document.getElementById("progFill").style.width = pct + "%";
+  document.getElementById("progPct").textContent = pct + "%";
+  document.getElementById("progBar").setAttribute("aria-valuenow", String(pct));
+}
+
+function renderField(f) {
+  const wrap = document.createElement("div");
+  wrap.className = "field";
+  wrap.dataset.fid = f.id;
+
+  const label = document.createElement("label");
+  label.className = "field-label";
+  label.setAttribute("for", "fld_" + f.id);
+  label.innerHTML = `
+    <div class="lbl">${escapeHTML(f.q)}${f.required ? '<span class="req" aria-hidden="true">*</span>' : '<span class="opt"> · opcional</span>'}</div>`;
+  wrap.appendChild(label);
+
+  if (f.link) {
+    const callout = document.createElement("div");
+    callout.className = "callout";
+    callout.innerHTML = `
+      <span class="ci" aria-hidden="true">ⓘ</span>
+      <div>Precisa emitir? <a href="${f.link.url}" target="_blank" rel="noopener">${escapeHTML(f.link.label)} ↗</a></div>`;
+    wrap.appendChild(callout);
+  }
+
+  if (f.help) {
+    const h = document.createElement("p");
+    h.className = "field-help";
+    h.textContent = f.help;
+    wrap.appendChild(h);
+  }
+
+  const inputWrap = document.createElement("div");
+  wrap.appendChild(inputWrap);
+  const errEl = document.createElement("div");
+  errEl.className = "error-msg";
+  errEl.setAttribute("aria-live", "polite");
+  wrap.appendChild(errEl);
+
+  const setErr = (msg) => { errEl.textContent = msg || ""; };
+
+  switch (f.type) {
+    case "text":
+    case "email":
+    case "cnpj":
+    case "phone":
+    case "currency":
+    case "date":
+    case "month": {
+      if (f.type === "currency") {
+        const pf = document.createElement("div");
+        pf.className = "input-prefix";
+        pf.innerHTML = `<span class="prefix">R$</span>`;
+        const inp = document.createElement("input");
+        inp.id = "fld_" + f.id;
+        inp.className = "input";
+        inp.type = "text";
+        inp.inputMode = "numeric";
+        inp.value = state.data[f.id] || "";
+        inp.placeholder = "0,00";
+        if (f.required) inp.setAttribute("aria-required", "true");
+        inp.addEventListener("input", () => {
+          const formatted = maskCurrency(inp.value);
+          inp.value = formatted;
+          state.data[f.id] = formatted;
+          inp.classList.toggle("valid", formatted.length > 0);
+          setErr("");
+          saveState(); renderStepper(); renderProgress();
+        });
+        pf.appendChild(inp);
+        inputWrap.appendChild(pf);
+      } else {
+        const inp = document.createElement("input");
+        inp.id = "fld_" + f.id;
+        inp.className = "input";
+        inp.value = state.data[f.id] || "";
+        if (f.required) inp.setAttribute("aria-required", "true");
+        if (f.placeholder) inp.placeholder = f.placeholder;
+        if (f.type === "text") inp.type = "text";
+        else if (f.type === "email") inp.type = "email";
+        else if (f.type === "cnpj") { inp.type = "text"; inp.inputMode = "numeric"; inp.placeholder = inp.placeholder || "00.000.000/0000-00"; inp.maxLength = 18; }
+        else if (f.type === "phone") { inp.type = "tel"; inp.placeholder = inp.placeholder || "(71) 99999-9999"; inp.maxLength = 16; }
+        else if (f.type === "date") { inp.type = "date"; inp.max = todayISO(); }
+        else if (f.type === "month") { inp.type = "month"; inp.max = thisMonthISO(); }
+
+        inp.addEventListener("input", () => {
+          let v = inp.value;
+          if (f.type === "cnpj") v = maskCNPJ(v);
+          if (f.type === "phone") v = maskPhone(v);
+          inp.value = v;
+          state.data[f.id] = v;
+
+          let err = "";
+          if (v && f.type === "cnpj" && !validateCNPJ(v)) err = "CNPJ inválido. Verifique os dígitos.";
+          if (v && f.type === "email" && !validateEmail(v)) err = "E-mail inválido.";
+          if (v && f.type === "phone" && !validatePhone(v)) err = "Telefone incompleto.";
+          if (v && f.type === "date") {
+            const d = new Date(v + "T00:00:00");
+            if (d > new Date()) err = "A data não pode estar no futuro.";
+          }
+          inp.classList.toggle("valid", !!v && !err);
+          inp.classList.toggle("invalid", !!err);
+          inp.setAttribute("aria-invalid", err ? "true" : "false");
+          setErr(err);
+          saveState(); renderStepper(); renderProgress();
+        });
+        inputWrap.appendChild(inp);
+      }
+      break;
+    }
+
+    case "textarea": {
+      const ta = document.createElement("textarea");
+      ta.id = "fld_" + f.id;
+      ta.className = "textarea";
+      ta.rows = 4;
+      ta.value = state.data[f.id] || "";
+      if (f.placeholder) ta.placeholder = f.placeholder;
+      if (f.required) ta.setAttribute("aria-required", "true");
+      ta.addEventListener("input", () => {
+        state.data[f.id] = ta.value;
+        ta.classList.toggle("valid", ta.value.trim().length > 0);
+        saveState(); renderStepper(); renderProgress();
+      });
+      inputWrap.appendChild(ta);
+      break;
+    }
+
+    case "file": {
+      const isSingle = !f.multiple && (f.maxFiles || 1) === 1;
+      const drop = document.createElement("div");
+      drop.className = "drop";
+      drop.setAttribute("role", "button");
+      drop.setAttribute("tabindex", "0");
+      drop.setAttribute("aria-label", `Anexar arquivo: ${f.q}`);
+      drop.innerHTML = `
+        <div class="icon" aria-hidden="true">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <div class="title">${isSingle ? 'Clique ou arraste o arquivo aqui' : 'Clique ou arraste os arquivos aqui'}</div>
+        <div class="sub">${cleanAccept(f.accept)} · até ${f.maxSize || 10} MB${f.multiple ? ' · até ' + (f.maxFiles || 10) + ' arquivos' : ''}</div>
+        <input id="fld_${f.id}" type="file" class="file-input" ${f.multiple ? "multiple" : ""} ${f.accept ? `accept="${f.accept}"` : ""}>
+      `;
+      const input = drop.querySelector("input");
+      const fileList = document.createElement("div");
+      fileList.className = "file-list";
+
+      const renderFiles = () => {
+        fileList.innerHTML = "";
+        const list = state.files[f.id] || [];
+        list.forEach((fi, idx) => {
+          const ext = (fi.name.split(".").pop() || "?").toUpperCase().slice(0, 4);
+          const item = document.createElement("div");
+          item.className = "file-item";
+          item.innerHTML = `
+            <div class="fi-icon">${ext}</div>
+            <div class="fi-name">${escapeHTML(fi.name)}</div>
+            <div class="fi-size">${formatBytes(fi.size)}</div>
+            <button class="fi-remove" type="button" title="Remover arquivo" aria-label="Remover arquivo ${escapeHTML(fi.name)}">×</button>`;
+          item.querySelector(".fi-remove").addEventListener("click", (e) => {
+            e.stopPropagation();
+            state.files[f.id].splice(idx, 1);
+            if (!state.files[f.id].length) delete state.files[f.id];
+            drop.classList.toggle("has-files", !!(state.files[f.id] && state.files[f.id].length));
+            renderFiles();
+            saveState(); renderStepper(); renderProgress();
+          });
+          fileList.appendChild(item);
+        });
+      };
+
+      const addFiles = (fls) => {
+        const arr = Array.from(fls);
+        const maxFiles = f.maxFiles || (f.multiple ? 10 : 1);
+        const maxSizeBytes = (f.maxSize || 10) * 1024 * 1024;
+        // Para campos single, substitui o arquivo
+        let cur = isSingle ? [] : (state.files[f.id] || []);
+        let errors = [];
+        for (const file of arr) {
+          if (cur.length + 1 > maxFiles) {
+            errors.push(`Limite de ${maxFiles} arquivo${maxFiles>1?'s':''} atingido.`);
+            break;
+          }
+          if (file.size > maxSizeBytes) {
+            errors.push(`"${file.name}" excede ${f.maxSize} MB.`);
+            continue;
+          }
+          if (f.accept) {
+            const exts = f.accept.split(",").map(s => s.trim().toLowerCase());
+            const name = file.name.toLowerCase();
+            if (!exts.some(ext => name.endsWith(ext))) {
+              errors.push(`"${file.name}" tem formato não permitido.`);
+              continue;
+            }
+          }
+          cur.push({ name: file.name, size: file.size, type: file.type });
+        }
+        state.files[f.id] = cur;
+        drop.classList.toggle("has-files", cur.length > 0);
+        setErr(errors.join(" "));
+        renderFiles();
+        saveState(); renderStepper(); renderProgress();
+      };
+
+      drop.addEventListener("click", () => input.click());
+      drop.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); }
+      });
+      input.addEventListener("change", () => { addFiles(input.files); input.value = ""; });
+      drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("dragging"); });
+      drop.addEventListener("dragleave", () => drop.classList.remove("dragging"));
+      drop.addEventListener("drop", (e) => {
+        e.preventDefault();
+        drop.classList.remove("dragging");
+        addFiles(e.dataTransfer.files);
+      });
+
+      if ((state.files[f.id] || []).length > 0) drop.classList.add("has-files");
+      inputWrap.appendChild(drop);
+      inputWrap.appendChild(fileList);
+      renderFiles();
+      break;
+    }
+  }
+
+  return wrap;
+}
+
+function renderSection(idx) {
+  const sec = SCHEMA[idx];
+  document.getElementById("sectionEyebrow").textContent = `Seção ${idx + 1} de ${SCHEMA.length}`;
+  document.getElementById("sectionTitle").textContent = sec.title;
+  document.getElementById("sectionDesc").textContent = sec.desc;
+
+  const body = document.getElementById("formBody");
+  body.innerHTML = "";
+
+  if (sec.notice) {
+    const notice = document.createElement("div");
+    notice.className = "callout warning section-notice";
+    notice.innerHTML = `
+      <span class="ci" aria-hidden="true">⚠</span>
+      <div>
+        <strong>${escapeHTML(sec.notice.title)}</strong>
+        ${escapeHTML(sec.notice.body)}
+      </div>`;
+    body.appendChild(notice);
+  }
+
+  const items = sec.fields;
+  let i = 0;
+  while (i < items.length) {
+    const f = items[i];
+    const next = items[i+1];
+    if (f.inline && next && next.inline) {
+      const row = document.createElement("div");
+      row.className = "field-row";
+      row.appendChild(renderField(f));
+      row.appendChild(renderField(next));
+      body.appendChild(row);
+      i += 2;
+    } else {
+      body.appendChild(renderField(f));
+      i += 1;
+    }
+  }
+
+  document.getElementById("btnPrev").disabled = (idx === 0);
+  const btnNext = document.getElementById("btnNext");
+  btnNext.textContent = idx === SCHEMA.length - 1 ? "Ir para revisão →" : "Continuar →";
+
+  const missing = sec.fields.filter(f => f.required && !isFilled(f)).length;
+  const optMissing = sec.fields.filter(f => !f.required && !isFilled(f)).length;
+  document.getElementById("footerHint").textContent = missing > 0
+    ? `${missing} campo${missing>1?'s':''} obrigatório${missing>1?'s':''} pendente${missing>1?'s':''}`
+    : (optMissing > 0 ? "Tudo certo (campos opcionais podem ser deixados em branco)" : "Seção completa");
+
+  // Auto-focus primeiro campo vazio (sem fazer scroll)
+  setTimeout(() => {
+    const firstEmpty = sec.fields.find(f => !isFilled(f));
+    if (firstEmpty) {
+      const el = document.getElementById("fld_" + firstEmpty.id);
+      if (el && el.type !== "file") el.focus({ preventScroll: true });
+    }
+  }, 100);
+}
+
+function renderReview() {
+  const body = document.getElementById("reviewBody");
+  body.innerHTML = "";
+  SCHEMA.forEach((sec, idx) => {
+    const sectionDiv = document.createElement("div");
+    sectionDiv.className = "review-section";
+    const header = document.createElement("header");
+    header.innerHTML = `<h4>Seção ${idx + 1}: ${escapeHTML(sec.title)}</h4>`;
+    const edit = document.createElement("button");
+    edit.className = "edit";
+    edit.type = "button";
+    edit.textContent = "Editar";
+    edit.addEventListener("click", () => { state.step = idx; renderAll(); });
+    header.appendChild(edit);
+    sectionDiv.appendChild(header);
+
+    const grid = document.createElement("div");
+    grid.className = "review-grid";
+    sec.fields.forEach(f => {
+      const item = document.createElement("div");
+      item.className = "review-item";
+      const k = document.createElement("div");
+      k.className = "k";
+      k.textContent = f.q;
+      const v = document.createElement("div");
+      v.className = "v";
+      if (f.type === "file") {
+        const files = state.files[f.id] || [];
+        if (!files.length) {
+          v.classList.add(f.required ? "missing" : "optional-missing");
+          v.textContent = f.required ? "Pendente" : "Não informado";
+        } else {
+          v.innerHTML = files.map(fi => `📎 ${escapeHTML(fi.name)} <span style="color:var(--muted);font-size:12px">(${formatBytes(fi.size)})</span>`).join("<br>");
+        }
+      } else {
+        let val = state.data[f.id];
+        if (!val) {
+          v.classList.add(f.required ? "missing" : "optional-missing");
+          v.textContent = f.required ? "Pendente" : "Não informado";
+        } else {
+          if (f.type === "currency") val = "R$ " + val;
+          else if (f.type === "month") val = formatMonth(val);
+          else if (f.type === "date") val = formatDate(val);
+          v.textContent = val;
+        }
+      }
+      item.appendChild(k);
+      item.appendChild(v);
+      grid.appendChild(item);
+    });
+    sectionDiv.appendChild(grid);
+    body.appendChild(sectionDiv);
+  });
+
+  const allOk = allRequiredFilled();
+  document.getElementById("btnSubmit").disabled = !allOk;
+  document.getElementById("reviewWarn").textContent = allOk ? "" : "Existem campos obrigatórios pendentes. Volte e complete antes de enviar.";
+}
+
+function showView(name) {
+  ["view-cover","view-form","view-review","view-success"].forEach(id => {
+    document.getElementById(id).classList.toggle("hidden", id !== name);
+  });
+}
+
+function renderAll() {
+  if (state.step === -1) {
+    showView("view-cover");
+    document.getElementById("resumeNotice").classList.toggle("hidden", !hadDraft);
+    document.getElementById("btnDiscard").classList.toggle("hidden", !hadDraft);
+    document.getElementById("btnStart").textContent = hadDraft ? "Continuar preenchimento →" : "Iniciar preenchimento →";
+  } else if (state.step >= 0 && state.step < SCHEMA.length) {
+    showView("view-form");
+    renderSection(state.step);
+  } else if (state.step === SCHEMA.length) {
+    showView("view-review");
+    renderReview();
+  }
+  renderStepper();
+  renderProgress();
+  updateRetificationBanners();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function escapeHTML(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+}
+
+/* ------------------------------------------------------------------
+   Diff (comparar snapshot anterior vs atual)
+------------------------------------------------------------------ */
+function calculateDiff(oldSnap, newSnap) {
+  const changes = [];
+  const fieldMap = {};
+  SCHEMA.forEach(sec => sec.fields.forEach(f => fieldMap[f.id] = f));
+
+  Object.keys(fieldMap).forEach(id => {
+    const f = fieldMap[id];
+    if (f.type === "file") {
+      const oldFiles = (oldSnap.files && oldSnap.files[id]) || [];
+      const newFiles = (newSnap.files && newSnap.files[id]) || [];
+      const oldNames = oldFiles.map(x => x.name).sort().join("|");
+      const newNames = newFiles.map(x => x.name).sort().join("|");
+      if (oldNames === newNames) return;
+      let type;
+      if (oldNames === "") type = "added";
+      else if (newNames === "") type = "removed";
+      else type = "modified";
+      changes.push({ id, label: f.q, type,
+        before: oldFiles.map(x => x.name).join(", ") || "—",
+        after: newFiles.map(x => x.name).join(", ") || "—"
+      });
+    } else {
+      const oldV = (oldSnap.data && oldSnap.data[id]) || "";
+      const newV = (newSnap.data && newSnap.data[id]) || "";
+      if (oldV === newV) return;
+      let type;
+      if (!oldV) type = "added";
+      else if (!newV) type = "removed";
+      else type = "modified";
+      changes.push({ id, label: f.q, type,
+        before: oldV || "—",
+        after: newV || "—"
+      });
+    }
+  });
+  return changes;
+}
+
+function renderDiffList(changes) {
+  if (!changes.length) {
+    return `<div class="diff-empty">Nenhuma alteração detectada em relação à versão anterior.<br>Volte e ajuste algum campo, ou cancele esta retificação.</div>`;
+  }
+  const ul = document.createElement("ul");
+  ul.className = "diff-list";
+  changes.forEach(c => {
+    const li = document.createElement("li");
+    li.className = "diff-item " + c.type;
+    const typeLabel = { added: "Adicionado", removed: "Removido", modified: "Alterado" }[c.type];
+    li.innerHTML = `
+      <div class="field">${escapeHTML(c.label)} <span style="font-weight:500; color: var(--muted); font-size: 11px; margin-left: 4px;">${typeLabel}</span></div>
+      <div class="change">
+        ${c.type === "added"
+          ? `<b>${escapeHTML(c.after)}</b>`
+          : c.type === "removed"
+            ? `<s>${escapeHTML(c.before)}</s>`
+            : `<s>${escapeHTML(c.before)}</s> &nbsp;→&nbsp; <b>${escapeHTML(c.after)}</b>`}
+      </div>`;
+    ul.appendChild(li);
+  });
+  return ul.outerHTML;
+}
+
+/* ------------------------------------------------------------------
+   Edit mode + acesso
+------------------------------------------------------------------ */
+function enterEditMode(submission) {
+  const last = submission.versions[submission.versions.length - 1];
+  state.mode = "edit";
+  state.editingProtocol = submission.protocol;
+  state.editingVersion = submission.versions.length + 1;
+  state.originalSnapshot = { data: JSON.parse(JSON.stringify(last.data)), files: JSON.parse(JSON.stringify(last.files)) };
+  state.data = JSON.parse(JSON.stringify(last.data));
+  state.files = JSON.parse(JSON.stringify(last.files));
+  state.step = 0;
+  saveState();
+  renderAll();
+}
+
+function updateRetificationBanners() {
+  const editing = state.mode === "edit";
+  document.getElementById("retBanner").classList.toggle("hidden", !editing);
+  document.getElementById("retBannerReview").classList.toggle("hidden", !editing);
+  if (editing) {
+    document.getElementById("retProtocol").textContent = state.editingProtocol;
+    document.getElementById("retVersion").textContent = state.editingVersion;
+    document.getElementById("retVersionReview").textContent = state.editingVersion;
+    document.getElementById("btnSubmit").textContent = "Registrar retificação";
+    document.getElementById("reviewTitle").textContent = "Revise as alterações antes de registrar";
+    document.getElementById("successTitle").textContent = "Retificação registrada com sucesso";
+    document.getElementById("successDesc").textContent = "Uma nova versão foi adicionada ao seu envio. A versão anterior fica preservada no histórico para auditoria.";
+    document.getElementById("protocolLbl").textContent = "Protocolo (versão atualizada)";
+    document.getElementById("sentAtLbl").textContent = "Retificado em";
+  } else {
+    document.getElementById("btnSubmit").textContent = "Enviar formulário";
+    document.getElementById("reviewTitle").textContent = "Revise antes de enviar";
+    document.getElementById("successTitle").textContent = "Formulário enviado com sucesso";
+    document.getElementById("successDesc").textContent = "Recebemos sua submissão. O setor financeiro do HCC dará continuidade à instrução do processo. Guarde o número de protocolo abaixo para acompanhamento.";
+    document.getElementById("protocolLbl").textContent = "Protocolo de envio";
+    document.getElementById("sentAtLbl").textContent = "Enviado em";
+  }
+}
+
+function renderVersionHistory(protocol) {
+  const sub = loadSubmissions()[protocol];
+  if (!sub || sub.versions.length === 0) {
+    document.getElementById("historyContainer").classList.add("hidden");
+    return;
+  }
+  document.getElementById("historyContainer").classList.remove("hidden");
+  const count = sub.versions.length;
+  document.getElementById("historyCount").textContent = `(${count} versão${count > 1 ? "ões" : ""})`;
+  const items = document.getElementById("historyItems");
+  items.innerHTML = "";
+  sub.versions.slice().reverse().forEach((v, revIdx) => {
+    const isCurrent = revIdx === 0;
+    const dt = new Date(v.submittedAt);
+    const dtFmt = dt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    const typeLabel = v.type === "envio" ? "Envio original" : (v.type === "retificacao" ? "Retificação" : "Complementação");
+    let diffSummary = "";
+    if (v.diff && v.diff.length) {
+      const counts = v.diff.reduce((acc, d) => { acc[d.type] = (acc[d.type]||0)+1; return acc; }, {});
+      const parts = [];
+      if (counts.added) parts.push(`${counts.added} adicionado(s)`);
+      if (counts.modified) parts.push(`${counts.modified} alterado(s)`);
+      if (counts.removed) parts.push(`${counts.removed} removido(s)`);
+      diffSummary = ` · ${parts.join(", ")}`;
+    }
+    const item = document.createElement("div");
+    item.className = "version-item";
+    item.innerHTML = `
+      <div class="vnum ${isCurrent ? "current" : ""}">v${v.version}</div>
+      <div class="vinfo">
+        <div class="vtype">${typeLabel}</div>
+        <div class="vmeta">${dtFmt}${diffSummary}</div>
+      </div>
+      <div class="vbadge ${isCurrent ? "current" : ""}">${isCurrent ? "Versão vigente" : "Arquivada"}</div>`;
+    items.appendChild(item);
+  });
+}
+
+/* Modal helpers */
+function openAccessModal() {
+  document.getElementById("accessModal").classList.remove("hidden");
+  document.getElementById("accessProtocol").value = "";
+  document.getElementById("accessCnpj").value = "";
+  document.getElementById("accessError").textContent = "";
+  setTimeout(() => document.getElementById("accessProtocol").focus(), 50);
+}
+function closeAccessModal() {
+  document.getElementById("accessModal").classList.add("hidden");
+}
+function openDiffModal() {
+  const changes = calculateDiff(state.originalSnapshot, { data: state.data, files: state.files });
+  document.getElementById("diffContent").innerHTML = renderDiffList(changes);
+  document.getElementById("confirmRetification").disabled = changes.length === 0;
+  document.getElementById("diffModal").classList.remove("hidden");
+}
+function closeDiffModal() {
+  document.getElementById("diffModal").classList.add("hidden");
+}
+
+/* ------------------------------------------------------------------
+   Actions
+------------------------------------------------------------------ */
+document.getElementById("btnStart").addEventListener("click", () => {
+  // Se tinha rascunho e ele estava parado numa etapa especifica, volta pra ela
+  state.step = (hadDraft && typeof state.step === "number" && state.step >= 0) ? state.step : 0;
+  saveState(); renderAll();
+});
+document.getElementById("btnDiscard").addEventListener("click", () => {
+  if (!confirm("Tem certeza? Todos os dados do rascunho serão apagados.")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  state.data = {}; state.files = {}; state.step = -1;
+  hadDraft = false;
+  renderAll();
+});
+document.getElementById("btnPrev").addEventListener("click", () => {
+  if (state.step > 0) { state.step--; saveState(); renderAll(); }
+});
+document.getElementById("btnNext").addEventListener("click", () => {
+  const sec = SCHEMA[state.step];
+  const missing = sec.fields.filter(f => f.required && !isFilled(f));
+  if (missing.length > 0) {
+    const body = document.getElementById("formBody");
+    missing.forEach(f => {
+      const el = body.querySelector(`[data-fid="${f.id}"] .input, [data-fid="${f.id}"] .textarea, [data-fid="${f.id}"] .drop`);
+      if (el) {
+        el.classList.add("invalid");
+        el.style.boxShadow = "0 0 0 3px var(--danger-soft)";
+        setTimeout(() => el.style.boxShadow = "", 1200);
+      }
+      const err = body.querySelector(`[data-fid="${f.id}"] .error-msg`);
+      if (err && !err.textContent) err.textContent = "Campo obrigatório.";
+    });
+    const first = body.querySelector(`[data-fid="${missing[0].id}"]`);
+    if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  if (state.step < SCHEMA.length - 1) {
+    state.step++;
+  } else if (allRequiredFilled()) {
+    state.step = SCHEMA.length;
+  } else {
+    // Encontra a primeira secao com pendencia
+    const firstPending = SCHEMA.findIndex((_, i) => sectionHasPending(i));
+    state.step = firstPending >= 0 ? firstPending : SCHEMA.length;
+  }
+  saveState();
+  renderAll();
+});
+document.getElementById("btnReviewBack").addEventListener("click", () => {
+  state.step = SCHEMA.length - 1;
+  saveState();
+  renderAll();
+});
+document.getElementById("btnSubmit").addEventListener("click", () => {
+  if (!allRequiredFilled()) return;
+  if (state.mode === "edit") {
+    // Retificacao: mostra modal de diff antes de gravar
+    openDiffModal();
+    return;
+  }
+  finalizeSubmission();
+});
+
+function finalizeSubmission() {
+  const now = new Date();
+  let protocol, version, type, diff;
+  if (state.mode === "edit") {
+    protocol = state.editingProtocol;
+    version = state.editingVersion;
+    type = "retificacao";
+    diff = calculateDiff(state.originalSnapshot, { data: state.data, files: state.files });
+  } else {
+    protocol = "HCC-" + Date.now().toString().slice(-8).replace(/(\d{4})(\d{4})/, "$1-$2");
+    version = 1;
+    type = "envio";
+    diff = [];
+  }
+  const versionData = {
+    version, type,
+    submittedAt: now.toISOString(),
+    data: JSON.parse(JSON.stringify(state.data)),
+    files: JSON.parse(JSON.stringify(state.files)),
+    diff
+  };
+  appendVersion(protocol, state.data.q2_cnpj || "", versionData);
+
+  // Atualiza UI de sucesso
+  document.getElementById("protocolNum").textContent = protocol;
+  document.getElementById("sentAt").textContent = now.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  document.getElementById("sentSupplier").textContent = state.data.q1_nomeFornecedor || "—";
+  document.getElementById("sentValue").textContent = state.data.q3_valor ? "R$ " + state.data.q3_valor : "—";
+  state._protocol = protocol;
+  state._submittedAt = now.toISOString();
+
+  // Limpa rascunho local (envio finalizado)
+  localStorage.removeItem(STORAGE_KEY);
+  renderVersionHistory(protocol);
+  showView("view-success");
+  // Producao: substituir por POST real do payload + arquivos para o backend.
+}
+
+/* Acesso a envio existente */
+document.getElementById("btnAccessExisting").addEventListener("click", openAccessModal);
+document.getElementById("closeAccessModal").addEventListener("click", closeAccessModal);
+document.getElementById("cancelAccessModal").addEventListener("click", closeAccessModal);
+document.getElementById("accessModal").addEventListener("click", (e) => {
+  if (e.target === document.getElementById("accessModal")) closeAccessModal();
+});
+document.getElementById("accessProtocol").addEventListener("input", (e) => {
+  // mascara: HCC-XXXX-XXXX (uppercase + dashes)
+  let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!v.startsWith("HCC")) v = "HCC" + v.replace(/^HCC/, "");
+  v = v.slice(0, 11); // HCC + 8 digitos
+  if (v.length > 3) v = v.slice(0,3) + "-" + v.slice(3);
+  if (v.length > 8) v = v.slice(0,8) + "-" + v.slice(8);
+  e.target.value = v;
+});
+document.getElementById("accessCnpj").addEventListener("input", (e) => {
+  e.target.value = maskCNPJ(e.target.value);
+});
+document.getElementById("confirmAccess").addEventListener("click", () => {
+  const protocol = document.getElementById("accessProtocol").value.trim();
+  const cnpj = document.getElementById("accessCnpj").value.trim();
+  const err = document.getElementById("accessError");
+  if (!/^HCC-\d{4}-\d{4}$/.test(protocol)) {
+    err.textContent = "Protocolo inválido. Formato esperado: HCC-0000-0000.";
+    return;
+  }
+  if (!validateCNPJ(cnpj)) {
+    err.textContent = "CNPJ inválido. Verifique os dígitos.";
+    return;
+  }
+  const submission = lookupSubmission(protocol, cnpj);
+  if (!submission) {
+    err.textContent = "Não localizamos esse envio. Confira o protocolo e o CNPJ.";
+    return;
+  }
+  err.textContent = "";
+  closeAccessModal();
+  enterEditMode(submission);
+});
+
+/* Diff modal */
+document.getElementById("closeDiffModal").addEventListener("click", closeDiffModal);
+document.getElementById("cancelDiffModal").addEventListener("click", closeDiffModal);
+document.getElementById("diffModal").addEventListener("click", (e) => {
+  if (e.target === document.getElementById("diffModal")) closeDiffModal();
+});
+document.getElementById("confirmRetification").addEventListener("click", () => {
+  closeDiffModal();
+  finalizeSubmission();
+});
+document.getElementById("btnDownload").addEventListener("click", () => {
+  const payload = {
+    protocol: state._protocol,
+    submittedAt: state._submittedAt,
+    data: state.data,
+    files: state.files
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${state._protocol || "HCC-resumo"}.json`;
+  a.click();
+});
+document.getElementById("btnNew").addEventListener("click", () => {
+  if (!confirm("Iniciar um novo preenchimento? O envio atual ficará preservado no histórico.")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  state.data = {}; state.files = {}; state.step = -1;
+  state.mode = "new"; state.editingProtocol = null; state.editingVersion = null; state.originalSnapshot = null;
+  hadDraft = false;
+  delete state._protocol; delete state._submittedAt;
+  renderAll();
+});
+
+/* ESC fecha modais */
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!document.getElementById("accessModal").classList.contains("hidden")) closeAccessModal();
+  else if (!document.getElementById("diffModal").classList.contains("hidden")) closeDiffModal();
+});
+
+/* Boot */
+document.getElementById("metaSteps").textContent = String(SCHEMA.length);
+loadState();
+renderAll();
+</script>
+<script>try{window.state=state;window.finalizeSubmission=finalizeSubmission;}catch(e){}</script>
+<script src="/app/form-adapter.js"></script>
+</body>
+</html>

@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portal do Fornecedor · FESF-SUS</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  .hero{background:linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);color:#fff;padding:24px 28px;border-radius:12px;margin-bottom:20px;display:flex;align-items:center;gap:24px}
+  .hero .left{flex:1}
+  .hero h1{margin:0 0 6px;font-size:22px;color:#fff}
+  .hero p{margin:0;opacity:.9;font-size:13.5px}
+  .hero .cta{background:#fff;color:var(--primary-2);padding:12px 22px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;white-space:nowrap}
+  .hero .cta:hover{background:#f5f4fb}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+  .toolbar .filters{display:flex;gap:8px;flex-wrap:wrap;flex:1}
+  .toolbar select{width:auto;min-width:160px}
+  .empty-state{text-align:center;padding:48px 20px;color:var(--muted)}
+  .empty-state .icon{font-size:40px;color:var(--border-strong);margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div>
+      <strong>Portal do Fornecedor</strong>
+      <span class="muted" style="font-size:11px;display:block">FESF-SUS · Submeta documentação às unidades</span>
+    </div>
+  </div>
+  <div class="tabs">
+    <a class="active" data-tab="meus">Meus envios</a>
+    <a data-tab="pendencias">Pendências</a>
+    <a data-tab="perfil">Meu perfil</a>
+  </div>
+  <div class="userbox">
+    <button id="bell" onclick="toggleNotif()" title="Notificacoes" style="position:relative;padding:8px 12px">
+      🔔<span id="bellBadge" style="display:none;position:absolute;top:2px;right:2px;background:var(--danger);color:#fff;border-radius:9px;font-size:10px;padding:1px 5px;font-weight:700">0</span>
+    </button>
+    <div>
+      <strong id="userNome">—</strong>
+      <span id="userInfo" class="muted" style="font-size:11px;display:block"></span>
+    </div>
+    <div class="avatar" id="userAvatar">—</div>
+    <button onclick="sair()">Sair</button>
+  </div>
+</nav>
+
+<div id="notifPanel" style="position:fixed;top:56px;right:24px;width:360px;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.15);max-height:70vh;overflow:auto;display:none;z-index:200">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)">
+    <strong>Notificações</strong>
+    <div style="display:flex;gap:6px"><button id="btnLerTodas" style="font-size:11.5px;padding:4px 10px">Marcar todas como lidas</button><a href="/app/notificacoes.html" style="font-size:11.5px;padding:4px 10px">Ver todas →</a></div>
+  </div>
+  <div id="notifList" style="padding:6px 0"></div>
+</div>
+
+<div class="page">
+
+  <div class="hero">
+    <div class="left">
+      <h1 id="hero-nome">Bem-vindo(a) ao Portal</h1>
+      <p>Submeta documentação para qualquer unidade da rede FESF, acompanhe o status em tempo real e mantenha o histórico de todos os seus envios.</p>
+      <div id="hero-unidades" style="margin-top:10px;font-size:12.5px;display:none">
+        <span style="opacity:.85">Você atende:</span>
+        <span id="unidades-badges"></span>
+      </div>
+    </div>
+    <a href="/app/portal-novo.html" class="cta">+ Novo envio</a>
+  </div>
+
+  <!-- V242: Action card de retificação (mockup) — destaca envios que precisam ação imediata -->
+  <div id="action-retif" style="display:none;background:var(--warning-soft, #faf2dd);border:1px solid #e5d8a8;border-left:4px solid var(--warning);border-radius:10px;padding:16px 20px;margin-bottom:18px">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--warning);font-weight:700;margin-bottom:4px">Atenção necessária</div>
+    <h3 id="action-retif-titulo" style="margin:0 0 4px;font-size:16px">—</h3>
+    <p class="muted" id="action-retif-sub" style="margin:0 0 12px;font-size:13px">A FESF identificou ajustes a fazer no(s) envio(s) abaixo. Submeta a retificação para destravar o pagamento.</p>
+    <div id="action-retif-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpis"></div>
+
+  <!-- Próximos vencimentos (expectativas em aberto) -->
+  <div id="vencimentos-wrap" class="card" style="display:none;margin-bottom:18px;border-left:4px solid var(--warning)">
+    <h2 style="display:flex;align-items:center;gap:10px">📅 Próximos vencimentos<span id="venc-count" class="muted" style="font-size:13px;font-weight:400">—</span></h2>
+    <p class="muted" style="margin:4px 0 12px">A FESF aguarda envios seus nas datas abaixo. Clique em <strong>+ Novo envio</strong> ou organize seus documentos para responder.</p>
+    <div id="venc-list"></div>
+  </div>
+
+  <!-- TAB MEUS ENVIOS -->
+  <section id="tab-meus">
+    <div class="card">
+      <div class="toolbar">
+        <h2 style="margin:0;flex:1">Meus envios</h2>
+        <div class="filters">
+          <select id="f-unidade-portal"><option value="">Todas unidades</option></select>
+          <select id="f-status">
+            <option value="">Todos os status</option>
+            <option value="em_analise">Em análise</option>
+            <option value="aguardando_ret">Aguardando retificação</option>
+            <option value="retificado">Retificado</option>
+            <option value="aprovado">Aprovado</option>
+            <option value="rejeitado">Rejeitado</option>
+            <option value="pago">Pago</option>
+          </select>
+          <button onclick="carregarMeus()">Atualizar</button>
+        </div>
+      </div>
+      <div id="meus-tabela"></div>
+    </div>
+  </section>
+
+  <!-- TAB PENDENCIAS (retificacoes solicitadas) -->
+  <section id="tab-pendencias" style="display:none">
+    <div class="card">
+      <h2>Pendências de retificação</h2>
+      <p class="muted">Envios que a FESF solicitou ajustes. Clique em "Retificar" para enviar nova versão.</p>
+      <div id="pendencias-list"></div>
+    </div>
+  </section>
+
+  <!-- TAB PERFIL -->
+  <section id="tab-perfil" style="display:none">
+    <div class="card">
+      <h2>Meu perfil</h2>
+      <p class="muted">Dados cadastrais do seu fornecedor. CNPJ/CPF e razão social só podem ser alterados pela FESF Sede.</p>
+      <form id="form-perfil" style="margin-top:18px">
+        <div class="row">
+          <div class="field"><label>Razão social / Nome (somente leitura)</label><input id="pf-razao" disabled></div>
+          <div class="field"><label>CNPJ/CPF (somente leitura)</label><input id="pf-doc" disabled></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Nome fantasia</label><input id="pf-fantasia"></div>
+          <div class="field"><label>Tipo</label><input id="pf-tipo" disabled></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>E-mail</label><input id="pf-email" type="email"></div>
+          <div class="field"><label>Telefone</label><input id="pf-tel"></div>
+        </div>
+        <button class="primary" type="submit" style="margin-top:8px">Salvar alterações</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>Segurança</h2>
+      <form id="form-pwd" style="max-width:480px">
+        <div class="field"><label>Senha atual</label><input id="pwd-atual" type="password" required></div>
+        <div class="field"><label>Nova senha (mín. 6 chars)</label><input id="pwd-nova" type="password" minlength="6" required></div>
+        <button class="primary" type="submit">Alterar senha</button>
+      </form>
+    </div>
+  </section>
+
+</div>
+
+<!-- Modal detalhe -->
+<div class="modal-bg" id="modal-detalhe">
+  <div class="modal" style="width: 760px">
+    <h2 id="det-titulo">Detalhes do envio</h2>
+    <div id="det-conteudo"></div>
+    <div class="actions"><button type="button" onclick="fecharModal('modal-detalhe')">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Modal retificacao -->
+<div class="modal-bg" id="modal-ret">
+  <div class="modal">
+    <h2>Submeter retificação</h2>
+    <p class="sub">Envio <strong id="ret-protocolo">—</strong></p>
+    <div id="ret-motivo-original" class="alert warn"></div>
+    <form id="form-ret">
+      <div class="row">
+        <div class="field"><label>Valor atualizado (R$)</label><input id="ret-valor" type="number" step="0.01" required></div>
+        <div class="field"><label>Nº NF (se mudou)</label><input id="ret-nf"></div>
+      </div>
+      <div class="field"><label>O que foi corrigido <span style="color:var(--danger)">*</span></label>
+        <textarea id="ret-correcao" rows="4" required minlength="10" placeholder="Descreva claramente o que foi alterado em relação à versão anterior."></textarea>
+      </div>
+      <div class="alert info">Uma nova versão será criada (v2, v3…). O operador da unidade analisará novamente.</div>
+      <div class="actions">
+        <button type="button" onclick="fecharModal('modal-ret')">Cancelar</button>
+        <button type="submit" class="primary">Submeter nova versão</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+import { api, requireSession, clearSession, setSession, brl, dataBR, toast, formatarRespostasForm, statusLabel} from '/app/api.js';
+
+const usuario = requireSession('fornecedor');
+if (!usuario) throw new Error('sem sessao');
+
+document.getElementById('userNome').textContent = usuario.fornecedor_razao_social || usuario.nome;
+document.getElementById('userInfo').textContent = `Fornecedor · ${usuario.fornecedor_tipo || ''}`;
+document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+document.getElementById('hero-nome').textContent = `Olá, ${usuario.fornecedor_razao_social || usuario.nome}`;
+
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+window.abrirModal = id => document.getElementById(id).classList.add('open');
+window.fecharModal = id => document.getElementById(id).classList.remove('open');
+document.querySelectorAll('.modal-bg').forEach(bg => bg.addEventListener('click', (e) => { if (e.target === bg) bg.classList.remove('open'); }));
+
+document.querySelectorAll('.topnav .tabs a[data-tab]').forEach(a => a.addEventListener('click', () => {
+  document.querySelectorAll('.topnav .tabs a').forEach(x => x.classList.remove('active'));
+  a.classList.add('active');
+  document.querySelectorAll('section[id^=tab-]').forEach(s => s.style.display = 'none');
+  document.getElementById('tab-' + a.dataset.tab).style.display = '';
+  if (a.dataset.tab === 'pendencias') carregarPendencias();
+  if (a.dataset.tab === 'perfil') carregarPerfil();
+}));
+
+// =====================================================================
+// Notif bell
+// =====================================================================
+window.toggleNotif = async () => {
+  const p = document.getElementById('notifPanel');
+  if (p.style.display === 'block') { p.style.display = 'none'; return; }
+  p.style.display = 'block';
+  const { notificacoes, nao_lidas } = await api.notificacoes();
+  document.getElementById('bellBadge').style.display = nao_lidas > 0 ? 'inline-block' : 'none';
+  document.getElementById('bellBadge').textContent = nao_lidas;
+  document.getElementById('notifList').innerHTML = notificacoes.length === 0 ?
+    '<div style="padding:20px;text-align:center;color:var(--muted)">Sem notificações</div>' :
+    notificacoes.map(n => `<div style="padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;${n.lida?'':'background:rgba(91,84,153,.05)'}" data-id="${n.id}"><div style="font-size:13px">${n.mensagem}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${new Date(n.criada_em).toLocaleString('pt-BR')}</div></div>`).join('');
+  document.querySelectorAll('#notifList > div').forEach(d => d.addEventListener('click', async () => {
+    const id = Number(d.dataset.id); await api.marcarLida(id); toggleNotif(); toggleNotif();
+  }));
+};
+document.getElementById('btnLerTodas').addEventListener('click', async () => { await api.marcarTodasLidas(); toggleNotif(); toggleNotif(); });
+setInterval(() => api.notificacoes({naoLidasApenas:true}).then(r => {
+  document.getElementById('bellBadge').style.display = r.nao_lidas>0?'inline-block':'none';
+  document.getElementById('bellBadge').textContent = r.nao_lidas;
+}).catch(()=>{}), 30000);
+api.notificacoes({naoLidasApenas:true}).then(r => {
+  document.getElementById('bellBadge').style.display = r.nao_lidas>0?'inline-block':'none';
+  document.getElementById('bellBadge').textContent = r.nao_lidas;
+}).catch(()=>{});
+
+// =====================================================================
+// KPIs e listagem
+// =====================================================================
+async function carregarKPIs() {
+  const { envios } = await api.envios();
+  const totEnvios = envios.length;
+  const totValor = envios.reduce((a, e) => a + Number(e.valor_centavos||0), 0);
+  const emAnalise = envios.filter(e => e.status === 'em_analise').length;
+  const aguard = envios.filter(e => e.status === 'aguardando_ret');
+  const aprov = envios.filter(e => ['aprovado','pago'].includes(e.status)).length;
+  // V272: KPIs enriquecidos — Movimento como kpi accent dedicado em mono, sub-stats mais informativas
+  const aprovValor = envios.filter(e => ['aprovado','pago'].includes(e.status)).reduce((a, e) => a + Number(e.valor_centavos||0), 0);
+  const emAnaliseValor = envios.filter(e => e.status === 'em_analise').reduce((a, e) => a + Number(e.valor_centavos||0), 0);
+  const aguardValor = aguard.reduce((a, e) => a + Number(e.valor_centavos||0), 0);
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="label">Total enviados</div><div class="value">${totEnvios}</div><div class="sub">${brl(totValor)} em documentação</div></div>
+    <div class="kpi"><div class="label">Em análise</div><div class="value">${emAnalise}</div><div class="sub">${brl(emAnaliseValor)} aguardando FESF</div></div>
+    <div class="kpi warn"><div class="label">Aguard. retificação</div><div class="value">${aguard.length}</div><div class="sub">${aguard.length > 0 ? brl(aguardValor) + ' · ação necessária' : '— sem pendências'}</div></div>
+    <div class="kpi accent"><div class="label">Aprovados</div><div class="value">${aprov}</div><div class="sub">${brl(aprovValor)} liberados</div></div>
+  `;
+
+  // V242: action card de retificação — só aparece quando há envios pendentes
+  const card = document.getElementById('action-retif');
+  if (aguard.length > 0) {
+    document.getElementById('action-retif-titulo').textContent =
+      aguard.length === 1 ? '1 envio aguardando retificação' : `${aguard.length} envios aguardando retificação`;
+    document.getElementById('action-retif-list').innerHTML = aguard.map(e => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:rgba(255,255,255,.6);border:1px solid #e5d8a8;border-radius:8px;padding:10px 14px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px">
+          <code style="background:#fff;padding:2px 8px;border-radius:4px;font-family:ui-monospace,monospace;font-weight:700">${e.protocolo}</code>
+          <span class="pill" style="background:#e8e3d3;color:#604a16;font-size:11px;padding:3px 10px;border-radius:12px">${e.unidade_sigla}</span>
+          <span class="muted">${e.competencia} · ${brl(e.valor_centavos)}</span>
+        </div>
+        <button class="warn" onclick="abrirRetificacao(${e.id}, '${e.protocolo}')" style="padding:6px 14px;font-size:13px;font-weight:600">Retificar →</button>
+      </div>
+    `).join('');
+    card.style.display = '';
+  } else {
+    card.style.display = 'none';
+  }
+}
+
+async function carregarMeus() {
+  const status = document.getElementById('f-status').value;
+  const unidadeId = document.getElementById('f-unidade-portal')?.value || '';
+  const filtros = {};
+  if (status) filtros.status = status;
+  if (unidadeId) filtros.unidade_id = unidadeId;
+  const { envios } = await api.envios(filtros);
+  const tbl = document.getElementById('meus-tabela');
+  if (envios.length === 0) {
+    tbl.innerHTML = `<div class="empty-state">
+      <div class="icon">📋</div>
+      <h3>Você ainda não tem envios</h3>
+      <p>Clique em "<strong>+ Novo envio</strong>" no topo para começar.</p>
+    </div>`;
+    return;
+  }
+  tbl.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Protocolo</th><th>Unidade</th><th>Modalidade</th><th>Comp.</th>
+        <th style="text-align:right">Valor</th><th>Status</th><th>Enviado em</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${envios.map(e => `
+          <tr style="${e.status === 'aguardando_ret' ? 'background:rgba(217,140,30,.04)' : ''}">
+            <td><code>${e.protocolo}</code></td>
+            <td>${e.unidade_sigla || ''}</td>
+            <td>${e.modalidade_nome || ''}</td>
+            <td>${e.competencia}</td>
+            <td style="text-align:right;font-family:ui-monospace,monospace">${brl(e.valor_centavos)}</td>
+            <td><span class="pill ${e.status}">${statusLabel(e.status)}</span></td>
+            <td>${dataBR(e.criado_em)}</td>
+            <td style="text-align:right;white-space:nowrap">
+              <button onclick="location.href='/app/envio.html?id=${e.id}'">Ver</button>
+              ${e.status === 'aguardando_ret' ? `<button class="warn" onclick="retificar(${e.id})">Retificar</button>` : ''}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+window.carregarMeus = carregarMeus;
+document.getElementById('f-status').addEventListener('change', carregarMeus);
+document.getElementById('f-unidade-portal')?.addEventListener('change', carregarMeus);
+
+// Carrega unidades atendidas pelo fornecedor (deriva dos envios existentes ou do detalhe)
+(async () => {
+  try {
+    const r = await api.envios();
+    const unidades = [...new Map((r.envios || []).filter(e => e.unidade_id).map(e => [e.unidade_id, { id: e.unidade_id, sigla: e.unidade_sigla, nome: e.unidade_nome }])).values()];
+    if (unidades.length > 0) {
+      document.getElementById('hero-unidades').style.display = 'block';
+      document.getElementById('unidades-badges').innerHTML = unidades.map(u => `<span style="background:rgba(255,255,255,.18);padding:2px 9px;border-radius:10px;margin-left:6px;font-weight:600;font-size:11.5px">${u.sigla}</span>`).join('');
+      const sel = document.getElementById('f-unidade-portal');
+      if (sel) sel.innerHTML = '<option value="">Todas unidades</option>' + unidades.map(u => `<option value="${u.id}">${u.sigla}</option>`).join('');
+    }
+  } catch {}
+})();
+
+async function carregarPendencias() {
+  const { envios } = await api.envios({ status: 'aguardando_ret' });
+  const cont = document.getElementById('pendencias-list');
+  if (envios.length === 0) {
+    cont.innerHTML = `<div class="empty-state"><div class="icon">✓</div><h3>Nenhuma pendência</h3><p>Todos os seus envios estão sem ações pendentes da sua parte.</p></div>`;
+    return;
+  }
+  cont.innerHTML = envios.map(e => `
+    <div class="card" style="border-left:3px solid var(--warning);margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:14px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px"><code>${e.protocolo}</code> <span class="pill aguardando_ret">Aguardando retificação</span></div>
+          <div style="margin-top:6px;font-size:13px"><strong>${e.modalidade_nome || ''}</strong> · ${e.unidade_sigla || ''} · ${e.competencia} · ${brl(e.valor_centavos)}</div>
+        </div>
+        <button class="warn" onclick="retificar(${e.id})">Retificar →</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function carregarPerfil() {
+  try {
+    const d = await api.detalheFornecedor(usuario.fornecedor_id);
+    const f = d.fornecedor;
+    document.getElementById('pf-razao').value = f.razao_social;
+    document.getElementById('pf-doc').value = f.documento;
+    document.getElementById('pf-fantasia').value = f.nome_fantasia || '';
+    document.getElementById('pf-tipo').value = f.tipo;
+    document.getElementById('pf-email').value = f.email || '';
+    document.getElementById('pf-tel').value = f.telefone || '';
+  } catch (e) { toast('Erro ao carregar perfil: ' + e.message, 'erro'); }
+}
+
+document.getElementById('form-perfil').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    await api.atualizarMeuFornecedor({
+      email: document.getElementById('pf-email').value || null,
+      telefone: document.getElementById('pf-tel').value || null,
+      nome_fantasia: document.getElementById('pf-fantasia').value || null,
+    });
+    toast('Perfil atualizado', 'sucesso');
+  } catch (err) { toast(err.message, 'erro'); }
+});
+
+document.getElementById('form-pwd').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const atual = document.getElementById('pwd-atual').value;
+  const nova = document.getElementById('pwd-nova').value;
+  try {
+    const r = await api.alterarMinhaSenha(atual, nova);
+    // V198: o backend invalida tokens antigos e retorna novo_token.
+    // Substituimos o token na sessao para nao desconectar o usuario.
+    if (r && r.novo_token) setSession({ token: r.novo_token, usuario });
+    e.target.reset();
+    toast('Senha alterada · sessao renovada', 'sucesso');
+  } catch (err) { toast(err.message, 'erro'); }
+});
+
+window.verDetalhes = async (id) => {
+  try {
+    const { envio, versoes, documentos, auditoria, comentarios, form_data } = await api.envio(id);
+    document.getElementById('det-titulo').textContent = `Envio ${envio.protocolo}`;
+    document.getElementById('det-conteudo').innerHTML = `
+      <div class="card" style="margin:0 0 12px">
+        <div class="row">
+          <div><strong>Unidade:</strong> ${envio.unidade_sigla} · ${envio.unidade_nome || ''}</div>
+          <div><strong>Modalidade:</strong> ${envio.modalidade_nome}</div>
+          <div><strong>Competência:</strong> ${envio.competencia}</div>
+          <div><strong>Status:</strong> <span class="pill ${envio.status}">${statusLabel(envio.status)}</span></div>
+          <div><strong>Valor:</strong> ${brl(envio.valor_centavos)}</div>
+          <div><strong>NF:</strong> ${envio.numero_nf || '—'}</div>
+        </div>
+        ${envio.descricao ? `<p style="margin-top:12px"><strong>Descrição:</strong> ${envio.descricao}</p>` : ''}
+        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+          ${envio.status === 'aguardando_ret' ? `<button class="warn" onclick="abrirRetificacao(${envio.id}, '${envio.protocolo}')">⚠ Submeter retificação</button>` : ''}
+          <button onclick="window.open('/app/recibo.html?id=${envio.id}', '_blank')">🖨 Imprimir recibo</button>
+        </div>
+      </div>
+      <div class="card" style="margin:0 0 12px"><h3>Respostas do formulário</h3>
+        ${formatarRespostasForm(form_data)}
+      </div>
+      <div class="card" style="margin:0 0 12px"><h3>Versões (${versoes.length})</h3>
+        <table><thead><tr><th>v</th><th>Criada em</th></tr></thead><tbody>
+          ${versoes.map(v => `<tr><td>v${v.numero}</td><td>${dataBR(v.criada_em)}</td></tr>`).join('')}
+        </tbody></table>
+      </div>
+      <div class="card" style="margin:0 0 12px"><h3>Documentos (${documentos.length})</h3>
+        ${documentos.length === 0 ? '<div class="muted">Nenhum documento anexado</div>' :
+          `<table><thead><tr><th>Campo</th><th>Arquivo</th><th>Tamanho</th><th></th></tr></thead><tbody>
+            ${documentos.map(d => `<tr><td><code>${d.campo}</code></td><td>${d.nome_original}</td><td>${(d.tamanho_bytes/1024).toFixed(1)} KB</td><td style="white-space:nowrap"><button onclick="visualizarDoc(${envio.id},${d.id},'${(d.nome_original||'').replace(/'/g,"\\'")}','${d.mime_type||''}')">👁 Ver</button> <button onclick="baixarDoc(${envio.id},${d.id})">⬇ Baixar</button></td></tr>`).join('')}
+          </tbody></table>`}
+      </div>
+      <div class="card" style="margin:0 0 12px">
+        <h3>Comentários (${(comentarios||[]).length})</h3>
+        ${(comentarios||[]).length === 0 ? '<div class="muted">Sem comentários ainda. Discuta este envio com o operador da unidade.</div>' :
+          (comentarios||[]).map(c => `
+            <div style="padding:10px 12px;background:${c.usuario_papel === 'fornecedor' ? 'var(--primary-soft)' : 'var(--surface-2)'};border-radius:8px;margin:8px 0">
+              <div style="font-size:11.5px;color:var(--muted);margin-bottom:4px"><strong>${c.usuario_nome}</strong> <span class="muted">(${c.usuario_papel||'—'})</span> · ${new Date(c.criado_em).toLocaleString('pt-BR')}</div>
+              <div style="font-size:13px;white-space:pre-wrap">${c.texto}</div>
+            </div>
+          `).join('')}
+        <form id="form-coment" style="margin-top:12px;display:flex;gap:8px">
+          <textarea id="coment-texto" placeholder="Escreva um comentário..." rows="2" style="flex:1;resize:vertical"></textarea>
+          <button class="primary" type="submit">Enviar</button>
+        </form>
+      </div>
+      <div class="card" style="margin:0"><h3>Histórico (auditoria)</h3>
+        <table><thead><tr><th>Quando</th><th>Quem</th><th>Ação</th></tr></thead><tbody>
+          ${auditoria.map(a => `<tr><td>${new Date(a.criado_em).toLocaleString('pt-BR')}</td><td>${a.usuario_nome || '<i>sistema</i>'}</td><td><code>${a.acao}</code></td></tr>`).join('')}
+        </tbody></table>
+      </div>
+    `;
+    document.getElementById('form-coment').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const txt = document.getElementById('coment-texto').value.trim();
+      if (txt.length < 2) return;
+      try { await api.comentar(id, txt); verDetalhes(id); }
+      catch (err) { toast(err.message, 'erro'); }
+    });
+    abrirModal('modal-detalhe');
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+};
+
+window.baixarDoc = async (envioId, docId) => {
+  try { await api.downloadDocumento(envioId, docId); }
+  catch (e) { toast('Erro ao baixar: ' + e.message, 'erro'); }
+};
+// V224: visualizar doc inline (PDF/imagem) sem ir para envio.html
+window.visualizarDoc = async (envioId, docId, nome, mime) => {
+  const token = localStorage.getItem('fesf_token');
+  if (!token) { toast('Sessão expirada — faça login novamente', 'erro'); return; }
+  try {
+    const r = await fetch(`/api/envios/${envioId}/documentos/${docId}/preview`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!r.ok) {
+      let msg = `HTTP ${r.status}`;
+      try { const j = await r.json(); if (j.error) msg = j.error; } catch {}
+      throw new Error(msg);
+    }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    // Abre numa janelinha do navegador (não precisa de modal complexo)
+    const w = window.open(url, '_blank');
+    if (!w) {
+      // Popup bloqueado → fallback: link direto pra forçar exibição
+      const a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.rel = 'noopener';
+      document.body.appendChild(a); a.click();
+      setTimeout(() => document.body.removeChild(a), 100);
+    }
+    // Revoga após 60s (tempo razoável p/ o browser carregar)
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) {
+    toast('Erro ao visualizar: ' + e.message, 'erro');
+  }
+};
+
+window.abrirRetificacao = async (id, protocolo) => {
+  try {
+    const { envio, auditoria } = await api.envio(id);
+    document.getElementById('ret-protocolo').textContent = protocolo;
+    const ultimaRet = auditoria.filter(a => a.acao === 'retificacao_solicitada').slice(-1)[0];
+    document.getElementById('ret-motivo-original').innerHTML = ultimaRet
+      ? `<strong>Motivo da retificação solicitada:</strong><br>${ultimaRet.detalhe || '—'}`
+      : 'O operador solicitou ajustes neste envio.';
+    document.getElementById('ret-valor').value = (Number(envio.valor_centavos||0) / 100).toFixed(2);
+    document.getElementById('ret-nf').value = envio.numero_nf || '';
+    document.getElementById('ret-correcao').value = '';
+    document.getElementById('form-ret').dataset.envioId = id;
+    fecharModal('modal-detalhe');
+    abrirModal('modal-ret');
+  } catch (e) { toast(e.message, 'erro'); }
+};
+
+window.retificar = (id) => { verDetalhes(id); };
+
+document.getElementById('form-ret').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const envioId = Number(e.target.dataset.envioId);
+  const correcao = document.getElementById('ret-correcao').value.trim();
+  if (correcao.length < 10) { toast('Descreva o que foi corrigido (mín. 10 chars)', 'erro'); return; }
+  const valor = Number(document.getElementById('ret-valor').value || 0);
+  const nf = document.getElementById('ret-nf').value || null;
+  try {
+    await api.criarVersao(envioId, {
+      campos_revisados: ['valor', 'numero_nf'],
+      observacao: correcao,
+      valor_centavos: Math.round(valor * 100),
+      numero_nf: nf,
+    });
+    fecharModal('modal-ret');
+    toast('Nova versão submetida · status atualizado', 'sucesso');
+    carregarMeus(); carregarKPIs();
+  } catch (err) { toast(err.message, 'erro'); }
+});
+
+async function carregarVencimentos() {
+  try {
+    const r = await api.listarExpectativas();
+    const abertas = (r.expectativas || []).filter(e => e.status !== 'cumprida' && e.status !== 'cancelada');
+    if (abertas.length === 0) return;
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    abertas.sort((a, b) => new Date(a.prazo) - new Date(b.prazo));
+    document.getElementById('vencimentos-wrap').style.display = '';
+    document.getElementById('venc-count').textContent = `· ${abertas.length} pendência(s)`;
+    document.getElementById('venc-list').innerHTML = abertas.slice(0, 6).map(e => {
+      const prazo = new Date(e.prazo);
+      const diff = Math.floor((prazo - hoje) / 86400000);
+      const cor = diff < 0 ? '#b22828' : (diff <= 3 ? '#a06800' : '#2f7d5c');
+      const label = diff < 0 ? `${Math.abs(diff)} dia(s) em atraso` : (diff === 0 ? 'vence hoje' : `em ${diff} dia(s)`);
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);gap:10px">
+        <div>
+          <strong style="font-size:13.5px">${e.modalidade_nome}</strong>
+          <div class="muted" style="font-size:12px">${e.unidade_sigla} · competência ${e.competencia} · ${statusLabel(e.origem_prevista)}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:ui-monospace,monospace;font-size:12px">${prazo.toLocaleDateString('pt-BR')}</div>
+          <div style="font-size:11px;font-weight:600;color:${cor};margin-top:2px">${label}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) { /* silencioso para nao quebrar o portal */ }
+}
+
+// Inicializa
+carregarKPIs();
+carregarMeus();
+carregarVencimentos();
+
+// V208: se vier ?retificar=ID da pagina de envio, abre o modal direto.
+// Antes o fornecedor caia no portal e precisava procurar o envio.
+const retParam = Number(new URLSearchParams(location.search).get('retificar'));
+if (retParam) {
+  api.envio(retParam)
+    .then(d => abrirRetificacao(retParam, d.envio.protocolo))
+    .catch(err => toast('Nao foi possivel abrir retificacao: ' + err.message, 'erro'));
+}
+
+// V214/F2.1: notificacoes geradas pelo backend usam link `/app/portal.html?envio=X`.
+// Tratar abrindo o modal de detalhes direto (em vez de fornecedor ter que procurar).
+const envioParam = Number(new URLSearchParams(location.search).get('envio'));
+if (envioParam && !retParam) {
+  setTimeout(() => verDetalhes(envioParam), 100);
+}
+</script>
+</body>
+</html>

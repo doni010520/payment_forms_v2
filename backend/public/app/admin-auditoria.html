@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Auditoria · FESF Sede</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  /* V281: audit rows com hover roxo suave + chip de ação + tipografia refinada */
+  .audit-row{display:grid;grid-template-columns:140px 110px 160px 1fr 130px;gap:14px;padding:12px 14px;border-bottom:1px solid var(--border);font-size:12.5px;align-items:center;transition:background .12s ease}
+  .audit-row:hover{background:rgba(91,84,153,.03)}
+  .audit-row:last-child{border-bottom:none}
+  .audit-row .quando{color:var(--muted);font-family:ui-monospace,monospace;font-size:11.5px;font-weight:500}
+  .audit-row .ent{font-size:10.5px;text-transform:uppercase;color:var(--text-3);font-weight:700;letter-spacing:.7px}
+  /* Chip de ação: bg primary-soft + texto roxo + padding maior + radius */
+  .audit-row .acao code{background:var(--primary-soft);color:var(--primary-2);padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;display:inline-block;max-width:100%;word-break:break-all;line-height:1.4;font-family:ui-monospace,monospace;letter-spacing:.2px}
+  .audit-row .det{color:var(--text-2);font-size:12.5px;min-width:0;overflow-wrap:break-word;line-height:1.5}
+  .audit-row .quem{color:var(--text);font-size:12px;font-weight:500}
+  .audit-row .quem .papel{font-size:10.5px;color:var(--muted);display:block;font-weight:400;margin-top:1px}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div><strong>FESF Sede · Auditoria</strong><span class="muted" style="font-size:11px;display:block">Trilha sistêmica de ações</span></div>
+  </div>
+  <div class="tabs">
+    <a href="/app/admin.html">Dashboard</a>
+    <a href="/app/admin-pagamentos.html">Pagamentos</a>
+    <a href="/app/admin-unidades.html">Unidades</a>
+    <a href="/app/admin-fornecedores.html">Fornecedores</a>
+    <a href="/app/admin-usuarios.html">Usuários</a>
+    <a href="/app/admin-relatorios.html">Relatórios</a>
+    <a class="active">Auditoria</a>
+    <a href="/app/admin-emails.html">E-mails</a>
+    <a href="/app/admin-smtp.html">SMTP</a>
+    <a href="/app/admin-status.html">Status</a>
+    <a href="/app/admin-api.html">API</a>
+    <a href="/app/admin-config.html">Configurações</a>
+  </div>
+  <div class="userbox">
+    <div><strong id="userNome">—</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · Admin</span></div>
+    <div class="avatar" id="userAvatar">—</div>
+    <button onclick="sair()">Sair</button>
+  </div>
+</nav>
+
+<div class="page">
+  <h1>Trilha de auditoria do sistema</h1>
+  <p class="muted">Todas as ações relevantes registradas no sistema. Usada para compliance, LGPD e investigação de incidentes.</p>
+
+  <div class="card">
+    <div class="filters">
+      <select id="f-entidade">
+        <option value="">Todas entidades</option>
+        <option value="envio">Envio</option>
+        <option value="expectativa">Expectativa</option>
+        <option value="fornecedor">Fornecedor</option>
+        <option value="usuario">Usuário</option>
+        <option value="link_publico">Link público</option>
+      </select>
+      <select id="f-acao">
+        <option value="">Todas ações</option>
+        <option value="criado_portal">criado_portal</option>
+        <option value="criado_link_publico">criado_link_publico</option>
+        <option value="criado_manual">criado_manual</option>
+        <option value="aprovado">aprovado</option>
+        <option value="rejeitado">rejeitado</option>
+        <option value="retificacao_solicitada">retificacao_solicitada</option>
+        <option value="lembrete_enviado">lembrete_enviado</option>
+        <option value="documento_anexado">documento_anexado</option>
+        <option value="auto_cadastro">auto_cadastro</option>
+        <option value="cadastro_externo">cadastro_externo</option>
+      </select>
+      <select id="f-dias">
+        <option value="">— Período customizado —</option>
+        <option value="7">Últimos 7 dias</option>
+        <option value="30" selected>Últimos 30 dias</option>
+        <option value="90">Últimos 90 dias</option>
+        <option value="365">Último ano</option>
+      </select>
+      <input type="date" id="f-desde" title="De">
+      <input type="date" id="f-ate" title="Até">
+      <input type="search" id="f-q" placeholder="Buscar em detalhe ou nome..." style="min-width:200px">
+      <select id="f-usuario"><option value="">Todos usuários</option></select>
+      <button onclick="carregar()">Aplicar</button>
+      <button onclick="exportarCSV()" title="Baixar CSV com os mesmos filtros aplicados">⬇ CSV</button>
+      <span id="contador" class="muted" style="margin-left:auto"></span>
+    </div>
+
+    <div id="trilha-lista" style="margin-top:14px"></div>
+
+    <div style="text-align:center;margin-top:14px">
+      <button id="btn-mais" onclick="maisRegistros()" style="display:none">Carregar mais</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { api, requireSession, clearSession, toast, statusLabel } from '/app/api.js';
+const usuario = requireSession();
+if (!usuario || usuario.papel !== 'admin_fesf') location.href = '/app/login.html';
+document.getElementById('userNome').textContent = usuario.nome;
+document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+
+let offset = 0;
+const PAGE = 50;
+
+// Popula filtro de usuários
+(async () => {
+  try {
+    const { usuarios } = await api.listarUsuarios();
+    const sel = document.getElementById('f-usuario');
+    sel.innerHTML = '<option value="">Todos usuários</option>' + usuarios.map(u => `<option value="${u.id}">${u.nome} (${u.papel})</option>`).join('');
+  } catch {}
+})();
+
+async function carregar(reset = true) {
+  if (reset) offset = 0;
+  const filtros = {
+    entidade: document.getElementById('f-entidade').value || null,
+    acao: document.getElementById('f-acao').value || null,
+    dias: document.getElementById('f-dias').value || null,
+    desde: document.getElementById('f-desde').value || null,
+    ate: document.getElementById('f-ate').value || null,
+    usuario_id: document.getElementById('f-usuario').value || null,
+    q: document.getElementById('f-q').value || null,
+    limit: PAGE, offset,
+  };
+  try {
+    const { trilha, total } = await api.auditoriaSistema(filtros);
+    document.getElementById('contador').textContent = `${total} registro(s) no período`;
+    const html = trilha.map(t => `
+      <div class="audit-row">
+        <div class="quando">${new Date(t.criado_em).toLocaleString('pt-BR')}</div>
+        <div class="ent">${t.entidade}#${t.entidade_id}</div>
+        <div class="acao"><code>${statusLabel(t.acao)}</code></div>
+        <div class="det">${t.detalhe ? t.detalhe.substring(0, 120) : '<span class="muted">—</span>'}</div>
+        <div class="quem">${t.usuario_nome || '<i>sistema</i>'}<span class="papel">${t.usuario_papel || ''}</span></div>
+      </div>
+    `).join('');
+    const cont = document.getElementById('trilha-lista');
+    if (reset) cont.innerHTML = html;
+    else cont.insertAdjacentHTML('beforeend', html);
+    offset += trilha.length;
+    document.getElementById('btn-mais').style.display = offset < total ? '' : 'none';
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+}
+window.carregar = carregar;
+window.maisRegistros = () => carregar(false);
+
+document.getElementById('f-entidade').addEventListener('change', () => carregar());
+document.getElementById('f-acao').addEventListener('change', () => carregar());
+document.getElementById('f-dias').addEventListener('change', () => carregar());
+
+// V211 — Exporta CSV reaproveitando o endpoint V205 com os mesmos filtros
+window.exportarCSV = () => {
+  const q = new URLSearchParams();
+  const v = id => document.getElementById(id).value;
+  if (v('f-entidade')) q.set('entidade', v('f-entidade'));
+  if (v('f-acao'))     q.set('acao', v('f-acao'));
+  if (v('f-dias'))     q.set('dias', v('f-dias'));
+  if (v('f-desde'))    q.set('desde', v('f-desde'));
+  if (v('f-ate'))      q.set('ate', v('f-ate'));
+  if (v('f-usuario'))  q.set('usuario_id', v('f-usuario'));
+  if (v('f-q'))        q.set('q', v('f-q'));
+  // Cria download autenticado: fetch -> blob -> link
+  fetch(`/api/auditoria/sistema.csv${q.toString() ? `?${q}` : ''}`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem('fesf_token')}` }
+  }).then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const trunc = r.headers.get('X-Truncated') === 'true';
+    return r.blob().then(b => ({ blob: b, trunc }));
+  }).then(({ blob, trunc }) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `auditoria-${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast(trunc ? 'Download · primeiras 10.000 linhas (refine filtro para o resto)' : 'Download iniciado', 'sucesso');
+  }).catch(e => toast('Erro: ' + e.message, 'erro'));
+};
+
+carregar();
+</script>
+
+</body>
+</html>

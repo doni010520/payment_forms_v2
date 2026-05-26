@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Detalhe do Fornecedor · FESF Sede</title>
+<link rel="stylesheet" href="/app/style.css">
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand"><div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div><strong>Detalhe do fornecedor</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · Administração</span></div></div>
+  <div class="tabs">
+    <a href="/app/admin.html">Dashboard</a>
+    <a href="/app/admin-pagamentos.html">Pagamentos</a>
+    <a href="/app/admin-unidades.html">Unidades</a>
+    <a href="/app/admin-fornecedores.html">Fornecedores</a>
+    <a href="/app/admin-usuarios.html">Usuários</a>
+    <a href="/app/admin-relatorios.html">Relatórios</a>
+    <a href="/app/admin-auditoria.html">Auditoria</a>
+    <a href="/app/admin-emails.html">E-mails</a>
+    <a href="/app/admin-status.html">Status</a>
+    <a href="/app/admin-api.html">API</a>
+    <a href="/app/admin-config.html">Configurações</a>
+  </div>
+  <div class="userbox"><div><strong id="userNome">—</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · Admin</span></div><div class="avatar" id="userAvatar">—</div><button onclick="sair()">Sair</button></div>
+</nav>
+
+<div class="page">
+  <a href="/app/admin-fornecedores.html">← Voltar para fornecedores</a>
+  <div id="conteudo" style="margin-top:12px"></div>
+</div>
+
+<script type="module">
+import { api, requireSession, clearSession, brl, dataBR, toast, statusLabel} from '/app/api.js';
+const usuario = requireSession();
+if (!usuario) location.href = '/app/login.html';
+// Operador pode ver detalhe (escopo aplicado no backend); fornecedor nao
+if (usuario.papel === 'fornecedor') location.href = '/app/portal.html';
+document.getElementById('userNome').textContent = usuario.nome;
+document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+
+const id = Number(new URLSearchParams(location.search).get('id'));
+if (!id) location.href = '/app/admin.html';
+
+async function carregarDetalhe() {
+  const d = await api.detalheFornecedor(id);
+  return d;
+}
+
+try {
+  let d = await carregarDetalhe();
+  const f = d.fornecedor;
+  const tipoBadge = f.tipo === 'com_portal' ? 'aprovado' : f.tipo === 'externo_pj' ? 'lembrado' : 'retificado';
+  // V223/A5: badge de engajamento (ativo/inadimplente/inativo) + acao para admin alterar
+  const engBadge = {
+    ativo: '<span class="pill aprovado">Engajamento: ativo</span>',
+    inadimplente: '<span class="pill rejeitado">Engajamento: inadimplente</span>',
+    inativo: '<span class="pill cancelada">Engajamento: inativo</span>',
+  }[f.status_engajamento] || '';
+  const podeMudarEng = usuario.papel === 'admin_fesf' || usuario.papel === 'operador_unidade';
+  // V259: entity header rico alinhado ao mockup screen-fornecedor-detail
+  const iniciais = (f.razao_social || '?').split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0]).join('').toUpperCase();
+  const tipoLabelBadge = ({ com_portal: 'Com portal', externo_pj: 'Externo PJ', externo_pf: 'Externo PF' })[f.tipo] || f.tipo;
+  const totalEnvios = d.totais.total_envios || 0;
+  const retificados = (d.por_status || []).find(s => s.status === 'aguardando_retificacao' || s.status === 'retificacao_solicitada')?.n || d.totais.aguardando_ret || 0;
+  const taxaRetificacao = totalEnvios > 0 ? (retificados / totalEnvios * 100) : 0;
+  // breakdown por origem
+  const totalPorOrigem = (d.por_origem || []).reduce((s, o) => s + Number(o.n||0), 0) || 1;
+  const origemMap = { portal: { label: 'AUTO-SERVIÇO', cor: 'var(--primary)', bg: 'var(--primary-soft)', txt: 'var(--primary-2)' }, link_publico: { label: 'LINK PÚBLICO', cor: 'var(--accent)', bg: 'var(--accent-soft)', txt: 'var(--accent)' }, manual: { label: 'OPERADOR', cor: 'var(--border-strong, #b8b8b8)', bg: 'var(--surface-2)', txt: 'var(--muted)' } };
+  const origemBoxes = ['portal','link_publico','manual'].map(origin => {
+    const o = (d.por_origem || []).find(x => x.origem === origin) || { n: 0 };
+    const cfg = origemMap[origin];
+    const pct = totalPorOrigem > 0 ? (o.n / totalPorOrigem * 100).toFixed(0) : 0;
+    return `
+      <div style="padding:14px;background:${cfg.bg};border-radius:8px;border-left:3px solid ${cfg.cor}">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span class="origin ${origin}">${statusLabel(origin)}</span>
+          <span style="font-size:11.5px;color:var(--muted);font-weight:600">${cfg.label}</span>
+        </div>
+        <div style="font-size:22px;font-weight:700;color:${cfg.txt};margin:4px 0">${o.n}</div>
+        <div style="font-size:12px;color:var(--muted)">${pct}% dos envios${o.total_centavos != null ? ` · ${brl(o.total_centavos)}` : ''}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('conteudo').innerHTML = `
+    <!-- Entity header rico -->
+    <div class="between" style="align-items:flex-start;margin-bottom:18px;gap:18px;flex-wrap:wrap">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="width:56px;height:56px;border-radius:12px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex-shrink:0">${iniciais}</div>
+        <div>
+          <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:4px">Fornecedor · ${f.ativo ? 'ativo' : 'inativo'} · <span class="pill ${tipoBadge}" style="font-size:10.5px">${tipoLabelBadge}</span></div>
+          <h1 style="margin:0 0 4px">${f.razao_social}</h1>
+          <div class="muted" style="font-size:13px">${f.tipo === 'externo_pf' ? 'CPF' : 'CNPJ'} <code style="font-size:12.5px">${f.documento}</code> · Cadastrado em ${dataBR(f.criado_em)}${f.email ? ' · ' + f.email : ''}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${f.ativo ? '<span class="pill aprovado">Ativo</span>' : '<span class="pill cancelada">Inativo</span>'}
+        ${f.pendente_aprovacao ? '<span class="pill aguardando_ret">Pendente aprovação</span>' : ''}
+        ${engBadge}
+        ${podeMudarEng ? `
+          ${f.status_engajamento !== 'inadimplente' ? '<button class="warn" onclick="marcarInadimplente()" title="Marcar inadimplente (com justificativa)">⚠ Inadimplente</button>' : ''}
+          ${f.status_engajamento === 'inadimplente' ? '<button class="success" onclick="reverterEngajamento()" title="Voltar para ativo">↩ Reverter</button>' : ''}
+          ${f.status_engajamento !== 'inativo' ? '<button class="danger" onclick="marcarInativo()" title="Marcar inativo (encerramento de contrato)">✕ Inativar</button>' : ''}
+        ` : ''}
+      </div>
+    </div>
+    ${f.status_engajamento !== 'ativo' && f.motivo_engajamento ? `<div class="alert warn" style="margin-bottom:14px"><strong>Motivo:</strong> ${f.motivo_engajamento}</div>` : ''}
+
+    <!-- KPIs com sub-stats -->
+    <div class="kpi-row">
+      <div class="kpi"><div class="label">Total enviado</div><div class="value">${totalEnvios}</div><div class="sub">desde ${dataBR(f.criado_em)}</div></div>
+      <div class="kpi accent"><div class="label">Movimento total</div><div class="value mono" style="font-size:22px">${brl(d.totais.total_centavos)}</div><div class="sub">aprovados + pagos + análise</div></div>
+      <div class="kpi warn"><div class="label">Aguardando ret.</div><div class="value">${d.totais.aguardando_ret}</div><div class="sub">${taxaRetificacao.toFixed(0)}% precisaram ajuste</div></div>
+      <div class="kpi"><div class="label">Aprovados + Pagos</div><div class="value">${d.totais.aprovados + d.totais.pagos}</div><div class="sub">${d.totais.em_analise} em análise</div></div>
+    </div>
+
+    <!-- Breakdown por origem visual -->
+    <div class="card">
+      <div class="between">
+        <h3 style="margin:0">Como este fornecedor envia · breakdown por origem</h3>
+        <span class="muted" style="font-size:12px">${totalEnvios} envios totais</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:14px">
+        ${origemBoxes}
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Dados cadastrais</h3>
+      <div class="row" style="margin-top:10px">
+        <div><label>Razão social / Nome</label><div style="font-size:14px">${f.razao_social}</div></div>
+        <div><label>${f.tipo === 'externo_pf' ? 'CPF' : 'CNPJ'}</label><div style="font-size:14px;font-family:ui-monospace,monospace">${f.documento}</div></div>
+      </div>
+      <div class="row">
+        <div><label>E-mail</label><div style="font-size:14px">${f.email || '<span class="muted">—</span>'}</div></div>
+        <div><label>Telefone</label><div style="font-size:14px">${f.telefone || '<span class="muted">—</span>'}</div></div>
+      </div>
+      <div class="row">
+        <div><label>Cadastrado em</label><div style="font-size:14px">${dataBR(f.criado_em)}</div></div>
+        <div><label>Tipo</label><div style="font-size:14px">${f.tipo}</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Unidades que atende (${d.unidades.length})</h3>
+      ${d.unidades.length === 0 ? '<div class="muted">Nenhuma unidade vinculada</div>' :
+        `<div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${d.unidades.map(u => `<a href="/app/admin-unidade.html?id=${u.id}" style="padding:6px 12px;background:var(--primary-soft);border-radius:6px;font-size:13px;font-weight:500;color:var(--primary-2)">${u.sigla} · ${u.cidade}</a>`).join('')}
+        </div>`}
+    </div>
+
+    <div class="card">
+      <h3>Histórico de envios (últimos 30)</h3>
+      ${d.envios_recentes.length === 0 ? '<div class="muted">Sem envios</div>' :
+        `<table><thead><tr><th>Protocolo</th><th>Unidade</th><th>Modalidade</th><th>Comp.</th><th>Origem</th><th>Status</th><th>Valor</th><th>Em</th></tr></thead><tbody>
+          ${d.envios_recentes.map(e => `<tr>
+            <td><code>${e.protocolo}</code></td>
+            <td>${e.unidade_sigla}</td>
+            <td>${e.modalidade_nome}</td>
+            <td>${e.competencia}</td>
+            <td><span class="origin ${e.origem}">${statusLabel(e.origem)}</span></td>
+            <td><span class="pill ${e.status}">${statusLabel(e.status)}</span></td>
+            <td style="font-family:ui-monospace,monospace">${brl(e.valor_centavos)}</td>
+            <td>${dataBR(e.criado_em)}</td>
+          </tr>`).join('')}
+        </tbody></table>`}
+    </div>
+
+    <div class="card">
+      <h3>Expectativas (pendências)</h3>
+      ${d.expectativas.length === 0 ? '<div class="muted">Sem expectativas</div>' :
+        `<table><thead><tr><th>Status</th><th>Quantidade</th></tr></thead><tbody>
+          ${d.expectativas.map(p => `<tr><td><span class="pill ${p.status}">${statusLabel(p.status)}</span></td><td>${p.n}</td></tr>`).join('')}
+        </tbody></table>`}
+    </div>
+
+    <div class="card">
+      <h3>Comentários recentes do fornecedor (${(d.comentarios || []).length})</h3>
+      ${(!d.comentarios || d.comentarios.length === 0) ? '<div class="muted">Este fornecedor ainda não comentou em nenhum envio.</div>' :
+        `<div style="display:flex;flex-direction:column;gap:8px">
+          ${d.comentarios.map(c => `
+            <div style="padding:10px 12px;border-left:3px solid var(--primary);background:var(--surface-2);border-radius:6px">
+              <div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:4px;font-size:11.5px;color:var(--muted)">
+                <a href="/app/envio.html?id=${c.envio_id}"><code>${c.protocolo}</code></a>
+                <span>${new Date(c.criado_em).toLocaleString('pt-BR')}</span>
+              </div>
+              <div style="font-size:13px">${(c.texto || '').replace(/</g,'&lt;')}</div>
+            </div>`).join('')}
+        </div>`}
+    </div>
+
+    <div class="card">
+      <h3>Trilha de alterações</h3>
+      <div id="trilha-fornecedor"><div class="muted">Carregando…</div></div>
+    </div>
+  `;
+
+  // Carrega trilha de auditoria. Endpoint retorna { trilha: [...] }, nao { auditoria: [...] }.
+  // Bug V209: codigo lia 'a.auditoria' → sempre undefined → trilha nunca aparecia.
+  try {
+    const a = await api.auditoria('fornecedor', id);
+    const cont = document.getElementById('trilha-fornecedor');
+    const eventos = a.trilha || a.auditoria || [];
+    if (eventos.length === 0) {
+      cont.innerHTML = '<div class="muted">Sem eventos registrados</div>';
+    } else {
+      cont.innerHTML = `<table><thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Detalhe</th></tr></thead><tbody>
+        ${eventos.map(x => `<tr>
+          <td>${new Date(x.criado_em).toLocaleString('pt-BR')}</td>
+          <td>${x.usuario_nome || '<i>sistema</i>'}</td>
+          <td><code>${x.acao}</code></td>
+          <td>${(x.detalhe || '').substring(0, 160)}</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+    }
+  } catch (e) {
+    document.getElementById('trilha-fornecedor').innerHTML = `<div class="alert danger">Erro: ${e.message}</div>`;
+  }
+} catch (e) {
+  document.getElementById('conteudo').innerHTML = `<div class="alert danger">Erro: ${e.message}</div>`;
+}
+
+// V223/A5: ações de engajamento (inadimplente/ativo/inativo)
+window.marcarInadimplente = async () => {
+  const motivo = prompt('Motivo da inadimplência (mín. 5 chars — ficará registrado e visível ao fornecedor):');
+  if (!motivo || motivo.trim().length < 5) {
+    if (motivo !== null) toast('Motivo precisa ter no mínimo 5 caracteres', 'erro');
+    return;
+  }
+  try {
+    await api.atualizarEngajamentoFornecedor(id, 'inadimplente', motivo.trim());
+    toast('Fornecedor marcado como inadimplente · auditoria registrada', 'sucesso');
+    location.reload(); // simples — recarrega para refletir mudança
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+};
+window.reverterEngajamento = async () => {
+  if (!confirm('Reverter para "ativo"? O fornecedor poderá submeter envios normalmente novamente.')) return;
+  try {
+    await api.atualizarEngajamentoFornecedor(id, 'ativo', null);
+    toast('Engajamento revertido para ativo', 'sucesso');
+    location.reload();
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+};
+window.marcarInativo = async () => {
+  if (!confirm('Marcar fornecedor como INATIVO? Ele não poderá mais submeter envios. Use para encerramento de contrato.')) return;
+  const motivo = prompt('Motivo (opcional — ex: "Contrato encerrado em 2026-12"):') || null;
+  try {
+    await api.atualizarEngajamentoFornecedor(id, 'inativo', motivo);
+    toast('Fornecedor marcado como inativo', 'sucesso');
+    location.reload();
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+};
+</script>
+</body>
+</html>

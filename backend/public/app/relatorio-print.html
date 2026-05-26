@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Relatório FESF-SUS · Imprimir</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  body{background:#fff;font-family:Georgia,'Times New Roman',serif;color:#000;padding:24px;max-width:920px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 4px}
+  h2{font-size:15px;margin:24px 0 10px;border-bottom:1px solid #000;padding-bottom:4px}
+  .meta{font-size:12px;color:#444;margin-bottom:18px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{text-align:left;border-bottom:1.5px solid #000;padding:6px 8px;font-weight:700}
+  td{padding:5px 8px;border-bottom:0.5px dotted #999;vertical-align:top}
+  .kpi-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin:14px 0}
+  .kpi{padding:10px 12px;border:1px solid #000;border-radius:4px}
+  .kpi .lbl{font-size:10.5px;text-transform:uppercase;color:#444;letter-spacing:.4px}
+  .kpi .val{font-size:18px;font-weight:700;font-family:ui-monospace,monospace;margin-top:3px}
+  .rodape{margin-top:30px;border-top:1px solid #000;padding-top:10px;font-size:11px;color:#444;text-align:center}
+  .actions{text-align:center;margin:18px 0;padding:12px;background:#eef;border-radius:8px}
+  @media print {
+    .actions{display:none !important}
+    body{padding:8mm}
+  }
+  @page{margin:1.5cm}
+</style>
+</head>
+<body>
+
+<div class="actions">
+  <button onclick="window.print()" style="padding:8px 16px;font-size:13px">🖨 Imprimir / salvar como PDF</button>
+  <a href="/app/admin-relatorios.html" style="margin-left:14px">← Voltar ao relatório</a>
+</div>
+
+<h1>Relatório · Portal de Pagamentos FESF-SUS</h1>
+<div class="meta" id="meta">—</div>
+
+<div id="kpis"></div>
+
+<h2>Por unidade</h2>
+<div id="por-unidade"></div>
+
+<h2>Por origem (3 cenários)</h2>
+<div id="por-origem"></div>
+
+<h2>Por status</h2>
+<div id="por-status"></div>
+
+<h2>Por modalidade</h2>
+<div id="por-modalidade"></div>
+
+<h2>SLA · tempos médios</h2>
+<div id="sla"></div>
+
+<h2>Pendências (expectativas)</h2>
+<div id="pendencias"></div>
+
+<div class="rodape">
+  Relatório gerado em <span id="emitido"></span> · Sistema com trilha de auditoria completa
+</div>
+
+<script type="module">
+import { api, requireSession, brl, statusLabel } from '/app/api.js';
+const usuario = requireSession();
+if (!usuario || usuario.papel !== 'admin_fesf') location.href = '/app/login.html';
+
+const competencia = new URLSearchParams(location.search).get('competencia') || '';
+document.getElementById('emitido').textContent = new Date().toLocaleString('pt-BR');
+
+(async () => {
+  try {
+    const m = await api.metricas(competencia ? { competencia } : {});
+    document.getElementById('meta').textContent = `${competencia ? 'Competência ' + competencia : 'Todas competências'} · emitido por ${usuario.nome}`;
+
+    document.getElementById('kpis').innerHTML = `
+      <div class="kpi-grid">
+        <div class="kpi"><div class="lbl">Envios totais</div><div class="val">${m.totais.total_envios}</div></div>
+        <div class="kpi"><div class="lbl">Movimento</div><div class="val">${brl(m.totais.total_centavos)}</div></div>
+        <div class="kpi"><div class="lbl">Unidades ativas</div><div class="val">${m.por_unidade.filter(u => u.total_envios > 0).length}</div></div>
+        <div class="kpi"><div class="lbl">Inadimplentes</div><div class="val">${m.fornecedores_inadimplentes || 0}</div></div>
+      </div>
+    `;
+
+    document.getElementById('por-unidade').innerHTML = `<table>
+      <thead><tr><th>Sigla</th><th>Nome</th><th>Envios</th><th>Análise</th><th>Aprovados</th><th>Pagos</th><th>Movimento</th></tr></thead>
+      <tbody>
+        ${m.por_unidade.map(u => `<tr>
+          <td><strong>${u.sigla}</strong></td><td>${u.nome}</td><td>${u.total_envios}</td>
+          <td>${u.em_analise}</td><td>${u.aprovados}</td><td>${u.pagos}</td>
+          <td style="font-family:ui-monospace,monospace">${brl(u.total_centavos)}</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+
+    document.getElementById('por-origem').innerHTML = `<table>
+      <thead><tr><th>Origem</th><th>Quantidade</th><th>Movimento</th></tr></thead>
+      <tbody>${m.por_origem.map(o => `<tr><td>${statusLabel(o.origem)}</td><td>${o.n}</td><td style="font-family:ui-monospace,monospace">${brl(o.total_centavos)}</td></tr>`).join('')}</tbody>
+    </table>`;
+
+    document.getElementById('por-status').innerHTML = `<table>
+      <thead><tr><th>Status</th><th>Quantidade</th></tr></thead>
+      <tbody>${m.por_status.map(s => `<tr><td>${statusLabel(s.status)}</td><td>${s.n}</td></tr>`).join('')}</tbody>
+    </table>`;
+
+    document.getElementById('por-modalidade').innerHTML = `<table>
+      <thead><tr><th>Modalidade</th><th>Envios</th><th>Movimento</th></tr></thead>
+      <tbody>${m.por_modalidade.map(x => `<tr><td>${x.nome}</td><td>${x.n}</td><td style="font-family:ui-monospace,monospace">${brl(x.total_centavos)}</td></tr>`).join('')}</tbody>
+    </table>`;
+
+    const sla = m.sla || {};
+    document.getElementById('sla').innerHTML = `<table>
+      <thead><tr><th>Etapa</th><th>Dias médios</th><th>Base</th></tr></thead>
+      <tbody>
+        <tr><td>Envio → Aprovação</td><td>${(sla.dias_ate_aprovado || 0).toFixed(1)}</td><td>${sla.n_aprovados || 0} aprovações</td></tr>
+        <tr><td>Aprovação → Pagamento</td><td>${(sla.dias_ate_pago || 0).toFixed(1)}</td><td>${sla.n_pagos || 0} pagamentos</td></tr>
+      </tbody></table>`;
+
+    document.getElementById('pendencias').innerHTML = m.pendencias.length === 0 ?
+      '<div>Sem expectativas no período.</div>' :
+      `<table><thead><tr><th>Status</th><th>Quantidade</th></tr></thead><tbody>${m.pendencias.map(p => `<tr><td>${statusLabel(p.status)}</td><td>${p.n}</td></tr>`).join('')}</tbody></table>`;
+  } catch (e) {
+    document.body.innerHTML += `<div style="color:red">Erro: ${e.message}</div>`;
+  }
+})();
+</script>
+
+</body>
+</html>

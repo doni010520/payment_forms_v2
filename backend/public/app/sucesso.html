@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Envio realizado · FESF-SUS</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  /* V277: sucesso.html com animação de entrada + check-big com pulse halo */
+  body{background:linear-gradient(135deg, #4FA590 0%, #5B5499 100%); min-height:100vh; padding:40px 20px}
+  .wrap{max-width:780px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25), 0 4px 12px rgba(0,0,0,.08);padding:40px;animation:successIn .35s cubic-bezier(.16,.84,.44,1)}
+  @keyframes successIn{from{transform:translateY(20px) scale(.97);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+  .hero{text-align:center;padding:20px 0 28px;border-bottom:1px solid var(--border)}
+  .check-big{width:88px;height:88px;border-radius:50%;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:46px;margin-bottom:18px;box-shadow:0 12px 32px rgba(79,165,144,.35);position:relative;animation:checkPop .5s cubic-bezier(.34,1.56,.64,1) .15s both}
+  .check-big::before{content:"";position:absolute;inset:-8px;border-radius:50%;border:2px solid var(--accent);opacity:0;animation:checkRing 2s ease-out .6s infinite}
+  @keyframes checkPop{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes checkRing{0%{transform:scale(.9);opacity:0}30%{opacity:.5}100%{transform:scale(1.4);opacity:0}}
+  .hero h1{margin:0 0 8px;font-size:28px;font-weight:700;letter-spacing:-.02em;color:var(--text)}
+  .hero p{color:var(--text-3);margin:0 auto;max-width:560px;font-size:14px;line-height:1.6}
+  .protocolo-block{margin:24px 0;padding:26px;background:linear-gradient(135deg,var(--primary-soft) 0%,var(--accent-soft) 100%);border-radius:14px;text-align:center;border:1px solid rgba(91,84,153,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+  .protocolo-block .lbl{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);font-weight:700;margin-bottom:8px}
+  .protocolo-block .num{font-family:ui-monospace,monospace;font-size:34px;font-weight:700;color:var(--primary-2);letter-spacing:2px;line-height:1.1}
+  .summary{margin-top:24px}
+  .summary h3{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin:0 0 10px}
+  .sum-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+  .sum-row:last-child{border-bottom:none}
+  .sum-row .lbl{color:var(--text-3)}
+  .sum-row .val{font-weight:500;text-align:right}
+  .sum-row .val.mono{font-family:ui-monospace,monospace}
+  .steps{margin:28px 0 0;background:var(--surface-2);border-radius:10px;padding:20px 24px}
+  .steps h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin:0 0 14px}
+  .steps ol{margin:0;padding-left:24px;counter-reset:step;list-style:none}
+  .steps li{padding:10px 0;border-bottom:1px solid var(--border);position:relative;padding-left:38px;counter-increment:step}
+  .steps li::before{content:counter(step);position:absolute;left:0;top:10px;width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  .steps li:last-child{border-bottom:none}
+  .steps li strong{display:block;font-size:13.5px;color:var(--text);margin-bottom:3px}
+  .steps li span{font-size:12.5px;color:var(--text-3);line-height:1.5}
+  .actions-bar{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:28px;padding-top:22px;border-top:1px solid var(--border)}
+  .actions-bar a, .actions-bar button{padding:11px 22px;font-size:13.5px;font-weight:600;border-radius:8px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);cursor:pointer;transition:all .15s ease}
+  .actions-bar a:hover, .actions-bar button:hover{background:var(--surface-3);border-color:var(--border-strong);transform:translateY(-1px);box-shadow:0 4px 10px rgba(20,20,30,.08)}
+  .actions-bar .primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+  .actions-bar .primary:hover{background:var(--primary-2);color:#fff;box-shadow:0 4px 12px rgba(91,84,153,.35)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="check-big">✓</div>
+    <h1>Envio recebido com sucesso</h1>
+    <p>Sua documentação foi recebida pela unidade <strong id="unidade-nome">—</strong>. O processo de análise começa em até 1 dia útil. Você será notificado por e-mail a cada mudança de status.</p>
+  </div>
+
+  <div class="protocolo-block">
+    <div class="lbl">Número de protocolo</div>
+    <div class="num" id="protocolo">—</div>
+  </div>
+
+  <div class="summary">
+    <h3>Resumo do envio</h3>
+    <div id="sum-rows">
+      <div class="sum-row"><span class="lbl">Fornecedor</span><span class="val" id="r-forn">—</span></div>
+      <div class="sum-row"><span class="lbl">Documento</span><span class="val mono" id="r-doc">—</span></div>
+      <div class="sum-row"><span class="lbl">Unidade</span><span class="val" id="r-uni">—</span></div>
+      <div class="sum-row"><span class="lbl">Modalidade</span><span class="val" id="r-mod">—</span></div>
+      <div class="sum-row"><span class="lbl">Competência</span><span class="val" id="r-comp">—</span></div>
+      <div class="sum-row"><span class="lbl">Valor declarado</span><span class="val mono" id="r-valor">—</span></div>
+      <div class="sum-row"><span class="lbl">NF</span><span class="val" id="r-nf">—</span></div>
+      <div class="sum-row"><span class="lbl">Origem</span><span class="val" id="r-origem">—</span></div>
+      <div class="sum-row"><span class="lbl">Documentos anexados</span><span class="val" id="r-docs">—</span></div>
+      <div class="sum-row"><span class="lbl">Enviado em</span><span class="val" id="r-em">—</span></div>
+    </div>
+  </div>
+
+  <div id="resp-form" style="margin-top: 24px"></div>
+
+  <div class="steps">
+    <h3>Próximos passos</h3>
+    <ol>
+      <li><strong>Análise da unidade FESF</strong><span>A equipe da unidade analisa documentos e dados em até 7 dias úteis. Você pode acompanhar o status em tempo real no portal ou consultando seu protocolo publicamente.</span></li>
+      <li><strong>Possível retificação</strong><span>Se algum item precisar ajuste, você será notificado com a lista de correções e prazo. Submeta a versão corrigida pelo portal.</span></li>
+      <li><strong>Aprovação e pagamento</strong><span>Aprovado o envio, segue para FESF Sede liberar o pagamento conforme calendário financeiro.</span></li>
+      <li><strong>Comprovante e recibo</strong><span>Após o pagamento, você recebe o comprovante e pode imprimir o recibo oficial pelo portal.</span></li>
+    </ol>
+  </div>
+
+  <div class="actions-bar">
+    <a href="/app/portal.html" class="btn primary" id="btn-portal">📋 Acompanhar no portal</a>
+    <a href="#" class="btn" id="btn-recibo">🖨 Baixar recibo oficial</a>
+    <a href="/app/consulta.html" class="btn">🔎 Consultar por protocolo</a>
+  </div>
+
+</div>
+
+<script type="module">
+import { api, brl, formatarRespostasForm } from '/app/api.js';
+
+const id = Number(new URLSearchParams(location.search).get('id'));
+if (!id) document.querySelector('.wrap').innerHTML = '<h1>Envio inválido</h1>';
+else {
+  try {
+    const { envio, documentos, form_data } = await api.envio(id);
+    document.getElementById('protocolo').textContent = envio.protocolo;
+    document.getElementById('unidade-nome').textContent = envio.unidade_sigla + (envio.unidade_nome ? ' · ' + envio.unidade_nome : '');
+    document.getElementById('r-forn').textContent = envio.razao_social;
+    document.getElementById('r-doc').textContent = envio.documento;
+    document.getElementById('r-uni').textContent = envio.unidade_sigla + ' · ' + (envio.unidade_nome || '');
+    document.getElementById('r-mod').textContent = envio.modalidade_nome;
+    document.getElementById('r-comp').textContent = envio.competencia;
+    document.getElementById('r-valor').textContent = brl(envio.valor_centavos);
+    document.getElementById('r-nf').textContent = envio.numero_nf || '—';
+    document.getElementById('r-origem').textContent = envio.origem === 'portal' ? 'Portal (logado)' : envio.origem === 'link_publico' ? 'Link público' : 'Manual (operador)';
+    const totalBytes = documentos.reduce((a, d) => a + (d.tamanho_bytes||0), 0);
+    document.getElementById('r-docs').textContent = `${documentos.length} arquivo(s)${totalBytes ? ` · ${(totalBytes/1024).toFixed(1)} KB` : ''}`;
+    document.getElementById('r-em').textContent = new Date(envio.criado_em).toLocaleString('pt-BR');
+
+    if (form_data && Object.keys(form_data).length > 0) {
+      document.getElementById('resp-form').innerHTML = `
+        <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin:0 0 10px">Respostas do formulário</h3>
+        ${formatarRespostasForm(form_data)}
+      `;
+    }
+
+    // Se usuário não autenticado (vindo de link público), usa modo anônimo via protocolo
+    const temToken = !!localStorage.getItem('fesf_token');
+    document.getElementById('btn-recibo').href = temToken
+      ? `/app/recibo.html?id=${id}`
+      : `/app/recibo.html?protocolo=${encodeURIComponent(envio.protocolo)}`;
+    // Cenario 2 (anonimo): esconde botao "Acompanhar no portal" — usuario nao
+    // tem login. Mantemos consulta e recibo, que funcionam sem autenticacao.
+    if (!temToken) {
+      const bp = document.getElementById('btn-portal');
+      if (bp) bp.style.display = 'none';
+    }
+  } catch (e) {
+    document.querySelector('.wrap').innerHTML = `<h1>Erro ao carregar</h1><p>${e.message}</p><p><a href="/app/login.html">← Voltar ao login</a></p>`;
+  }
+}
+</script>
+</body>
+</html>

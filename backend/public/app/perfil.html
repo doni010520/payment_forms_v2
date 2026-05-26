@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meu perfil · FESF</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  .perfil-grid{display:grid;grid-template-columns:280px 1fr;gap:24px;align-items:start}
+  .perfil-side{position:sticky;top:80px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center}
+  .perfil-side .avatar-big{width:90px;height:90px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;margin:0 auto 14px}
+  .perfil-side h3{margin:0 0 4px;font-size:17px}
+  .perfil-side .papel-pill{display:inline-block;padding:3px 10px;border-radius:12px;background:var(--primary-soft);color:var(--primary);font-size:11px;font-weight:600;text-transform:uppercase}
+  .perfil-side ul{list-style:none;padding:0;margin:18px 0 0;text-align:left;font-size:12.5px;color:var(--muted)}
+  .perfil-side ul li{padding:6px 0;border-bottom:1px solid var(--border)}
+  .perfil-side ul li:last-child{border-bottom:0}
+  .perfil-side ul li strong{color:var(--text-2);display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+  .perfil-section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:18px}
+  .perfil-section h2{margin:0 0 4px;font-size:18px}
+  .perfil-section .desc{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .perfil-section .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .perfil-section label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+  .perfil-section input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:14px}
+  .perfil-section input:disabled{background:var(--surface-2);color:var(--muted)}
+  .perfil-section .row-actions{margin-top:14px;display:flex;gap:10px;justify-content:flex-end}
+  .pref-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}
+  .pref-row:last-child{border-bottom:0}
+  .pref-row .info strong{display:block;font-size:14px;margin-bottom:2px}
+  .pref-row .info span{color:var(--muted);font-size:12.5px}
+  .switch{position:relative;display:inline-block;width:42px;height:22px}
+  .switch input{opacity:0;width:0;height:0}
+  .switch .slider{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:22px;transition:.2s}
+  .switch .slider:before{content:"";position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+  .switch input:checked + .slider{background:var(--primary)}
+  .switch input:checked + .slider:before{transform:translateX(20px)}
+  .danger{border-left:3px solid #b22828;background:rgba(178,40,40,.05)}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div><strong>Meu perfil</strong><span class="muted" style="font-size:11px;display:block">Dados, segurança e preferências</span></div>
+  </div>
+  <div class="tabs">
+    <a id="link-voltar">← Voltar</a>
+  </div>
+  <div class="userbox">
+    <div><strong id="userNome">—</strong><span class="muted" style="font-size:11px;display:block" id="userPapelDesc">—</span></div>
+    <div class="avatar" id="userAvatar">—</div>
+    <button onclick="sair()">Sair</button>
+  </div>
+</nav>
+
+<div class="page">
+  <!-- V264: header rico alinhado ao mockup screen-perfil -->
+  <div class="between" style="align-items:flex-start;margin-bottom:18px;gap:18px;flex-wrap:wrap">
+    <div>
+      <div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:4px">Sua conta</div>
+      <h1 style="margin:0 0 4px">Perfil</h1>
+      <p class="muted" style="margin:0;font-size:13.5px">Gerencie seus dados pessoais, segurança e preferências.</p>
+    </div>
+    <div class="filters" style="gap:8px">
+      <a href="/app/notificacoes.html" style="font-size:12.5px;align-self:center;font-weight:500">🔔 Notificações</a>
+    </div>
+  </div>
+
+  <div class="perfil-grid">
+    <aside class="perfil-side">
+      <div class="avatar-big" id="avatarBig">—</div>
+      <h3 id="nomeBig">—</h3>
+      <span class="papel-pill" id="papelPill">—</span>
+      <ul>
+        <li><strong>E-mail</strong><span id="emailLi">—</span></li>
+        <li id="li-unidade" style="display:none"><strong>Unidade</strong><span id="unidadeLi">—</span></li>
+        <li id="li-fornecedor" style="display:none"><strong>Fornecedor</strong><span id="fornecedorLi">—</span></li>
+        <li><strong>Membro desde</strong><span id="criadoLi">—</span></li>
+        <li><strong>Último login</strong><span id="ultLoginLi">—</span></li>
+      </ul>
+    </aside>
+
+    <main>
+      <!-- Dados pessoais -->
+      <div class="perfil-section">
+        <h2>Dados pessoais</h2>
+        <p class="desc">Atualize o nome de exibição. E-mail e papel são gerenciados pelo administrador.</p>
+        <div class="grid2">
+          <div>
+            <label>Nome</label>
+            <input type="text" id="i-nome">
+          </div>
+          <div>
+            <label>E-mail</label>
+            <input type="email" id="i-email" disabled>
+          </div>
+        </div>
+        <div class="row-actions">
+          <button class="primary" onclick="salvarNome()">Salvar nome</button>
+        </div>
+      </div>
+
+      <!-- Dados do fornecedor (so para papel=fornecedor) -->
+      <div class="perfil-section" id="sec-fornecedor" style="display:none">
+        <h2>Dados da empresa</h2>
+        <p class="desc">Atualize os dados de contato da sua empresa. Razão social e CNPJ são imutáveis.</p>
+        <div class="grid2">
+          <div><label>Razão social</label><input type="text" id="fi-razao" disabled></div>
+          <div><label>CNPJ/CPF</label><input type="text" id="fi-doc" disabled></div>
+          <div><label>Nome fantasia</label><input type="text" id="fi-fantasia"></div>
+          <div><label>Telefone</label><input type="text" id="fi-tel"></div>
+          <div style="grid-column:1/-1"><label>E-mail de contato (recebe notificações)</label><input type="email" id="fi-email"></div>
+        </div>
+        <div class="row-actions">
+          <button class="primary" onclick="salvarFornecedor()">Salvar dados da empresa</button>
+        </div>
+      </div>
+
+      <!-- LGPD: portabilidade (Art. 18) — só fornecedor -->
+      <div class="perfil-section" id="sec-lgpd" style="display:none">
+        <h2>Seus dados (LGPD)</h2>
+        <p class="desc">Pela <strong>Lei 13.709/2018 (LGPD) Art. 18</strong>, você tem direito de acessar todos os dados pessoais que mantemos sobre sua empresa.</p>
+
+        <div style="background:var(--surface-2);padding:14px;border-radius:8px;margin-bottom:14px">
+          <strong style="font-size:14px">📥 Portabilidade (Art. 18 V)</strong>
+          <p class="muted" style="font-size:12.5px;margin:4px 0 10px">Baixe todos os seus dados em formato JSON estruturado.</p>
+          <button onclick="baixarMeusDados()">⬇ Baixar meus dados (JSON)</button>
+        </div>
+
+        <div style="background:#fff4f4;padding:14px;border-radius:8px;border-left:3px solid #b22828">
+          <strong style="font-size:14px;color:#b22828">⚠ Direito ao esquecimento (Art. 18 VI)</strong>
+          <p class="muted" style="font-size:12.5px;margin:4px 0 10px">Solicita <strong>anonimização</strong> dos seus dados pessoais. Razão social, documento, e-mail e telefone serão substituídos por "[ANONIMIZADO]". Sua conta será desativada. <strong>Registros financeiros (pagamentos, envios processados) são preservados por obrigação legal (Receita Federal, 5 anos)</strong>, mas não vinculam mais à sua identidade.</p>
+          <button class="danger" onclick="anonimizarMeusDados()">⛔ Anonimizar meus dados</button>
+        </div>
+      </div>
+
+      <!-- Senha -->
+      <div class="perfil-section">
+        <h2>Trocar senha</h2>
+        <p class="desc">Recomendamos senhas com pelo menos 8 caracteres, mistura de letras, números e símbolos.</p>
+        <div class="grid2">
+          <div><label>Senha atual</label><input type="password" id="s-atual"></div>
+          <div></div>
+          <div><label>Nova senha</label><input type="password" id="s-nova"></div>
+          <div><label>Confirmar nova senha</label><input type="password" id="s-conf"></div>
+        </div>
+        <div class="row-actions">
+          <button class="primary" onclick="trocarSenha()">Alterar senha</button>
+        </div>
+      </div>
+
+      <!-- Preferencias de notificacao -->
+      <div class="perfil-section">
+        <h2>Preferências de notificação</h2>
+        <p class="desc">Escolha quando deseja receber alertas in-app. As preferências ficam salvas no seu navegador.</p>
+        <div class="pref-row">
+          <div class="info"><strong>Novo envio</strong><span>Receba aviso quando um envio é criado em uma unidade</span></div>
+          <label class="switch"><input type="checkbox" data-pref="novo_envio" checked><span class="slider"></span></label>
+        </div>
+        <div class="pref-row">
+          <div class="info"><strong>Aprovações e rejeições</strong><span>Receba quando algum envio mudar de status</span></div>
+          <label class="switch"><input type="checkbox" data-pref="status_envio" checked><span class="slider"></span></label>
+        </div>
+        <div class="pref-row">
+          <div class="info"><strong>Comentários</strong><span>Avisar quando alguém comentar em um envio do seu interesse</span></div>
+          <label class="switch"><input type="checkbox" data-pref="comentarios" checked><span class="slider"></span></label>
+        </div>
+        <div class="pref-row">
+          <div class="info"><strong>Pagamentos processados</strong><span>Avisar quando o financeiro liberar pagamento</span></div>
+          <label class="switch"><input type="checkbox" data-pref="pagamento" checked><span class="slider"></span></label>
+        </div>
+      </div>
+
+      <!-- Sessoes -->
+      <div class="perfil-section">
+        <h2>Sessão atual</h2>
+        <p class="desc">Você está conectado neste dispositivo. Use "Encerrar sessão" para sair.</p>
+        <div style="display:flex;justify-content:space-between;padding:12px;background:var(--surface-2);border-radius:8px;align-items:center">
+          <div>
+            <strong style="display:block;font-size:14px" id="sessao-ua">—</strong>
+            <span class="muted" style="font-size:12px">Iniciada agora · expira em 24h</span>
+          </div>
+          <button onclick="sair()">Encerrar sessão</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script type="module">
+import { api, requireSession, clearSession, setSession, dataBR, toast, getUsuario } from '/app/api.js';
+const u0 = requireSession();
+if (!u0) { /* redirected */ }
+
+document.getElementById('userNome').textContent = u0.nome;
+document.getElementById('userAvatar').textContent = (u0.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+document.getElementById('userPapelDesc').textContent = ({fornecedor:'Fornecedor', operador_unidade:'Operador', admin_fesf:'FESF Sede · Admin'})[u0.papel] || u0.papel;
+window.sair = () => { clearSession(); location.href = '/app/login.html'; };
+
+// Link voltar dinamico
+const voltar = document.getElementById('link-voltar');
+voltar.href = ({fornecedor:'/app/portal.html', operador_unidade:'/app/painel.html', admin_fesf:'/app/admin.html'})[u0.papel] || '/app/login.html';
+
+document.getElementById('sessao-ua').textContent = navigator.userAgent.replace(/\(.+?\)/g, '').substring(0, 60);
+
+async function carregar() {
+  try {
+    const { usuario } = await api.obterMeuPerfil();
+    document.getElementById('avatarBig').textContent = (usuario.nome || '?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+    document.getElementById('nomeBig').textContent = usuario.nome;
+    document.getElementById('papelPill').textContent = ({fornecedor:'Fornecedor', operador_unidade:'Operador', admin_fesf:'Admin FESF'})[usuario.papel] || usuario.papel;
+    document.getElementById('emailLi').textContent = usuario.email;
+    document.getElementById('criadoLi').textContent = dataBR(usuario.criado_em);
+    document.getElementById('ultLoginLi').textContent = usuario.ultimo_login ? dataBR(usuario.ultimo_login) : '—';
+    if (usuario.unidade_sigla) {
+      document.getElementById('li-unidade').style.display = '';
+      document.getElementById('unidadeLi').textContent = `${usuario.unidade_sigla} — ${usuario.unidade_nome || ''}`;
+    }
+    if (usuario.fornecedor_razao_social) {
+      document.getElementById('li-fornecedor').style.display = '';
+      document.getElementById('fornecedorLi').textContent = usuario.fornecedor_razao_social;
+    }
+    document.getElementById('i-nome').value = usuario.nome || '';
+    document.getElementById('i-email').value = usuario.email || '';
+
+    if (usuario.papel === 'fornecedor') {
+      document.getElementById('sec-fornecedor').style.display = '';
+      document.getElementById('sec-lgpd').style.display = '';
+      document.getElementById('fi-razao').value = usuario.fornecedor_razao_social || '';
+      document.getElementById('fi-doc').value = usuario.fornecedor_documento || '';
+      document.getElementById('fi-tel').value = usuario.fornecedor_telefone || '';
+      document.getElementById('fi-email').value = usuario.fornecedor_email || '';
+    }
+  } catch (e) { toast('Erro carregando perfil: ' + e.message, 'erro'); }
+
+  // Carrega preferências do servidor (sincroniza entre dispositivos)
+  try {
+    const { prefs } = await api.obterNotifPrefs();
+    ['novo_envio','status_envio','comentarios','pagamento'].forEach(p => {
+      const el = document.querySelector(`[data-pref="${p}"]`);
+      if (el && p in prefs) el.checked = prefs[p];
+    });
+  } catch (e) { /* fallback silencioso para defaults checked */ }
+  document.querySelectorAll('[data-pref]').forEach(el => el.addEventListener('change', async () => {
+    // Coleta todas as prefs atuais e envia
+    const prefs = {};
+    document.querySelectorAll('[data-pref]').forEach(x => prefs[x.dataset.pref] = x.checked);
+    try { await api.salvarNotifPrefs(prefs); toast('Preferência salva (sincroniza entre dispositivos)', 'sucesso'); }
+    catch (e) { toast('Erro: ' + e.message, 'erro'); }
+  }));
+}
+carregar();
+
+window.salvarNome = async () => {
+  const nome = document.getElementById('i-nome').value.trim();
+  if (nome.length < 3) return toast('Nome muito curto', 'erro');
+  try {
+    await api.atualizarMeuPerfil({ nome });
+    // atualiza sessao local
+    const sessao = JSON.parse(localStorage.getItem('fesf_usuario') || '{}');
+    sessao.nome = nome;
+    localStorage.setItem('fesf_usuario', JSON.stringify(sessao));
+    toast('Nome atualizado', 'sucesso');
+    setTimeout(() => location.reload(), 700);
+  } catch (e) { toast(e.message, 'erro'); }
+};
+
+window.baixarMeusDados = async () => {
+  try { await api.baixarMeusDados(); toast('Seus dados foram baixados (JSON)', 'sucesso'); }
+  catch (e) { toast('Erro: ' + e.message, 'erro'); }
+};
+
+window.anonimizarMeusDados = async () => {
+  if (!confirm('⚠ AÇÃO IRREVERSÍVEL ⚠\n\nSeus dados pessoais serão anonimizados:\n- Razão social → "[ANONIMIZADO]"\n- CNPJ → "ANON-N"\n- E-mail/telefone → removidos\n- Sua conta será DESATIVADA · você não conseguirá mais fazer login\n\nRegistros financeiros (pagamentos efetuados) serão preservados por obrigação legal mas não vincularão mais à sua identidade.\n\nProsseguir?')) return;
+  const motivo = prompt('Motivo da solicitação LGPD (mín. 10 chars · será registrado para compliance):');
+  if (!motivo || motivo.length < 10) return toast('Motivo obrigatório', 'erro');
+  try {
+    const r = await api.anonimizarMeusDados(motivo);
+    alert('✓ Anonimização concluída\n\n' + r.nota + '\n\nVocê será redirecionado.');
+    clearSession();
+    location.href = '/app/login.html';
+  } catch (e) { toast('Erro: ' + e.message, 'erro'); }
+};
+
+window.salvarFornecedor = async () => {
+  try {
+    await api.atualizarMeuFornecedor({
+      nome_fantasia: document.getElementById('fi-fantasia').value || null,
+      telefone: document.getElementById('fi-tel').value || null,
+      email: document.getElementById('fi-email').value || null,
+    });
+    toast('Dados da empresa atualizados', 'sucesso');
+  } catch (e) { toast(e.message, 'erro'); }
+};
+
+window.trocarSenha = async () => {
+  const atual = document.getElementById('s-atual').value;
+  const nova = document.getElementById('s-nova').value;
+  const conf = document.getElementById('s-conf').value;
+  if (!atual) return toast('Informe a senha atual', 'erro');
+  if (nova.length < 6) return toast('A nova senha deve ter pelo menos 6 caracteres', 'erro');
+  if (nova !== conf) return toast('As senhas não conferem', 'erro');
+  try {
+    const r = await api.alterarMinhaSenha(atual, nova);
+    // V198/V210: backend revoga sessoes antigas e retorna novo_token.
+    // Atualiza a sessao p/ usuario continuar logado.
+    if (r && r.novo_token) setSession({ token: r.novo_token, usuario: u0 });
+    toast('Senha alterada · sessao renovada', 'sucesso');
+    document.getElementById('s-atual').value = '';
+    document.getElementById('s-nova').value = '';
+    document.getElementById('s-conf').value = '';
+  } catch (e) { toast(e.message, 'erro'); }
+};
+</script>
+
+</body>
+</html>
