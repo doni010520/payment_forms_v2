@@ -397,20 +397,16 @@
     try { me = await api('GET', '/api/me'); } catch { return; }
     const u = me && me.usuario;
     if (!u || u.papel !== 'fornecedor' || !u.fornecedor_id) return;
-
-    // Detecta draft de OUTRO fornecedor no localStorage e limpa
+    // V300.2: SEMPRE limpa o draft do localStorage ao montar o formulário.
+    // Razão: cada NF/competência é uma submissão única — não cabe rascunho persistente.
+    // Os campos FIXOS são repreenchidos abaixo via /api/me; variáveis ficam vazios.
+    let tinhaDraft = false;
     try {
       const draftRaw = localStorage.getItem('hcc_form_pagamento_v1');
       if (draftRaw) {
-        const draft = JSON.parse(draftRaw);
-        const cnpjDraft = String((draft && draft.data && draft.data.q2_cnpj) || '').replace(/\D/g, '');
-        const cnpjReal = String(u.fornecedor_documento || '').replace(/\D/g, '');
-        if (cnpjDraft && cnpjReal && cnpjDraft !== cnpjReal) {
-          console.log('[form-adapter] draft de outro fornecedor detectado — limpando');
-          localStorage.removeItem('hcc_form_pagamento_v1');
-          location.reload();
-          return;
-        }
+        tinhaDraft = true;
+        localStorage.removeItem('hcc_form_pagamento_v1');
+        console.log('[form-adapter] draft anterior removido — novo envio começa limpo');
       }
     } catch {}
 
@@ -428,6 +424,33 @@
       await new Promise(r => setTimeout(r, 100));
     }
     if (tentativas >= 60) { console.warn('[form-adapter] form não renderizou em 6s — prefill abortado'); return; }
+
+    // V300.2: se tinha draft, limpar os campos VARIÁVEIS que o renderer preencheu
+    // do localStorage stale. Resetar window.state.data também para o submit não
+    // mandar dados antigos.
+    if (tinhaDraft) {
+      const camposVariaveis = ['q3_valor', 'q4_descricao', 'q5_competencia', 'q10_nfNumero', 'q10_dataEmissao'];
+      for (const c of camposVariaveis) {
+        const el = document.getElementById('fld_' + c);
+        if (el) {
+          el.value = '';
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+      // Reset agressivo do state em memória (mantém só os fixos)
+      if (window.state && window.state.data) {
+        const fixosKeys = ['q1_nomeFornecedor','q2_cnpj','q6_email','q7_telefone'];
+        const novoData = {};
+        for (const k of fixosKeys) {
+          if (window.state.data[k]) novoData[k] = window.state.data[k];
+        }
+        window.state.data = novoData;
+      }
+      if (window.state && window.state.files) window.state.files = {};
+      window._fesfFiles = {};
+      console.log('[form-adapter] campos variáveis resetados (draft antigo descartado)');
+    }
 
     // SEMPRE escreve com o valor do cadastro (autoridade do backend).
     // Dado fixo do cadastro vence sobre qualquer rascunho local.

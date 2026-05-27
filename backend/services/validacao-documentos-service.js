@@ -82,7 +82,7 @@ async function obterWorkerOCR() {
 // ---------------------------------------------------------------------------
 
 async function lerBufferArquivo(caminho) {
-  if (caminho.startsWith('onedrive://')) {
+  if (caminho.includes('://')) {
     return obterBufferStorage(caminho);
   }
   return readFile(caminho);
