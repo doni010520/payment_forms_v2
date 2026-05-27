@@ -302,6 +302,18 @@
         // começa com slate limpo — mesmo se usuário não recarregar a página.
         window._fesfFiles = {};
 
+        // V300: limpa o rascunho do formulário no localStorage para o próximo envio
+        // não puxar dados antigos. Todos os 6 forms HCC compartilham a mesma chave.
+        try {
+          localStorage.removeItem('hcc_form_pagamento_v1');
+          // Reset do estado em memória (se o usuário ficar na mesma aba)
+          if (window.state) {
+            window.state.data = {};
+            window.state.files = {};
+            if (window.state._submittedAt) delete window.state._submittedAt;
+          }
+        } catch {}
+
         // Se houve falha de upload, avisa o usuario (envio foi criado)
         if (falhas.length) {
           alert('Envio criado (protocolo ' + envio.protocolo + '), mas ' + falhas.length +
@@ -375,10 +387,59 @@
     }).catch(e => console.warn(e));
   }
 
+  // ============================================================
+  // V300: pre-preenche campos FIXOS do fornecedor logado.
+  // Dados que NÃO mudam entre envios — CNPJ, razão social, contatos.
+  // Cada envio é único nos campos VARIÁVEIS (valor, NF, competência,
+  // descrição) — esses NÃO devem ser pré-preenchidos.
+  // ============================================================
+  async function prefillFornecedorLogado() {
+    if (!getToken()) return; // anônimo via link público não tem o que pré-preencher
+    let me;
+    try {
+      me = await api('GET', '/api/me');
+    } catch { return; } // se falha, continua sem prefill
+    const u = me?.usuario;
+    if (!u || u.papel !== 'fornecedor' || !u.fornecedor_id) return;
+
+    // Mapeamento campo do form ← dado fixo do fornecedor
+    const fixos = {
+      q1_nomeFornecedor: u.fornecedor_razao_social || '',
+      q2_cnpj:           u.fornecedor_documento || '',
+      q6_email:          u.fornecedor_email || u.email || '',
+      q7_telefone:       u.fornecedor_telefone || '',
+    };
+
+    // Aguarda a renderização do formulário antes de preencher
+    let tentativas = 0;
+    while (tentativas++ < 40) {
+      const algum = document.getElementById('fld_q1_nomeFornecedor');
+      if (algum) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+    if (tentativas >= 40) return; // form não montou
+
+    let preencheu = 0;
+    for (const [campo, valor] of Object.entries(fixos)) {
+      if (!valor) continue;
+      const input = document.getElementById('fld_' + campo);
+      if (!input) continue;
+      // Se o campo já tem valor (do localStorage ou digitado), não sobrescreve
+      if (input.value && input.value.trim()) continue;
+      input.value = valor;
+      // Dispara evento input para o form reagir (salvar no state, validar)
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      preencheu++;
+    }
+    if (preencheu > 0) console.log('[form-adapter] pré-preenchidos ' + preencheu + ' campo(s) fixo(s) do cadastro');
+  }
+
   // Inicializa quando a pagina ja carregou (o form define finalizeSubmission no proprio script)
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', installBridge);
+    document.addEventListener('DOMContentLoaded', () => { installBridge(); prefillFornecedorLogado(); });
   } else {
     installBridge();
+    prefillFornecedorLogado();
   }
 })();
