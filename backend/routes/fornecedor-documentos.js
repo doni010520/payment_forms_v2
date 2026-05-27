@@ -112,7 +112,7 @@ router.post(
 
       // Armazena via storage-service (local ou OneDrive)
       const { subirArquivo } = await import('../services/storage-service.js');
-      const upRes = await subirArquivo(req.file.path, req.file.originalname);
+      const upRes = await subirArquivo(req.file.path, req.file.originalname, req.file.mimetype);
 
       // Persiste no banco
       const { rows: [doc] } = await query(

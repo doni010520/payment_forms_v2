@@ -1110,7 +1110,7 @@ router.post('/:id/documentos', requireAuth, rateLimit({ max: 120, windowMs: 60_0
     } catch {}
     // V292: tenta subir para OneDrive/SharePoint se configurado; senão fica local
     const { subirArquivo } = await import('../services/storage-service.js');
-    const upRes = await subirArquivo(req.file.path, req.file.originalname);
+    const upRes = await subirArquivo(req.file.path, req.file.originalname, req.file.mimetype);
     const caminhoSalvo = upRes.caminho;
     const { rows: [doc] } = await query(
       `INSERT INTO documentos (envio_id, versao_id, campo, nome_original, mime_type, tamanho_bytes, caminho, hash_sha256, uploaded_por_id, uploaded_por_nome)
@@ -1208,7 +1208,7 @@ router.post('/publico/:token/:envioId/documentos',
     const hash = createHash('sha256').update(buf).digest('hex');
     // V296: usar storage-service também no upload via link público (era só local, agora respeita OneDrive)
     const { subirArquivo } = await import('../services/storage-service.js');
-    const upRes = await subirArquivo(req.file.path, req.file.originalname);
+    const upRes = await subirArquivo(req.file.path, req.file.originalname, req.file.mimetype);
     const caminhoSalvo = upRes.caminho;
     const { rows: [doc] } = await query(
       `INSERT INTO documentos (envio_id, campo, nome_original, caminho, tamanho_bytes, mime_type, hash_sha256, uploaded_por_id, uploaded_por_nome)
