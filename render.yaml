@@ -1,0 +1,66 @@
+# =====================================================================
+# Render Blueprint — Portal de Pagamentos FESF-SUS
+# =====================================================================
+# Como usar:
+#   1. Conta no Render conectada ao repositório no GitHub
+#   2. Render → "New" → "Blueprint" → seleciona este repo
+#   3. Render detecta este arquivo e provisiona o serviço
+#   4. Configure as env vars marcadas como `sync: false` no painel (segredos)
+# =====================================================================
+
+services:
+  - type: web
+    name: fesf-payment-forms
+    runtime: node
+    plan: free                  # 750h/mês — suficiente p/ uso comercial com ping
+    region: oregon              # mais próximo do BR no free; troque para FRA/SGP se quiser
+    branch: main
+    rootDir: backend            # package.json e server.js estão em backend/
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/version
+
+    # Auto-deploy a cada push no main
+    autoDeploy: true
+
+    envVars:
+      # ---- Conexão ao Postgres do Supabase (segredo, configurar no painel) ----
+      - key: DATABASE_URL
+        sync: false
+
+      # ---- JWT secret (gerado automaticamente pelo Render) ----
+      - key: JWT_SECRET
+        generateValue: true
+
+      # ---- AES-256-GCM key para encriptar segredos SMTP/OneDrive no banco ----
+      - key: APP_ENCRYPTION_KEY
+        generateValue: true
+
+      # ---- Ambiente ----
+      - key: NODE_ENV
+        value: production
+
+      # ---- Timezone forçado UTC (a app já força no código, mas reforçamos aqui) ----
+      - key: TZ
+        value: UTC
+
+      # ---- CORS: cole aqui a URL do frontend quando estiver hospedado ----
+      # Ex.: https://app.fesf-pagamentos.com,https://payment-forms-v2.vercel.app
+      # Por enquanto fica * (público) — restrinja antes de subir produção real
+      - key: CORS_ALLOWED_ORIGINS
+        value: "*"
+
+      # ---- Escalonamento de expectativas: a cada 5 minutos ----
+      - key: ESCALONAMENTO_INTERVALO_MS
+        value: "300000"
+
+      # ---- Hora alvo do housekeeping diário (UTC) ----
+      # 5 UTC = 02h Brasília — boa hora pra rodar (madrugada)
+      - key: HOUSEKEEPING_HOUR
+        value: "5"
+
+      # ---- Build metadata para o endpoint /api/version ----
+      - key: BUILD_COMMIT
+        sync: false              # Render pode preencher via GitHub webhook
+      - key: APP_VERSION
+        value: "V300-render"

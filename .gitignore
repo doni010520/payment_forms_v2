@@ -28,6 +28,16 @@ uploads/
 .env.*.local
 backend/.env
 backend/.env.*
+!backend/.env.example
+
+# ---- Configuração MCP (contém access tokens) ----
+# .mcp.json tem o SUPABASE_ACCESS_TOKEN inline — NUNCA versionar
+.mcp.json
+backend/.mcp.json
+
+# ---- Render API Token ----
+.render-token
+backend/.render-token
 
 # ---- Logs ----
 *.log

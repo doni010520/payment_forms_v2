@@ -511,7 +511,14 @@ app.get('/', (_, res) => res.redirect('/app/login.html'));
 // Boot
 (async () => {
   console.log('[server] inicializando banco...');
-  await seed();
+  // SKIP_SEED=1 → pula seed (útil em produção após o primeiro deploy)
+  if (process.env.SKIP_SEED === '1') {
+    console.log('[server] SKIP_SEED=1 → pulando seed');
+    const { initSchema } = await import('./db/index.js');
+    await initSchema();
+  } else {
+    await seed();
+  }
   // Aplica migrações incrementais (após baseline)
   try {
     const { runMigrations } = await import('./db/index.js');
