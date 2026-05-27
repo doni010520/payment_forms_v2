@@ -39,6 +39,14 @@ backend/.mcp.json
 .render-token
 backend/.render-token
 
+# ---- Connection string do banco ----
+.database-url
+backend/.database-url
+
+# ---- Supabase service_role key (backend operations) ----
+.supabase-service-key
+backend/.supabase-service-key
+
 # ---- Logs ----
 *.log
 logs/

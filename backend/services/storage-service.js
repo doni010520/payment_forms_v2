@@ -208,8 +208,20 @@ export async function testarConexao() {
  * - nomeOriginal: nome legível (para o arquivo no remote)
  * Retorna { caminho } — pode ser path local OR "onedrive://<item-id>"
  */
-export async function subirArquivo(localPath, nomeOriginal) {
+export async function subirArquivo(localPath, nomeOriginal, mimeType) {
   const cfg = await obterConfig();
+
+  // Backend Supabase Storage (temporário enquanto SharePoint não chega)
+  const { supabaseStorageDisponivel, subirArquivoSupabase } = await import('./supabase-storage.js');
+  if (cfg.backend === 'supabase' || (cfg.backend !== 'onedrive' && supabaseStorageDisponivel())) {
+    try {
+      return await subirArquivoSupabase(localPath, nomeOriginal, mimeType);
+    } catch (e) {
+      console.error('[storage/subirArquivo] Supabase falhou, mantendo local:', e.message);
+      return { caminho: localPath, backend: 'local-fallback', erro: e.message };
+    }
+  }
+
   if (cfg.backend !== 'onedrive' || !cfg.onedrive.enabled) {
     return { caminho: localPath, backend: 'local' };
   }
@@ -281,6 +293,11 @@ export async function subirArquivo(localPath, nomeOriginal) {
 
 /** Lê um arquivo (do disco OU baixa do OneDrive). Retorna Buffer. */
 export async function obterBuffer(caminho) {
+  // Backend Supabase Storage
+  if (caminho && caminho.startsWith('supabase://')) {
+    const { obterBufferSupabase } = await import('./supabase-storage.js');
+    return obterBufferSupabase(caminho);
+  }
   if (caminho && caminho.startsWith('onedrive://')) {
     const itemId = caminho.replace('onedrive://', '');
     const cfg = await obterConfig();
