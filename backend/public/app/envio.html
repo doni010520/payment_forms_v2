@@ -695,13 +695,8 @@ document.getElementById('form-pagamento')?.addEventListener('submit', async (ev)
         break;
       } catch (e) {
         if (e.code === 'COMPLEMENTOS_PENDENTES' && !confirmarPendentes) {
-          const lista = (e.json && e.json.complementos ? e.json.complementos : []).map(c => '• ' + (c.label || c.campo)).join('
-');
-          const ok = confirm('⚠ Existem complementos pendentes (FGTS/INSS):
-
-' + lista + '
-
-Marcar como pago mesmo assim? (Os complementos seguem rastreados)');
+          const lista = (e.json && e.json.complementos ? e.json.complementos : []).map(c => '• ' + (c.label || c.campo)).join('\n');
+          const ok = confirm('⚠ Existem complementos pendentes (FGTS/INSS):\n\n' + lista + '\n\nMarcar como pago mesmo assim? (Os complementos seguem rastreados)');
           if (!ok) throw e;
           confirmarPendentes = true;
         } else {
