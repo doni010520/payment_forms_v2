@@ -70,6 +70,19 @@
 
   <!-- KPIs -->
   <div class="kpi-row" id="kpis"></div>
+  <!-- KPIs de certidões -->
+  <div class="kpi-row" id="kpis-certidoes" style="display:none;margin-top:0;margin-bottom:14px">
+    <div class="kpi danger" id="kpi-cert-vencidas" style="cursor:pointer" onclick="window.location='/app/admin-certidoes.html'">
+      <div class="label">⛔ Certidões vencidas</div>
+      <div class="value" id="val-cert-vencidas">–</div>
+      <div class="sub">clique para ver detalhes</div>
+    </div>
+    <div class="kpi warn" id="kpi-cert-alerta" style="cursor:pointer" onclick="window.location='/app/admin-certidoes.html'">
+      <div class="label">⚠ A vencer (≤30d)</div>
+      <div class="value" id="val-cert-alerta">–</div>
+      <div class="sub">clique para ver detalhes</div>
+    </div>
+  </div>
 
   <!-- Grafico + Sidebar -->
   <div id="chart-sidebar-wrap" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
@@ -796,6 +809,13 @@ async function carregarKPIs() {
   }
   const badge = document.getElementById('badge-pend');
   if (criticasN > 0) { badge.style.display = 'inline-block'; badge.textContent = criticasN; } else { badge.style.display = 'none'; }
+  // KPIs de certidões (assíncrono, não bloqueia os demais KPIs)
+  api.certidoesAlertas().then(({ stats }) => {
+    if (!stats || (stats.vencidas === 0 && stats.alertas === 0)) return;
+    document.getElementById("val-cert-vencidas").textContent = stats.vencidas;
+    document.getElementById("val-cert-alerta").textContent   = stats.alertas;
+    document.getElementById("kpis-certidoes").style.display  = "";
+  }).catch(() => {});
 
   // alerta se houver criticas
   if (criticasN > 0) {

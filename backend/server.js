@@ -25,6 +25,8 @@ import searchRoutes from './routes/search.js';
 import smtpRoutes from './routes/smtp.js';
 import clientErrorRoutes from './routes/client-errors.js'; // V291: captura de erros do cliente
 import storageRoutes from './routes/storage.js'; // V292: OneDrive/SharePoint config
+import fornecedorDocumentosRoutes from './routes/fornecedor-documentos.js'; // documentos fixos do fornecedor
+import certidoesRoutes from './routes/certidoes.js'; // alertas de validade de certidoes
 import { executarEscalonamento } from './services/expectativa-service.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -433,6 +435,8 @@ app.use('/api/search', searchRoutes); // busca global multi-categoria
 app.use('/api', smtpRoutes); // /admin/smtp config + teste
 app.use('/api', clientErrorRoutes); // V291: /client-errors (público) + /admin/client-errors
 app.use('/api', storageRoutes); // V292: /admin/storage config OneDrive/SharePoint
+app.use('/api/fornecedores', fornecedorDocumentosRoutes); // documentos fixos
+app.use('/api', certidoesRoutes); // /admin/certidoes-alertas
 
 // Serve estaticos: app funcional + mockup
 // V297: Cache-Control com revalidação obrigatória em JS/CSS/HTML para evitar

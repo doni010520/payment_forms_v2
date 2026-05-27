@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Documentos Fixos · Portal de Pagamentos</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  .doc-card { display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--border);border-radius:10px;margin-bottom:10px;background:#fff }
+  .doc-icon { width:40px;height:40px;border-radius:8px;background:var(--primary-light,#e8f0ff);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0 }
+  .doc-info { flex:1;min-width:0 }
+  .doc-info strong { display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+  .doc-info .meta { font-size:12px;color:#888;margin-top:2px }
+  .doc-actions { display:flex;gap:8px;align-items:center }
+  .cert-badge { display:inline-block;padding:2px 9px;border-radius:11px;font-size:11px;font-weight:700;text-transform:uppercase }
+  .cert-badge.ok      { background:#d6f0e0;color:#2f7d5c }
+  .cert-badge.alerta  { background:#fff4d6;color:#a06800 }
+  .cert-badge.vencido { background:#ffd6d6;color:#b22828 }
+  .cert-badge.pendente{ background:#f0f0f0;color:#888 }
+  .tipo-section { margin-bottom:24px }
+  .tipo-section h3 { font-size:13px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border) }
+  .upload-zone { border:2px dashed var(--border);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:border-color .15s }
+  .upload-zone:hover { border-color:var(--primary) }
+  .upload-zone input { display:none }
+  .empty-section { color:#aaa;font-size:13px;padding:10px 0 }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div>
+      <strong>Portal de Pagamentos</strong>
+      <span class="muted" style="font-size:11px;display:block">Meus documentos fixos</span>
+    </div>
+  </div>
+  <div class="tabs">
+    <a href="/app/portal.html">Portal</a>
+    <a class="active">Documentos fixos</a>
+  </div>
+  <div class="userbox">
+    <span id="user-label" class="muted" style="font-size:13px"></span>
+    <button onclick="api.logout()" class="btn-ghost" style="padding:6px 12px;font-size:13px">Sair</button>
+  </div>
+</nav>
+
+<div class="page" style="padding-top:28px;max-width:800px">
+
+  <div class="between" style="margin-bottom:20px">
+    <div>
+      <div class="eyebrow">Documentos do cadastro</div>
+      <h1 style="margin:4px 0 4px">Documentos Fixos</h1>
+      <p class="muted" style="margin:0;font-size:13.5px">
+        Envie seus documentos permanentes uma única vez. Eles serão aproveitados em todos os envios mensais.
+      </p>
+    </div>
+  </div>
+
+  <!-- Alerta de documentos vencidos -->
+  <div id="alerta-vencidos" style="display:none" class="alert danger" style="margin-bottom:16px">
+    ⛔ Você tem certidões vencidas. Atualize-as para poder realizar novos envios.
+  </div>
+
+  <!-- Seções por tipo -->
+  <div id="secoes-container">
+    <div style="text-align:center;padding:40px;color:#aaa">Carregando documentos…</div>
+  </div>
+
+  <!-- Área de upload -->
+  <div class="card" style="margin-top:24px">
+    <h3 style="margin:0 0 16px;font-size:15px">Adicionar documento</h3>
+    <div class="form-row" style="margin-bottom:14px">
+      <label>Tipo</label>
+      <select id="select-tipo">
+        <option value="cartao_cnpj">Cartão CNPJ</option>
+        <option value="proposta_comercial">Proposta Comercial</option>
+        <option value="contrato">Contrato</option>
+        <option value="outros">Outros</option>
+      </select>
+    </div>
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('input-arquivo').click()">
+      <input type="file" id="input-arquivo" accept=".pdf,image/*">
+      <div style="font-size:28px;margin-bottom:8px">📎</div>
+      <div style="font-weight:600;margin-bottom:4px">Clique para selecionar o arquivo</div>
+      <div class="muted" style="font-size:12px">PDF ou imagem · máx. 25 MB</div>
+      <div id="arquivo-nome" style="margin-top:10px;font-size:13px;color:var(--primary);display:none"></div>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end">
+      <button id="btn-enviar" class="btn-primary" onclick="enviarDocumento()" disabled>
+        Enviar documento
+      </button>
+    </div>
+    <div id="upload-progress" style="display:none;margin-top:10px">
+      <div style="font-size:13px;color:#555">Enviando… aguarde</div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { api, requireSession, toast, dataBR, brl } from '/app/api.js';
+
+requireSession('fornecedor');
+
+const usr = JSON.parse(localStorage.getItem('fesf_usuario') || '{}');
+document.getElementById('user-label').textContent = usr.nome || '';
+const fornecedorId = usr.fornecedor_id;
+
+if (!fornecedorId) {
+  document.getElementById('secoes-container').innerHTML = '<div class="alert danger">Conta não vinculada a um fornecedor.</div>';
+}
+
+// ---- Mapeamento de tipos ----
+const TIPOS = {
+  cartao_cnpj:       { label: 'Cartão CNPJ',          icon: '🪪' },
+  proposta_comercial:{ label: 'Proposta Comercial',    icon: '📋' },
+  contrato:          { label: 'Contrato',              icon: '📄' },
+  outros:            { label: 'Outros documentos',     icon: '📎' },
+};
+
+const STATUS_LABELS = {
+  ok:       { label: 'Válida',              cls: 'ok'      },
+  alerta:   { label: 'A vencer',           cls: 'alerta'  },
+  vencido:  { label: 'VENCIDA',            cls: 'vencido' },
+  pendente: { label: 'Aguardando validação',cls: 'pendente'},
+};
+
+// ---- Carregamento ----
+async function carregar() {
+  if (!fornecedorId) return;
+  try {
+    const { documentos } = await api.listarDocsFixos(fornecedorId);
+    renderizar(documentos || []);
+  } catch (e) {
+    toast('Erro ao carregar documentos: ' + e.message, 'erro');
+  }
+}
+
+function renderizar(docs) {
+  const container = document.getElementById('secoes-container');
+  const temVencido = docs.some(d => d.status_validade === 'vencido');
+  document.getElementById('alerta-vencidos').style.display = temVencido ? '' : 'none';
+
+  // Agrupa por tipo
+  const grupos = {};
+  for (const tipo of Object.keys(TIPOS)) grupos[tipo] = [];
+  for (const d of docs) (grupos[d.tipo] || (grupos['outros'] = grupos['outros'] || [])).push(d);
+
+  let html = '';
+  for (const [tipo, info] of Object.entries(TIPOS)) {
+    const lista = grupos[tipo] || [];
+    html += `<div class="tipo-section">
+      <h3>${info.icon} ${info.label}</h3>`;
+
+    if (!lista.length) {
+      html += `<div class="empty-section muted">Nenhum documento enviado ainda.</div>`;
+    } else {
+      for (const d of lista) {
+        const sv = STATUS_LABELS[d.status_validade] || STATUS_LABELS.pendente;
+        const expStr = d.data_expiracao ? ` · Validade: ${dataBR(d.data_expiracao)}` : '';
+        html += `<div class="doc-card" data-id="${d.id}">
+          <div class="doc-icon">${info.icon}</div>
+          <div class="doc-info">
+            <strong title="${d.nome_original}">${d.nome_original}</strong>
+            <div class="meta">
+              <span class="cert-badge ${sv.cls}">${sv.label}</span>
+              ${expStr}
+              <span style="margin-left:8px">${formatBytes(d.tamanho_bytes || 0)}</span>
+            </div>
+          </div>
+          <div class="doc-actions">
+            <a href="${api.downloadDocFixo(fornecedorId, d.id)}" target="_blank"
+               style="font-size:20px;text-decoration:none;opacity:.7" title="Baixar">⬇</a>
+            <button onclick="removerDoc(${d.id})" style="font-size:18px;background:none;border:none;cursor:pointer;opacity:.5;padding:4px" title="Remover">🗑</button>
+          </div>
+        </div>`;
+      }
+    }
+    html += `</div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(0) + ' KB';
+  return (b / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// ---- Upload ----
+let arquivoSelecionado = null;
+
+document.getElementById('input-arquivo').addEventListener('change', (e) => {
+  arquivoSelecionado = e.target.files[0] || null;
+  const nomeEl = document.getElementById('arquivo-nome');
+  if (arquivoSelecionado) {
+    nomeEl.textContent = arquivoSelecionado.name;
+    nomeEl.style.display = '';
+    document.getElementById('btn-enviar').disabled = false;
+  } else {
+    nomeEl.style.display = 'none';
+    document.getElementById('btn-enviar').disabled = true;
+  }
+});
+
+window.enviarDocumento = async function () {
+  if (!arquivoSelecionado || !fornecedorId) return;
+
+  const tipo = document.getElementById('select-tipo').value;
+  const fd = new FormData();
+  fd.append('arquivo', arquivoSelecionado);
+  fd.append('tipo', tipo);
+
+  document.getElementById('btn-enviar').disabled = true;
+  document.getElementById('upload-progress').style.display = '';
+
+  try {
+    const token = localStorage.getItem('fesf_token');
+    const r = await fetch(`/api/fornecedores/${fornecedorId}/documentos-fixos`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    });
+    const json = await r.json();
+    if (!r.ok) throw new Error(json.error || `HTTP ${r.status}`);
+
+    toast('Documento enviado com sucesso!', 'sucesso');
+    document.getElementById('input-arquivo').value = '';
+    document.getElementById('arquivo-nome').style.display = 'none';
+    arquivoSelecionado = null;
+    await carregar();
+  } catch (e) {
+    toast('Erro ao enviar: ' + e.message, 'erro');
+  } finally {
+    document.getElementById('btn-enviar').disabled = false;
+    document.getElementById('upload-progress').style.display = 'none';
+  }
+};
+
+// ---- Remoção ----
+window.removerDoc = async function (docId) {
+  if (!confirm('Remover este documento do cadastro?')) return;
+  try {
+    await api.deletarDocFixo(fornecedorId, docId);
+    toast('Documento removido.', 'sucesso');
+    await carregar();
+  } catch (e) {
+    toast('Erro ao remover: ' + e.message, 'erro');
+  }
+};
+
+// ---- Init ----
+carregar();
+</script>
+</body>
+</html>

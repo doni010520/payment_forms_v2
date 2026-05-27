@@ -274,6 +274,12 @@ export const api = {
     if (!r.ok) { const err = new Error((json && json.error) || `HTTP ${r.status}`); err.status = r.status; throw err; }
     return json;
   },
+  // ---- documentos fixos do fornecedor ----
+  listarDocsFixos: (fornecedorId) => req("GET", `/api/fornecedores/${fornecedorId}/documentos-fixos`),
+  deletarDocFixo: (fornecedorId, docId) => req("DELETE", `/api/fornecedores/${fornecedorId}/documentos-fixos/${docId}`),
+  downloadDocFixo: (fornecedorId, docId) => `/api/fornecedores/${fornecedorId}/documentos-fixos/${docId}/download`,
+  // ---- alertas de certidões ----
+  certidoesAlertas: () => req("GET", "/api/admin/certidoes-alertas"),
 };
 
 // =====================================================================
@@ -345,6 +351,11 @@ const STATUS_LABELS = {
   fornecedor_rejeitado: 'fornecedor rejeitado',
   expectativa_criada:   'expectativa criada',
   link_publico_revogado: 'link público revogado',
+  // validade de certidões
+  ok:                   'Válida',
+  alerta:               'A vencer',
+  vencido:              'VENCIDA',
+  pendente_validacao:   'Aguardando validação',
 };
 export function statusLabel(s) {
   if (!s) return '—';

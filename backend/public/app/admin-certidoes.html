@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Certidões · Portal de Pagamentos</title>
+<link rel="stylesheet" href="/app/style.css">
+<style>
+  .cert-status { display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px }
+  .cert-status.vencido { background:#ffd6d6;color:#b22828 }
+  .cert-status.alerta  { background:#fff4d6;color:#a06800 }
+  .cert-status.ok      { background:#d6f0e0;color:#2f7d5c }
+  .cert-status.pendente{ background:#f0f0f0;color:#666 }
+  .dias-restantes { font-size:12px;color:#888 }
+  .dias-restantes.vencido { color:#b22828;font-weight:600 }
+  .dias-restantes.alerta  { color:#a06800;font-weight:600 }
+  table { width:100%;border-collapse:collapse;font-size:13.5px }
+  th { text-align:left;padding:8px 12px;border-bottom:2px solid var(--border);color:#888;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px }
+  td { padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle }
+  tr:hover td { background:var(--bg-hover,#f7f7f7) }
+  .filter-bar { display:flex;gap:8px;flex-wrap:wrap;align-items:center }
+  .empty-state { text-align:center;padding:60px 20px;color:#aaa }
+  .empty-state .icon { font-size:48px;margin-bottom:12px }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">
+    <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
+    <div>
+      <strong>Portal de Pagamentos</strong>
+      <span class="muted" style="font-size:11px;display:block">Certidões</span>
+    </div>
+  </div>
+  <div class="tabs">
+    <a href="/app/painel.html">Painel</a>
+    <a class="active">Certidões</a>
+  </div>
+  <div class="userbox">
+    <span id="user-label" class="muted" style="font-size:13px"></span>
+    <button onclick="api.logout()" class="btn-ghost" style="padding:6px 12px;font-size:13px">Sair</button>
+  </div>
+</nav>
+
+<div class="page" style="padding-top:28px">
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpi-row" style="margin-bottom:24px">
+    <div class="kpi danger">
+      <span class="label">Vencidas</span>
+      <span class="value" id="kpi-vencidas">–</span>
+      <span class="sub">certidões expiradas</span>
+    </div>
+    <div class="kpi warn">
+      <span class="label">A vencer (≤30d)</span>
+      <span class="value" id="kpi-alerta">–</span>
+      <span class="sub">requerem atenção</span>
+    </div>
+    <div class="kpi">
+      <span class="label">Total com alerta</span>
+      <span class="value" id="kpi-total">–</span>
+      <span class="sub">listados abaixo</span>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card" style="margin-bottom:16px;padding:14px 18px">
+    <div class="filter-bar">
+      <select id="filtro-status" style="min-width:140px">
+        <option value="">Todos os status</option>
+        <option value="vencido">Vencidas</option>
+        <option value="alerta">A vencer</option>
+      </select>
+      <input id="filtro-busca" type="text" placeholder="Buscar fornecedor ou protocolo…" style="min-width:240px;flex:1">
+      <button class="btn-primary" onclick="aplicarFiltros()">Filtrar</button>
+    </div>
+  </div>
+
+  <!-- Tabela -->
+  <div class="card" style="padding:0;overflow:hidden">
+    <div id="tabela-container">
+      <div class="empty-state"><div class="icon">⏳</div><p>Carregando…</p></div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { api, requireSession, toast, dataBR } from '/app/api.js';
+
+requireSession('operador_unidade', 'admin_fesf');
+
+const usr = JSON.parse(localStorage.getItem('fesf_usuario') || '{}');
+document.getElementById('user-label').textContent = usr.nome || '';
+
+let todosRegistros = [];
+
+async function carregar() {
+  try {
+    const { certidoes, stats } = await api.certidoesAlertas();
+    todosRegistros = certidoes || [];
+
+    document.getElementById('kpi-vencidas').textContent = stats.vencidas;
+    document.getElementById('kpi-alerta').textContent   = stats.alertas;
+    document.getElementById('kpi-total').textContent    = stats.total;
+
+    renderizar(todosRegistros);
+  } catch (e) {
+    toast('Erro ao carregar certidões: ' + e.message, 'erro');
+  }
+}
+
+function aplicarFiltros() {
+  const status = document.getElementById('filtro-status').value;
+  const busca  = document.getElementById('filtro-busca').value.toLowerCase().trim();
+  let lista = todosRegistros;
+  if (status) lista = lista.filter(r => r.status_validade === status);
+  if (busca)  lista = lista.filter(r =>
+    (r.razao_social || '').toLowerCase().includes(busca) ||
+    (r.protocolo    || '').toLowerCase().includes(busca) ||
+    (r.campo        || '').toLowerCase().includes(busca)
+  );
+  renderizar(lista);
+}
+
+function renderizar(lista) {
+  const el = document.getElementById('tabela-container');
+
+  if (!lista.length) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="icon">✅</div>
+      <p>Nenhuma certidão com alerta no momento.</p>
+    </div>`;
+    return;
+  }
+
+  const linhas = lista.map(r => {
+    const dias = Number(r.dias_restantes);
+    const diasTxt = dias < 0
+      ? `<span class="dias-restantes vencido">Vencida há ${Math.abs(dias)} dia(s)</span>`
+      : `<span class="dias-restantes alerta">Expira em ${dias} dia(s)</span>`;
+
+    const statusClass = r.status_validade === 'vencido' ? 'vencido' : 'alerta';
+    const statusTxt   = r.status_validade === 'vencido' ? 'Vencida' : 'A vencer';
+
+    return `<tr>
+      <td><strong>${r.razao_social}</strong><br><span class="muted" style="font-size:11px">${r.cnpj || ''}</span></td>
+      <td><span class="cert-status ${statusClass}">${statusTxt}</span></td>
+      <td style="max-width:220px;word-break:break-word">${r.nome_original}<br><span class="muted" style="font-size:11px">${r.campo}</span></td>
+      <td>${r.data_expiracao ? dataBR(r.data_expiracao) : '—'}<br>${diasTxt}</td>
+      <td><a href="/app/envio.html?id=${r.envio_id}" style="color:var(--primary);text-decoration:none;font-size:13px">${r.protocolo}</a></td>
+      <td class="muted" style="font-size:12px">${r.unidade_sigla || r.unidade_nome || ''}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `<table>
+    <thead>
+      <tr>
+        <th>Fornecedor</th>
+        <th>Status</th>
+        <th>Documento</th>
+        <th>Validade</th>
+        <th>Protocolo</th>
+        <th>Unidade</th>
+      </tr>
+    </thead>
+    <tbody>${linhas}</tbody>
+  </table>`;
+}
+
+document.getElementById('filtro-busca').addEventListener('keyup', e => {
+  if (e.key === 'Enter') aplicarFiltros();
+});
+
+carregar();
+</script>
+</body>
+</html>

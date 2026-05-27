@@ -7,7 +7,7 @@
 // =====================================================================
 import { query, queryOne } from '../db/index.js';
 
-const JOBS = ['storage', 'notificacoes', 'auditoria'];
+const JOBS = ['storage', 'notificacoes', 'auditoria', 'certidoes'];
 
 /**
  * Tenta adquirir lock para um job no dia atual.
@@ -116,6 +116,116 @@ export async function rodarLimpezaAuditoria({ dias = 365 } = {}) {
  * Executa o housekeeping completo do dia (com lock).
  * Retorna o que rodou + o que foi pulado (lock perdido).
  */
+
+/**
+ * Monitora validade de certidões e envia alertas para fornecedores e operadores.
+ * Roda como job diário de housekeeping.
+ */
+export async function rodarMonitoramentoCertidoes() {
+  const { obterCertidaoConfig } = await import('./validacao-documentos-service.js');
+  const config = await obterCertidaoConfig();
+  if (!config.validacao_ativa) return { pulado: true, motivo: 'validacao_inativa' };
+
+  const { enviarEmail } = await import('./email-service.js');
+  const { notificar } = await import('./notificacao-service.js');
+
+  const alertas = { dias_90: 0, dias_30: 0, dias_7: 0, vencidas: 0, erros: 0 };
+
+  // Busca documentos com data de expiração, joins com envio + fornecedor
+  const { rows } = await query(`
+    SELECT
+      d.id   AS doc_id,
+      d.campo,
+      d.nome_original,
+      d.data_expiracao,
+      d.status_validade,
+      e.id   AS envio_id,
+      e.fornecedor_id,
+      e.unidade_id,
+      e.protocolo,
+      f.razao_social,
+      f.email AS fornecedor_email,
+      (d.data_expiracao - CURRENT_DATE) AS dias_restantes
+    FROM documentos d
+    JOIN envios e ON e.id = d.envio_id
+    JOIN fornecedores f ON f.id = e.fornecedor_id
+    WHERE d.data_expiracao IS NOT NULL
+      AND d.campo IN (
+        'certidao_federal','cnd_federal','q15_fiscalFederal',
+        'certidao_estadual','cnd_estadual','q16_fiscalEstadual',
+        'certidao_municipal','cnd_municipal','q17_fiscalMunicipal',
+        'cndt','q18_cndt',
+        'crf_fgts','q19_crfFgts'
+      )
+    ORDER BY d.data_expiracao ASC
+  `);
+
+  for (const row of rows) {
+    const dias = Number(row.dias_restantes);
+    let nivel = null;
+
+    if (dias < 0)          { if (config.bloquear_vencidas !== false)     { nivel = 'vencida';  alertas.vencidas++; } }
+    else if (dias <= 7)    { if (config.alertar_7_dias !== false)         { nivel = '7_dias';   alertas.dias_7++;  } }
+    else if (dias <= 30)   { if (config.alertar_30_dias !== false)        { nivel = '30_dias';  alertas.dias_30++; } }
+    else if (dias <= 90)   { if (config.alertar_90_dias !== false)        { nivel = '90_dias';  alertas.dias_90++; } }
+
+    if (!nivel) continue;
+
+    const diasStr = dias < 0 ? `vencida há ${Math.abs(dias)} dia(s)` : `expira em ${dias} dia(s)`;
+    const msg = `Certidão ${diasStr}: ${row.nome_original} (${row.campo}) · Protocolo ${row.protocolo}`;
+    const assunto = dias < 0
+      ? `[FESF-SUS] Certidão VENCIDA: ${row.nome_original}`
+      : `[FESF-SUS] Certidão a vencer em ${dias} dia(s): ${row.nome_original}`;
+
+    // Notifica fornecedor por e-mail (se tiver)
+    if (row.fornecedor_email) {
+      try {
+        await enviarEmail({
+          destinatario: row.fornecedor_email,
+          assunto,
+          corpo: `${msg}\n\nAcesse o portal para atualizar o documento:\nhttps://portal.fesf.ba.gov.br/app/fornecedor-docs-fixos.html`,
+          tipo: 'sistema',
+          entidade: 'documento',
+          entidadeId: row.doc_id,
+        });
+      } catch (e) { alertas.erros++; }
+    }
+
+    // Notifica operadores da unidade
+    try {
+      const { rows: ops } = await query(
+        `SELECT u.id FROM usuarios u
+         LEFT JOIN usuario_unidades uu ON uu.usuario_id = u.id
+         WHERE u.ativo = TRUE
+           AND u.papel = 'operador_unidade'
+           AND (u.unidade_id = $1 OR uu.unidade_id = $1)`,
+        [row.unidade_id]
+      );
+      for (const op of ops) {
+        await notificar({
+          usuarioId: op.id,
+          tipo: 'sistema',
+          mensagem: msg,
+          link: `/app/painel.html`,
+          entidade: 'documento',
+          entidadeId: row.doc_id,
+        });
+      }
+    } catch (e) { alertas.erros++; }
+
+    // Atualiza status_validade na tabela
+    const novoStatus = dias < 0 ? 'vencido' : 'alerta';
+    try {
+      await query(
+        `UPDATE documentos SET status_validade = $1 WHERE id = $2 AND status_validade != $1`,
+        [novoStatus, row.doc_id]
+      );
+    } catch {}
+  }
+
+  return alertas;
+}
+
 export async function executarHousekeepingDoDia({ dryRunStorage = false } = {}) {
   const resultado = { rodados: [], pulados: [] };
   for (const job of JOBS) {
@@ -126,6 +236,7 @@ export async function executarHousekeepingDoDia({ dryRunStorage = false } = {}) 
       if (job === 'storage') r = await rodarLimpezaStorage({ dryRun: dryRunStorage });
       else if (job === 'notificacoes') r = await rodarLimpezaNotificacoes();
       else if (job === 'auditoria') r = await rodarLimpezaAuditoria();
+      else if (job === 'certidoes') r = await rodarMonitoramentoCertidoes();
       await finalizarRun(runId, 'ok', r);
       resultado.rodados.push({ job, ...r });
     } catch (e) {

@@ -99,6 +99,19 @@ router.post('/portal', requireAuth, requireRole('fornecedor'), rateLimit({ max: 
     if (!unidade_id || !modalidade_id || !competencia) {
       return res.status(400).json({ error: 'unidade_id, modalidade_id, competencia obrigatorios' });
     }
+    // Gate: bloqueia se o fornecedor tem certidões vencidas
+    try {
+      const { verificarBloqueioEnvio } = await import('../services/validacao-documentos-service.js');
+      const bloqueio = await verificarBloqueioEnvio(req.usuario.fornecedor_id);
+      if (bloqueio.bloqueado) {
+        return res.status(422).json({
+          error: 'Envio bloqueado: há certidões vencidas. Atualize seus documentos antes de enviar.',
+          code: 'CERTIDOES_VENCIDAS',
+          certidoes: bloqueio.certidoes,
+        });
+      }
+    } catch {}
+
     const envio = await criarEnvioPortal({
       usuarioId: req.usuario.id,
       unidadeId: Number(unidade_id),
@@ -462,7 +475,8 @@ router.get('/:id', requireAuth, async (req, res) => {
     // documentos (com identidade do uploader e versao em que entrou)
     const { rows: documentos } = await query(
       `SELECT d.id, d.campo, d.nome_original, d.mime_type, d.tamanho_bytes, d.criado_em, d.uploaded_por_id, d.uploaded_por_nome,
-              d.versao_id, v.numero AS versao_numero
+              d.versao_id, v.numero AS versao_numero,
+              d.status_validade, d.data_expiracao, d.validacao_json
        FROM documentos d
        LEFT JOIN versoes_envio v ON v.id = d.versao_id
        WHERE d.envio_id=$1 ORDER BY d.criado_em`,
@@ -1143,6 +1157,13 @@ router.post('/:id/documentos', requireAuth, rateLimit({ max: 120, windowMs: 60_0
       `INSERT INTO auditoria (entidade, entidade_id, acao, usuario_id, detalhe) VALUES ('envio', $1, 'documento_anexado', $2, $3)`,
       [envioId, req.usuario.id, `${req.file.originalname} (${req.file.size} bytes)`]
     );
+    // Validação assíncrona em background (fire-and-forget)
+    try {
+      const { dispararValidacaoBackground, obterCertidaoConfig } = await import('../services/validacao-documentos-service.js');
+      const cfg = await obterCertidaoConfig();
+      if (cfg.validacao_ativa !== false) dispararValidacaoBackground(doc.id);
+    } catch {}
+
     res.status(201).json({
       documento: { id: doc.id, campo: doc.campo, nome_original: doc.nome_original },
       duplicatas: duplicatas.map(d => ({ envio_id: d.envio_id, protocolo: d.protocolo })),

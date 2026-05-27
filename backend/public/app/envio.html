@@ -432,6 +432,7 @@ async function carregar() {
                           <div class="info">
                             <div class="nome">${doc.nome_original}${novoBadge}</div>
                             <div class="meta">Campo: <code>${doc.campo}</code> · ${(doc.tamanho_bytes/1024).toFixed(1)} KB · ${dataBR(doc.criado_em)}</div>
+                            ${doc.status_validade ? `<div class="meta" style="margin-top:3px"><span class="pill ${doc.status_validade}" style="font-size:11px;padding:2px 8px">${{ok:"✓ Válida",alerta:"⚠ A vencer",vencido:"⛔ VENCIDA",pendente:"⏳ Aguardando validação"}[doc.status_validade] || doc.status_validade}</span>${doc.data_expiracao ? ` <span style="font-size:11px;color:#888">· Validade: ${dataBR(doc.data_expiracao)}</span>` : ""}</div>` : ""}
                             ${uploaderInfo}
                             ${badge}
                           </div>
