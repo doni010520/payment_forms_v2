@@ -32,11 +32,20 @@ router.get(
       let params = [];
 
       if (papel === 'operador_unidade') {
-        unidadeFiltro = `AND e.unidade_id IN (
-          SELECT unidade_id FROM usuario_unidades WHERE usuario_id = $1
-          UNION SELECT $2 WHERE $2 IS NOT NULL
-        )`;
-        params = [usuarioId, unidade_id];
+        // Postgres real exige tipo explícito quando o parâmetro pode ser NULL
+        // — por isso evitamos passar NULL como bind e ramificamos a query.
+        if (unidade_id) {
+          unidadeFiltro = `AND e.unidade_id IN (
+            SELECT unidade_id FROM usuario_unidades WHERE usuario_id = $1
+            UNION SELECT $2::integer
+          )`;
+          params = [usuarioId, unidade_id];
+        } else {
+          unidadeFiltro = `AND e.unidade_id IN (
+            SELECT unidade_id FROM usuario_unidades WHERE usuario_id = $1
+          )`;
+          params = [usuarioId];
+        }
       }
 
       const { rows } = await query(
