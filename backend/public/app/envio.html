@@ -390,7 +390,46 @@ async function carregar() {
                 </div>`;
             })()}
 
-            <div class="section-card">
+            <!-- V300: Complementos pendentes (FGTS/INSS pos-pagamento) -->
+            ${(() => {
+              const compls = d.complementos_pendentes || [];
+              const podeAddRemove = (usuario.papel === 'fornecedor' && e.fornecedor_id === usuario.fornecedor_id) || podeAtuar;
+              if (compls.length === 0 && !podeAddRemove) return '';
+              const pendentes = compls.filter(x => x.status === 'pendente');
+              const recebidos = compls.filter(x => x.status === 'recebido');
+              const vencidos  = compls.filter(x => x.status === 'vencido');
+              const itens = compls.map(cp => {
+                const cor = cp.status === 'recebido' ? '#2f7d5c' : (cp.status === 'vencido' ? '#b22828' : '#a06800');
+                const icone = cp.status === 'recebido' ? '✓' : (cp.status === 'vencido' ? '⚠' : '⏳');
+                const dt = cp.data_esperada ? new Date(cp.data_esperada).toLocaleDateString('pt-BR') : '—';
+                const arq = cp.documento_nome ? ' · arquivo: ' + cp.documento_nome : '';
+                const acao = (cp.status === 'pendente' && podeAddRemove)
+                  ? '<button onclick="acaoRemoverComplemento(' + cp.id + ')" style="font-size:11px;background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer" title="Cancelar este pendente">✕</button>'
+                  : '';
+                return '<div style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:10px">' +
+                  '<div style="display:flex;align-items:center;gap:10px">' +
+                    '<span style="color:' + cor + ';font-weight:700;font-size:16px">' + icone + '</span>' +
+                    '<div>' +
+                      '<div style="font-size:13.5px;font-weight:500">' + (cp.label || cp.campo) + '</div>' +
+                      '<div class="muted" style="font-size:11.5px">Esperado: ' + dt + ' · campo: <code>' + cp.campo + '</code>' + arq + '</div>' +
+                    '</div>' +
+                  '</div>' + acao +
+                '</div>';
+              }).join('');
+              return '<div class="section-card" style="border-left:3px solid #a06800">' +
+                '<header>' +
+                  '<h3>📅 Complementos pendentes</h3>' +
+                  '<span class="meta">' + pendentes.length + ' pendente(s) · ' + recebidos.length + ' recebido(s)' +
+                    (vencidos.length > 0 ? ' · ' + vencidos.length + ' vencido(s)' : '') + '</span>' +
+                '</header>' +
+                '<div class="body">' +
+                  (compls.length === 0
+                    ? '<div class="muted" style="font-size:13px;margin-bottom:10px">Nenhum complemento sinalizado. FGTS e INSS chegam após o dia 20 do mês seguinte — clique abaixo para sinalizar que você vai enviar depois.</div>'
+                    : '<div style="display:grid;gap:8px;margin-bottom:12px">' + itens + '</div>') +
+                  (podeAddRemove ? '<button class="primary" onclick="acaoAdicionarComplemento()" style="font-size:12px">+ Sinalizar complemento pendente (FGTS, INSS, etc.)</button>' : '') +
+                '</div>' +
+              '</div>';
+            })()}            <div class="section-card">
               <header>
                 <h3>Documentos anexados</h3>
                 <span class="meta">${d.documentos.length} arquivo(s) · ${(d.documentos.reduce((a,x)=>a+(x.tamanho_bytes||0),0)/1024).toFixed(1)} KB total</span>
@@ -642,11 +681,34 @@ document.getElementById('form-pagamento')?.addEventListener('submit', async (ev)
       const r = await api.uploadComprovantePagamento(id, arquivo);
       comprovante_doc_id = r.documento.id;
     }
-    await api.marcarPagoEstruturado(id, {
-      numero_ted, banco_pagador, data_efetiva,
-      valor_pago_centavos: valorReais ? Math.round(Number(valorReais) * 100) : null,
-      observacao, comprovante_doc_id,
-    });
+    // V300: tenta marcar pago; se houver complementos pendentes, pede confirmação
+    let confirmarPendentes = false;
+    let tentativas = 0;
+    while (tentativas++ < 2) {
+      try {
+        await api.marcarPagoEstruturado(id, {
+          numero_ted, banco_pagador, data_efetiva,
+          valor_pago_centavos: valorReais ? Math.round(Number(valorReais) * 100) : null,
+          observacao, comprovante_doc_id,
+          confirmar_complementos_pendentes: confirmarPendentes,
+        });
+        break;
+      } catch (e) {
+        if (e.code === 'COMPLEMENTOS_PENDENTES' && !confirmarPendentes) {
+          const lista = (e.json && e.json.complementos ? e.json.complementos : []).map(c => '• ' + (c.label || c.campo)).join('
+');
+          const ok = confirm('⚠ Existem complementos pendentes (FGTS/INSS):
+
+' + lista + '
+
+Marcar como pago mesmo assim? (Os complementos seguem rastreados)');
+          if (!ok) throw e;
+          confirmarPendentes = true;
+        } else {
+          throw e;
+        }
+      }
+    }
     fecharModal('modal-pagamento');
     toast('Pagamento registrado · fornecedor notificado', 'sucesso');
     carregar();
@@ -718,6 +780,51 @@ Digite apenas números com vírgula ou ponto`, valorAtual);
     toast('Erro ao editar: ' + e.message, 'erro');
   }
 };
+// V300: complementos pendentes (FGTS/INSS pos-pagamento)
+window.acaoAdicionarComplemento = async () => {
+  const opcoes = [
+    "gps",
+    "fgts",
+    "guia_inss",
+    "guia_fgts",
+  ];
+  const escolha = prompt(
+    "Quais campos voce vai enviar depois? Separe por virgula:\n" +
+    "Opcoes comuns: gps, fgts, guia_inss, guia_fgts\n" +
+    "(ou digite outro nome de campo)"
+  );
+  if (!escolha) return;
+  const campos = escolha.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (campos.length === 0) return;
+  try {
+    const token = localStorage.getItem("fesf_token");
+    const r = await fetch(`/api/envios/${id}/complementos`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ campos }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    toast(`${j.total} complemento(s) sinalizado(s)`, "sucesso");
+    carregar();
+  } catch (e) { toast("Erro: " + e.message, "erro"); }
+};
+
+window.acaoRemoverComplemento = async (complId) => {
+  if (!confirm("Cancelar este complemento pendente?")) return;
+  try {
+    const token = localStorage.getItem("fesf_token");
+    const r = await fetch(`/api/envios/${id}/complementos/${complId}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${token}` },
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    toast("Complemento cancelado", "sucesso");
+    carregar();
+  } catch (e) { toast("Erro: " + e.message, "erro"); }
+};
+
 
 // Preview/Download
 window.toggleSplit = async () => {

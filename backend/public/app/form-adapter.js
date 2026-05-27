@@ -191,6 +191,10 @@
     }
 
     const summary = pickSummary(stateData);
+    // V300: complementos pendentes — campos que o fornecedor marcou para enviar depois
+    const complementosPendentes = Array.isArray(stateData.complementos_pendentes)
+      ? stateData.complementos_pendentes.filter(Boolean)
+      : [];
     const fullDados = { ...stateData, files_meta: stateFiles, modalidade_codigo: cfg.modalidadeCodigo };
 
     let envio;
@@ -204,6 +208,7 @@
         submetente_nome: stateData.q1_nomeFornecedor || stateData.q1_nomeRepresentante || null,
         submetente_documento: stateData.q2_cnpj || stateData.q2_cpf || null,
         dados: fullDados,
+        complementos_pendentes: complementosPendentes,
       });
       envio = r.envio;
     } else if (getToken()) {
@@ -222,6 +227,7 @@
         numero_nf: summary.numero_nf,
         descricao: summary.descricao,
         dados: fullDados,
+        complementos_pendentes: complementosPendentes,
       });
       envio = r.envio;
     } else {

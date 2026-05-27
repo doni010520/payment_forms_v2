@@ -7,7 +7,7 @@
 // =====================================================================
 import { query, queryOne } from '../db/index.js';
 
-const JOBS = ['storage', 'notificacoes', 'auditoria', 'certidoes'];
+const JOBS = ['storage', 'notificacoes', 'auditoria', 'certidoes', 'complementos'];
 
 /**
  * Tenta adquirir lock para um job no dia atual.
@@ -237,6 +237,10 @@ export async function executarHousekeepingDoDia({ dryRunStorage = false } = {}) 
       else if (job === 'notificacoes') r = await rodarLimpezaNotificacoes();
       else if (job === 'auditoria') r = await rodarLimpezaAuditoria();
       else if (job === 'certidoes') r = await rodarMonitoramentoCertidoes();
+      else if (job === 'complementos') {
+        const { rodarAlertasComplementos } = await import('./complementos-service.js');
+        r = await rodarAlertasComplementos();
+      }
       await finalizarRun(runId, 'ok', r);
       resultado.rodados.push({ job, ...r });
     } catch (e) {

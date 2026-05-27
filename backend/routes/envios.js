@@ -122,6 +122,16 @@ router.post('/portal', requireAuth, requireRole('fornecedor'), rateLimit({ max: 
       descricao,
       dados,
     });
+    // V300: registrar complementos pendentes (FGTS/INSS post-pagamento)
+    if (Array.isArray(req.body.complementos_pendentes) && req.body.complementos_pendentes.length > 0) {
+      try {
+        const { registrarComplementos } = await import('../services/complementos-service.js');
+        await registrarComplementos({
+          envioId: envio.id, campos: req.body.complementos_pendentes,
+          competencia, criadoPorId: req.usuario.id,
+        });
+      } catch (e) { console.error('[envios/portal/complementos]', e.message); }
+    }
     res.status(201).json({ envio });
   } catch (e) {
     if (e.code === 'FORBIDDEN')  return res.status(403).json({ error: e.message });
@@ -150,6 +160,15 @@ router.post('/publico/:token', rateLimit({ max: 10, windowMs: 60_000, key: 'subm
       dadosSubmetente: { nome: submetente_nome, documento: submetente_documento },
       dados,
     });
+    if (Array.isArray(req.body.complementos_pendentes) && req.body.complementos_pendentes.length > 0) {
+      try {
+        const { registrarComplementos } = await import('../services/complementos-service.js');
+        await registrarComplementos({
+          envioId: envio.id, campos: req.body.complementos_pendentes,
+          competencia, criadoPorId: null,
+        });
+      } catch (e) { console.error('[envios/publico/complementos]', e.message); }
+    }
     res.status(201).json({ envio });
   } catch (e) {
     if (['INVALID_TOKEN','REVOKED','EXPIRED','ALREADY_USED','USOS_ESGOTADOS'].includes(e.code)) {
@@ -184,6 +203,16 @@ router.post('/manual', requireAuth, requireRole('operador_unidade', 'admin_fesf'
       expectativaId: expectativa_id ? Number(expectativa_id) : null,
       permitirDuplicado: permitir_duplicado === true,
     });
+    // V300: registrar complementos pendentes
+    if (Array.isArray(req.body.complementos_pendentes) && req.body.complementos_pendentes.length > 0) {
+      try {
+        const { registrarComplementos } = await import('../services/complementos-service.js');
+        await registrarComplementos({
+          envioId: envio.id, campos: req.body.complementos_pendentes,
+          competencia, criadoPorId: req.usuario.id,
+        });
+      } catch (e) { console.error('[envios/manual/complementos]', e.message); }
+    }
     res.status(201).json({ envio });
   } catch (e) {
     if (e.code === 'MOTIVO_INVALID') return res.status(400).json({ error: e.message });
@@ -547,7 +576,13 @@ router.get('/:id', requireAuth, async (req, res) => {
       );
       anotacoes_documento = rd.rows;
     }
-    res.json({ envio, versoes, documentos, documentos_esperados, reenvios, pagamento, auditoria, comentarios, form_data: formData, anotacoes, anotacoes_documento });
+    // V300: complementos pendentes (FGTS/INSS pos-pagamento)
+    let complementos_pendentes = [];
+    try {
+      const { listarComplementosDoEnvio } = await import('../services/complementos-service.js');
+      complementos_pendentes = await listarComplementosDoEnvio(envio.id);
+    } catch (e) { console.error('[envios/detalhe/complementos]', e.message); }
+    res.json({ envio, versoes, documentos, documentos_esperados, reenvios, pagamento, auditoria, comentarios, form_data: formData, anotacoes, anotacoes_documento, complementos_pendentes });
   } catch (e) {
     console.error('[envios/get]', e);
     res.status(500).json({ error: 'Erro' });
@@ -621,7 +656,23 @@ router.post('/:id/marcar-pago', requireAuth, requireRole('admin_fesf'), idempote
     if (envio.status !== 'aprovado') {
       return res.status(400).json({ error: 'Envio precisa estar aprovado para ser marcado como pago' });
     }
-    const { numero_ted, banco_pagador, data_efetiva, valor_pago_centavos, observacao, comprovante_doc_id } = req.body || {};
+    const { numero_ted, banco_pagador, data_efetiva, valor_pago_centavos, observacao, comprovante_doc_id, confirmar_complementos_pendentes } = req.body || {};
+    // V300: se ha complementos pendentes (FGTS/INSS), exige confirmacao explicita
+    try {
+      const { contarPendentesDoEnvio, listarComplementosDoEnvio } = await import('../services/complementos-service.js');
+      const nPendentes = await contarPendentesDoEnvio(envioId);
+      if (nPendentes > 0 && !confirmar_complementos_pendentes) {
+        const lista = await listarComplementosDoEnvio(envioId);
+        return res.status(409).json({
+          error: `Existem ${nPendentes} complemento(s) pendente(s) (FGTS/INSS) ainda nao recebido(s). Confirme o pagamento antecipado enviando confirmar_complementos_pendentes=true.`,
+          code: 'COMPLEMENTOS_PENDENTES',
+          complementos: lista.filter(x => x.status === 'pendente'),
+        });
+      }
+    } catch (e) {
+      if (e?.code === 'COMPLEMENTOS_PENDENTES') throw e;
+      console.error('[envios/marcar-pago/complementos]', e.message);
+    }
     // Se enviou dados estruturados, valida e grava pagamento
     if (numero_ted || banco_pagador || data_efetiva) {
       if (!numero_ted || !banco_pagador || !data_efetiva) {
@@ -779,6 +830,61 @@ router.put('/:id/dados-manual', requireAuth, requireRole('operador_unidade', 'ad
   } catch (e) {
     console.error('[envios/dados-manual]', e);
     res.status(500).json({ error: 'Erro ao atualizar dados do envio' });
+  }
+});
+
+/**
+ * POST /api/envios/:id/complementos
+ * Fornecedor (ou operador) sinaliza que vai enviar um documento depois (FGTS, INSS).
+ * Body: { campos: ['gps','fgts'] }
+ */
+router.post('/:id/complementos', requireAuth, async (req, res) => {
+  try {
+    const envioId = Number(req.params.id);
+    const envio = await queryOne('SELECT fornecedor_id, unidade_id, competencia FROM envios WHERE id=$1', [envioId]);
+    if (!envio) return res.status(404).json({ error: 'envio nao encontrado' });
+    if (req.usuario.papel === 'fornecedor' && envio.fornecedor_id !== req.usuario.fornecedor_id) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    if (req.usuario.papel === 'operador_unidade' && envio.unidade_id !== req.usuario.unidade_id) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    const campos = Array.isArray(req.body.campos) ? req.body.campos : [];
+    if (campos.length === 0) return res.status(400).json({ error: 'campos obrigatorio (array)' });
+    const { registrarComplementos } = await import('../services/complementos-service.js');
+    const criados = await registrarComplementos({
+      envioId, campos, competencia: envio.competencia, criadoPorId: req.usuario.id,
+    });
+    res.status(201).json({ criados, total: criados.length });
+  } catch (e) {
+    console.error('[envios/complementos/add]', e);
+    res.status(500).json({ error: 'Erro' });
+  }
+});
+
+/**
+ * DELETE /api/envios/:id/complementos/:complId — remove complemento pendente (cancela)
+ */
+router.delete('/:id/complementos/:complId', requireAuth, async (req, res) => {
+  try {
+    const envioId = Number(req.params.id);
+    const complId = Number(req.params.complId);
+    const envio = await queryOne('SELECT fornecedor_id, unidade_id FROM envios WHERE id=$1', [envioId]);
+    if (!envio) return res.status(404).json({ error: 'envio nao encontrado' });
+    if (req.usuario.papel === 'fornecedor' && envio.fornecedor_id !== req.usuario.fornecedor_id) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    if (req.usuario.papel === 'operador_unidade' && envio.unidade_id !== req.usuario.unidade_id) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+    const r = await query(
+      `DELETE FROM complementos_pendentes WHERE id = $1 AND envio_id = $2 AND status = 'pendente'`,
+      [complId, envioId]
+    );
+    res.json({ ok: true, deleted: r.rowCount || 0 });
+  } catch (e) {
+    console.error('[envios/complementos/del]', e);
+    res.status(500).json({ error: 'Erro' });
   }
 });
 
@@ -1230,6 +1336,12 @@ router.post('/:id/documentos', requireAuth, rateLimit({ max: 120, windowMs: 60_0
       const cfg = await obterCertidaoConfig();
       if (cfg.validacao_ativa !== false) dispararValidacaoBackground(doc.id);
     } catch {}
+
+    // V300: se este upload atende algum complemento pendente, marca como recebido
+    try {
+      const { marcarComplementoRecebido } = await import('../services/complementos-service.js');
+      await marcarComplementoRecebido({ envioId, campo: doc.campo, documentoId: doc.id });
+    } catch (e) { console.error('[envios/upload/complemento]', e.message); }
 
     res.status(201).json({
       documento: { id: doc.id, campo: doc.campo, nome_original: doc.nome_original },
