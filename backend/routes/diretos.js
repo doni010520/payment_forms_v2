@@ -145,11 +145,18 @@ router.get('/auditoria', requireAuth, async (req, res) => {
       }
       if (req.usuario.papel === 'fornecedor') return res.status(403).json({ error: 'Acesso negado' });
     } else if (entidade === 'fornecedor') {
-      // Apenas admin e o proprio fornecedor
       if (req.usuario.papel === 'fornecedor' && Number(entidade_id) !== req.usuario.fornecedor_id) {
         return res.status(403).json({ error: 'Acesso negado' });
       }
-      if (req.usuario.papel === 'operador_unidade') return res.status(403).json({ error: 'Acesso negado' });
+      if (req.usuario.papel === 'operador_unidade') {
+        // Operador pode ver auditoria de fornecedor que atende sua unidade
+        const link = await queryOne(
+          `SELECT 1 FROM fornecedor_unidades
+           WHERE fornecedor_id = $1 AND unidade_id = $2`,
+          [Number(entidade_id), req.usuario.unidade_id]
+        );
+        if (!link) return res.status(403).json({ error: 'Fornecedor não atende sua unidade' });
+      }
     }
     const { rows } = await query(
       `SELECT a.id, a.acao, a.detalhe, a.criado_em, u.nome AS usuario_nome, u.papel AS usuario_papel

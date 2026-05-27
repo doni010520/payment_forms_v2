@@ -885,6 +885,13 @@ router.post('/:id/solicitar-reenvio', requireAuth, requireRole('operador_unidade
        VALUES ($1,$2,$3,$4,$5,$6,$7)`,
       [envioId, documento_id || null, campo, motivo.trim(), req.usuario.id, prazoTs, tentativas]
     );
+
+    // Atualiza status do envio: dá visibilidade que está aguardando o fornecedor
+    await query(
+      `UPDATE envios SET status = 'aguardando_ret', atualizado_em = CURRENT_TIMESTAMP
+       WHERE id = $1 AND status NOT IN ('aprovado', 'rejeitado', 'pago')`,
+      [envioId]
+    );
     const detalhe = `campo=${campo}${docNome ? ' (' + docNome + ')' : ''} · tentativa ${tentativas} · prazo ${prazoDias}d · ${motivo.substring(0,60)}`;
     await query(
       `INSERT INTO auditoria (entidade, entidade_id, acao, usuario_id, detalhe) VALUES ('envio', $1, 'reenvio_solicitado', $2, $3)`,
