@@ -258,6 +258,10 @@ async function carregar() {
     const podeDecidir = podeAtuar && e.status === 'em_analise';
     const podePagar = usuario.papel === 'admin_fesf' && e.status === 'aprovado';
     const fornecedorPodeRet = usuario.papel === 'fornecedor' && e.status === 'aguardando_ret';
+    // V300: operador edita diretamente envios manuais (sem pedir ao fornecedor)
+    const podeEditarManual = podeAtuar
+      && e.origem === 'manual'
+      && !['aprovado','rejeitado','pago'].includes(e.status);
 
     // V263: banner "Ação necessária" para fornecedor com status aguardando_ret (alinhado ao mockup screen-details-fornec)
     const ultimaRetificacao = acoes.find(a => a.acao === 'retificacao_solicitada');
@@ -512,6 +516,7 @@ async function carregar() {
               ${usuario.papel === 'operador_unidade' && ['em_analise','retificado'].includes(e.status) ? `<button onclick="acaoEncaminharSede()">🔺 Encaminhar para FESF Sede</button>` : ''}
               ${podePagar ? `<button class="success" onclick="acaoMarcarPago()">💰 Marcar como pago</button>` : ''}
               ${fornecedorPodeRet ? `<button class="warn" onclick="acaoEnviarRet()">⚠ Submeter retificação</button>` : ''}
+              ${podeEditarManual ? `<button class="primary" onclick="acaoEditarManual()">✏ Editar (lançamento manual)</button>` : ''}
               <button onclick="window.open('/app/recibo.html?id=${e.id}','_blank')">🖨 Imprimir recibo</button>
             </div>
           </div>
@@ -657,6 +662,61 @@ window.acaoEncaminharSede = async () => {
   if (!m || m.length < 5) return;
   try { await api.encaminharSede(id, m); toast('Encaminhado para FESF Sede','sucesso'); carregar(); }
   catch (e) { toast(e.message, 'erro'); }
+};
+
+// V300: operador edita diretamente envios criados manualmente (origem=manual)
+window.acaoEditarManual = async () => {
+  try {
+    const d = await api.envio(id);
+    const e = d.envio;
+    const valorAtual = (Number(e.valor_centavos || 0) / 100).toFixed(2);
+    const nfAtual = e.numero_nf || '';
+    const descAtual = e.descricao || '';
+
+    const valorStr = prompt(`Valor (R$):
+(atual: ${valorAtual})
+Digite apenas números com vírgula ou ponto`, valorAtual);
+    if (valorStr === null) return;
+    const valor = Number(String(valorStr).replace(',', '.'));
+    if (!Number.isFinite(valor) || valor < 0) { toast('Valor inválido', 'erro'); return; }
+
+    const nf = prompt(`Número da NF:
+(atual: ${nfAtual})`, nfAtual);
+    if (nf === null) return;
+
+    const desc = prompt(`Descrição:
+(atual: ${descAtual})`, descAtual);
+    if (desc === null) return;
+
+    const motivo = prompt('Motivo da correção (mín. 5 caracteres):');
+    if (!motivo || motivo.trim().length < 5) { toast('Motivo obrigatório', 'erro'); return; }
+
+    const camposRevisados = [];
+    if (Math.round(valor * 100) !== Number(e.valor_centavos || 0)) camposRevisados.push('valor');
+    if (nf.trim() !== nfAtual) camposRevisados.push('numero_nf');
+    if (desc.trim() !== descAtual) camposRevisados.push('descricao');
+    if (camposRevisados.length === 0) { toast('Nenhuma alteração detectada', 'info'); return; }
+
+    const token = localStorage.getItem('fesf_token');
+    const r = await fetch(`/api/envios/${id}/dados-manual`, {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        valor_centavos: Math.round(valor * 100),
+        numero_nf: nf.trim(),
+        descricao: desc.trim(),
+        motivo: motivo.trim(),
+        campos_revisados: camposRevisados,
+      }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+
+    toast(`Envio atualizado (v${j.versao.numero})`, 'sucesso');
+    carregar();
+  } catch (e) {
+    toast('Erro ao editar: ' + e.message, 'erro');
+  }
 };
 
 // Preview/Download

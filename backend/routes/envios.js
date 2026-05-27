@@ -723,6 +723,66 @@ router.post('/:id/versoes', requireAuth, async (req, res) => {
 });
 
 /**
+ * PUT /api/envios/:id/dados-manual
+ * Edicao direta de envios manuais pelo proprio operador/admin (sem precisar
+ * solicitar retificacao ao fornecedor). Cria nova versao registrada em nome
+ * do operador. Funciona apenas para envios com origem=manual.
+ */
+router.put('/:id/dados-manual', requireAuth, requireRole('operador_unidade', 'admin_fesf'), async (req, res) => {
+  try {
+    const envioId = Number(req.params.id);
+    const envio = await queryOne('SELECT * FROM envios WHERE id=$1', [envioId]);
+    if (!envio) return res.status(404).json({ error: 'envio nao encontrado' });
+
+    if (envio.origem !== 'manual') {
+      return res.status(422).json({
+        error: 'Esta operacao so vale para envios criados manualmente pelo operador. Envios do portal/link publico exigem solicitar retificacao ao fornecedor.',
+        code: 'ORIGEM_NAO_MANUAL',
+      });
+    }
+    if (['aprovado', 'rejeitado', 'pago'].includes(envio.status)) {
+      return res.status(422).json({
+        error: 'Envios em estado terminal (aprovado/rejeitado/pago) nao podem ser editados',
+        code: 'ESTADO_TERMINAL',
+      });
+    }
+    if (req.usuario.papel === 'operador_unidade' && envio.unidade_id !== req.usuario.unidade_id) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const { valor_centavos, numero_nf, descricao, motivo, campos_revisados } = req.body || {};
+    if (!motivo || String(motivo).trim().length < 5) {
+      return res.status(400).json({ error: 'motivo da correcao obrigatorio (>=5 chars)' });
+    }
+
+    // Monta dados_json da nova versao mesclando o atual + novos campos
+    const dadosNovaVersao = {
+      valor_centavos: valor_centavos != null ? Number(valor_centavos) : envio.valor_centavos,
+      numero_nf:      numero_nf      != null ? String(numero_nf)      : envio.numero_nf,
+      descricao:      descricao      != null ? String(descricao)      : envio.descricao,
+      motivo:         String(motivo).trim(),
+      campos_revisados: Array.isArray(campos_revisados) ? campos_revisados : undefined,
+      editado_por:    'operador_manual',
+    };
+
+    const v = await criarNovaVersao({
+      envioId, dadosJson: dadosNovaVersao, usuarioId: req.usuario.id,
+    });
+
+    await query(
+      `INSERT INTO auditoria (entidade, entidade_id, acao, usuario_id, detalhe)
+       VALUES ('envio', $1, 'edicao_manual_operador', $2, $3)`,
+      [envioId, req.usuario.id, `v${v.numero} - motivo: ${String(motivo).substring(0, 100)}`]
+    );
+
+    res.status(201).json({ ok: true, versao: v });
+  } catch (e) {
+    console.error('[envios/dados-manual]', e);
+    res.status(500).json({ error: 'Erro ao atualizar dados do envio' });
+  }
+});
+
+/**
  * GET /api/envios/:id/documentos/:docId/preview
  * Serve o arquivo inline (sem Content-Disposition attachment) para iframe/imagem.
  */

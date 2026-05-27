@@ -395,6 +395,23 @@ export async function criarNovaVersao({ envioId, dadosJson, usuarioId }) {
     `INSERT INTO versoes_envio (envio_id, numero, dados_json) VALUES ($1,$2,$3) RETURNING *`,
     [envioId, novoNum, typeof dadosJson === 'string' ? dadosJson : JSON.stringify(dadosJson)]
   );
+  // V300: sincroniza envios.* com os campos da nova versao
+  // (aceita ambos camelCase e snake_case por compat com formularios antigos/novos)
+  try {
+    const dados = typeof dadosJson === 'string' ? JSON.parse(dadosJson) : dadosJson;
+    const valor = dados?.valor_centavos ?? dados?.valorCentavos;
+    const nf    = dados?.numero_nf ?? dados?.numeroNF;
+    const desc  = dados?.descricao;
+    const sets = [];
+    const params = [envioId];
+    if (Number.isFinite(Number(valor))) { sets.push(`valor_centavos = $${sets.length + 2}`); params.push(Number(valor)); }
+    if (nf)   { sets.push(`numero_nf = $${sets.length + 2}`);  params.push(String(nf)); }
+    if (desc) { sets.push(`descricao = $${sets.length + 2}`); params.push(String(desc)); }
+    if (sets.length) {
+      sets.push('atualizado_em = CURRENT_TIMESTAMP');
+      await query(`UPDATE envios SET ${sets.join(', ')} WHERE id = $1`, params);
+    }
+  } catch (e) { console.warn('[envio/novaVersao] sync envio.* falhou:', e.message); }
   // move status para 'retificado' se estava aguardando_ret e notifica operadores
   if (envio.status === 'aguardando_ret') {
     await query(`UPDATE envios SET status='retificado', atualizado_em=CURRENT_TIMESTAMP WHERE id=$1`, [envioId]);
