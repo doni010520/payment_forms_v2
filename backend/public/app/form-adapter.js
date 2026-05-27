@@ -388,21 +388,32 @@
   }
 
   // ============================================================
-  // V300: pre-preenche campos FIXOS do fornecedor logado.
+  // V300.1: pre-preenche campos FIXOS do fornecedor logado.
   // Dados que NÃO mudam entre envios — CNPJ, razão social, contatos.
-  // Cada envio é único nos campos VARIÁVEIS (valor, NF, competência,
-  // descrição) — esses NÃO devem ser pré-preenchidos.
   // ============================================================
   async function prefillFornecedorLogado() {
-    if (!getToken()) return; // anônimo via link público não tem o que pré-preencher
+    if (!getToken()) return;
     let me;
-    try {
-      me = await api('GET', '/api/me');
-    } catch { return; } // se falha, continua sem prefill
-    const u = me?.usuario;
+    try { me = await api('GET', '/api/me'); } catch { return; }
+    const u = me && me.usuario;
     if (!u || u.papel !== 'fornecedor' || !u.fornecedor_id) return;
 
-    // Mapeamento campo do form ← dado fixo do fornecedor
+    // Detecta draft de OUTRO fornecedor no localStorage e limpa
+    try {
+      const draftRaw = localStorage.getItem('hcc_form_pagamento_v1');
+      if (draftRaw) {
+        const draft = JSON.parse(draftRaw);
+        const cnpjDraft = String((draft && draft.data && draft.data.q2_cnpj) || '').replace(/\D/g, '');
+        const cnpjReal = String(u.fornecedor_documento || '').replace(/\D/g, '');
+        if (cnpjDraft && cnpjReal && cnpjDraft !== cnpjReal) {
+          console.log('[form-adapter] draft de outro fornecedor detectado — limpando');
+          localStorage.removeItem('hcc_form_pagamento_v1');
+          location.reload();
+          return;
+        }
+      }
+    } catch {}
+
     const fixos = {
       q1_nomeFornecedor: u.fornecedor_razao_social || '',
       q2_cnpj:           u.fornecedor_documento || '',
@@ -410,31 +421,40 @@
       q7_telefone:       u.fornecedor_telefone || '',
     };
 
-    // Aguarda a renderização do formulário antes de preencher
+    // Aguarda renderização do formulário (até 6s)
     let tentativas = 0;
-    while (tentativas++ < 40) {
-      const algum = document.getElementById('fld_q1_nomeFornecedor');
-      if (algum) break;
+    while (tentativas++ < 60) {
+      if (document.getElementById('fld_q1_nomeFornecedor')) break;
       await new Promise(r => setTimeout(r, 100));
     }
-    if (tentativas >= 40) return; // form não montou
+    if (tentativas >= 60) { console.warn('[form-adapter] form não renderizou em 6s — prefill abortado'); return; }
 
-    let preencheu = 0;
-    for (const [campo, valor] of Object.entries(fixos)) {
-      if (!valor) continue;
-      const input = document.getElementById('fld_' + campo);
-      if (!input) continue;
-      // Se o campo já tem valor (do localStorage ou digitado), não sobrescreve
-      if (input.value && input.value.trim()) continue;
-      input.value = valor;
-      // Dispara evento input para o form reagir (salvar no state, validar)
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      preencheu++;
-    }
-    if (preencheu > 0) console.log('[form-adapter] pré-preenchidos ' + preencheu + ' campo(s) fixo(s) do cadastro');
+    // SEMPRE escreve com o valor do cadastro (autoridade do backend).
+    // Dado fixo do cadastro vence sobre qualquer rascunho local.
+    const aplicar = () => {
+      let n = 0;
+      for (const [campo, valor] of Object.entries(fixos)) {
+        if (!valor) continue;
+        const input = document.getElementById('fld_' + campo);
+        if (!input) continue;
+        if (input.value === String(valor)) continue;
+        input.value = valor;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        n++;
+      }
+      return n;
+    };
+
+    const n1 = aplicar();
+    if (n1 > 0) console.log('[form-adapter] pré-preenchidos ' + n1 + ' campo(s) fixo(s) do cadastro');
+
+    // Retry após 500ms em caso de race com o renderer (formulário pode setar value tardiamente)
+    setTimeout(() => {
+      const n2 = aplicar();
+      if (n2 > 0) console.log('[form-adapter] retry prefill: ' + n2 + ' campo(s) corrigido(s)');
+    }, 500);
   }
-
   // Inicializa quando a pagina ja carregou (o form define finalizeSubmission no proprio script)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => { installBridge(); prefillFornecedorLogado(); });
