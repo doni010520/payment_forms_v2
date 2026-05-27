@@ -398,7 +398,7 @@ export function formatarRespostasForm(formData) {
     descricao: 'Descrição',
   };
   // Campos internos a OCULTAR
-  const HIDE = new Set(['seed', 'files_meta', 'modalidade_codigo', 'campos_revisados', 'observacao', 'dadosSubmetente', 'valorCentavos', 'numeroNF', 'descricao']);
+  const HIDE = new Set(['seed', 'files_meta', 'modalidade_codigo', 'campos_revisados', 'observacao', 'dadosSubmetente', 'valorCentavos', 'numeroNF', 'descricao', 'valor_centavos', 'numero_nf', 'motivo', 'editado_por']);
   const entries = Object.entries(formData).filter(([k, v]) => {
     if (HIDE.has(k)) return false;
     if (v == null || v === '') return false;
@@ -442,7 +442,7 @@ const SECOES_FORM = [
 export function formatarRespostasFormSecoes(formData, anotacoes = []) {
   if (!formData || typeof formData !== 'object') return '<div class="muted">Sem dados do formulário.</div>';
 
-  const HIDE = new Set(['seed', 'files_meta', 'modalidade_codigo', 'campos_revisados', 'observacao', 'dadosSubmetente', 'valorCentavos', 'numeroNF', 'descricao']);
+  const HIDE = new Set(['seed', 'files_meta', 'modalidade_codigo', 'campos_revisados', 'observacao', 'dadosSubmetente', 'valorCentavos', 'numeroNF', 'descricao', 'valor_centavos', 'numero_nf', 'motivo', 'editado_por']);
   const anotMap = Object.fromEntries((anotacoes || []).map(a => [a.campo, a]));
 
   // distribui campos do formData pelas secoes
@@ -472,9 +472,19 @@ export function formatarRespostasFormSecoes(formData, anotacoes = []) {
                         status === 'problema' ? '<span class="ano-badge prob" title="Problema">!</span>' : '';
     const obs = an && an.observacao ? `<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px">📝 ${an.observacao}</div>` : '';
     const acoes = `<div class="ano-btns" style="display:flex;gap:3px"><button class="mini-btn ok" data-anotar="${k}" data-status="verificado" title="Marcar verificado">✓</button><button class="mini-btn dub" data-anotar="${k}" data-status="duvida" title="Marcar duvida">?</button><button class="mini-btn prob" data-anotar="${k}" data-status="problema" title="Marcar problema">!</button></div>`;
+    // V300: formatação inteligente — se o campo é monetário, formatar como BRL
+    let valorRender = v;
+    const klow = String(k).toLowerCase();
+    if ((klow.includes('valor') && klow.includes('centavo')) || klow === 'valorcentavos') {
+      const n = Number(v);
+      if (Number.isFinite(n)) valorRender = brl(n);
+    } else if (klow.startsWith('valor') || klow.includes('preco')) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) valorRender = brl(n);
+    }
     return `<div class="form-readout-field" data-campo="${k}" style="padding:10px 0;border-bottom:1px dotted var(--border)">
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span style="font-family:ui-monospace,monospace;background:rgba(91,84,153,.08);color:var(--primary-2);padding:1px 5px;border-radius:3px;font-size:10px">${qn != null ? qn : '—'}</span><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600;flex:1">${label}</span>${statusBadge}${acoes}</div>
-      <div style="margin-top:4px;font-size:13.5px">${v}</div>
+      <div style="margin-top:4px;font-size:13.5px">${valorRender}</div>
       ${obs}
     </div>`;
   };
