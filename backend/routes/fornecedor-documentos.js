@@ -232,7 +232,7 @@ router.get('/:id/documentos-fixos/:docId/download', requireAuth, async (req, res
     res.setHeader('Content-Type', doc.mime_type || 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.nome_original)}"`);
 
-    if (doc.caminho.startsWith('onedrive://')) {
+    if (doc.caminho.includes('://')) {
       const { obterBuffer } = await import('../services/storage-service.js');
       const buf = await obterBuffer(doc.caminho);
       return res.send(buf);

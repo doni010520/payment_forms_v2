@@ -739,13 +739,13 @@ router.get('/:id/documentos/:docId/preview', requireAuth, async (req, res) => {
     // V292: caminho pode ser local OU "onedrive://item-id" — usa storage helper
     res.setHeader('Content-Type', doc.mime_type || 'application/octet-stream');
     res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(doc.nome_original)}"`);
-    if (doc.caminho && doc.caminho.startsWith('onedrive://')) {
+    if (doc.caminho && doc.caminho.includes('://')) {
       try {
         const { obterBuffer } = await import('../services/storage-service.js');
         const buf = await obterBuffer(doc.caminho);
         return res.send(buf);
       } catch (e) {
-        if (!res.headersSent) return res.status(502).json({ error: 'Falha ao baixar do OneDrive: ' + e.message });
+        if (!res.headersSent) return res.status(502).json({ error: 'Falha ao baixar do storage: ' + e.message });
         return;
       }
     }
@@ -786,13 +786,13 @@ router.get('/:id/documentos/:docId/download', requireAuth, async (req, res) => {
     res.setHeader('Content-Type', doc.mime_type || 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.nome_original)}"`);
     // V292: OneDrive ou local
-    if (doc.caminho && doc.caminho.startsWith('onedrive://')) {
+    if (doc.caminho && doc.caminho.includes('://')) {
       try {
         const { obterBuffer } = await import('../services/storage-service.js');
         const buf = await obterBuffer(doc.caminho);
         return res.send(buf);
       } catch (e) {
-        if (!res.headersSent) return res.status(502).json({ error: 'Falha ao baixar do OneDrive: ' + e.message });
+        if (!res.headersSent) return res.status(502).json({ error: 'Falha ao baixar do storage: ' + e.message });
         return;
       }
     }
