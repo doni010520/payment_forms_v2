@@ -903,6 +903,8 @@ function _hkEnvioAjuda() {
   document.body.appendChild(m);
 }
 document.addEventListener('keydown', (ev) => {
+  // Ignorar quando Ctrl, Alt ou Meta estão pressionados (ex: Ctrl+R, Ctrl+Shift+R)
+  if (ev.ctrlKey || ev.altKey || ev.metaKey) return;
   const tag = (ev.target.tagName || '').toLowerCase();
   if (['input','textarea','select'].includes(tag) || ev.target.isContentEditable) return;
   const modaisAbertos = Array.from(document.querySelectorAll('.modal-bg, [id^="modal-hotkeys"]'))
