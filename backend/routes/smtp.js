@@ -56,4 +56,20 @@ router.get('/admin/smtp/status', requireAuth, async (req, res) => {
   res.json({ enabled: await isSmtpEnabled() });
 });
 
+
+// Debug temporário: verifica se a env var do Resend chegou ao processo
+router.get('/admin/smtp/debug-env', requireAuth, requireRole('admin_fesf'), async (req, res) => {
+  const upper = process.env.RESEND_API_KEY || '';
+  const lower = process.env.resend_api_key || '';
+  res.json({
+    RESEND_API_KEY_presente: upper.length > 0,
+    resend_api_key_presente: lower.length > 0,
+    RESEND_API_KEY_len: upper.length,
+    resend_api_key_len: lower.length,
+    RESEND_API_KEY_prefix: upper ? upper.slice(0, 6) + '…' : null,
+    resend_api_key_prefix: lower ? lower.slice(0, 6) + '…' : null,
+    NODE_ENV: process.env.NODE_ENV || '(não definido)',
+  });
+});
+
 export default router;
