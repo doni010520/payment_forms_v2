@@ -9,7 +9,8 @@
 <body>
 
 <nav class="topnav">
-  <div class="brand">
+  <div class="brand" style="gap:8px">
+    <a href="/app/admin.html" id="brand-back-link" style="display:none;font-size:11px;color:var(--primary);text-decoration:none;padding:3px 10px;border:1px solid var(--primary);border-radius:5px;white-space:nowrap;font-weight:600" title="Voltar ao Dashboard">← Dashboard</a>
     <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
     <div>
       <strong>Portal de Pagamentos</strong>
@@ -439,6 +440,10 @@
 import { api, getUsuario, clearSession, requireSession, brl, dataBR, toast, formatarRespostasForm, statusLabel} from '/app/api.js';
 
 const usuario = requireSession();
+if (usuario && usuario.papel === 'admin_fesf') {
+  const el = document.getElementById('brand-back-link');
+  if (el) el.style.display = 'inline-flex';
+}
 if (!usuario) throw new Error('sem sessao');
 
 // inicializa cabecalho

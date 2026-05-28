@@ -359,7 +359,7 @@ async function carregar() {
               ${prob > 0 ? `<div class="alert danger" style="margin-bottom:12px">⚠️ <strong>${prob} campo(s) marcado(s) como problema.</strong> Recomenda-se solicitar retificação ao fornecedor antes de aprovar.</div>` : ''}
               <div class="alert info" style="margin-bottom:12px">📝 Marque cada campo como ✓ verificado, ? em dúvida ou ! problema durante a análise.</div>`;
             })() : ''}
-            ${formatarRespostasFormSecoes(d.form_data, d.anotacoes || [])}
+            ${formatarRespostasFormSecoes(d.form_data, d.anotacoes || [], d.documentos || [], d.id)}
           </div>
 
           <div class="dtab-panel" data-panel="documentos">

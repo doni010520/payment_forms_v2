@@ -444,6 +444,7 @@ export function formatarRespostasFormSecoes(formData, anotacoes = []) {
 
   const HIDE = new Set(['seed', 'files_meta', 'modalidade_codigo', 'campos_revisados', 'observacao', 'dadosSubmetente', 'valorCentavos', 'numeroNF', 'descricao', 'valor_centavos', 'numero_nf', 'motivo', 'editado_por']);
   const anotMap = Object.fromEntries((anotacoes || []).map(a => [a.campo, a]));
+// Mapa campo-form → campo-documento para links inline  const DOC_LINK_MAP = { q10_nfNumero:['q8_nfPdf','q9_nfXml'], q10_numeroNF:['q8_nfPdf','q9_nfXml'], q11_dataEmissao:['q8_nfPdf','q9_nfXml'], q3_valor:['q8_nfPdf'], q3_valorTotalServico:['q8_nfPdf'], q3_valorTotalInsumos:['q8_nfPdf'], q2_cnpj:['q14_cnpj'] };  const docPorCampo = {}; for (const doc of (documentos||[])) { if (!docPorCampo[doc.campo]) docPorCampo[doc.campo]=doc; }
 
   // distribui campos do formData pelas secoes
   const camposPorSecao = SECOES_FORM.map(s => ({ ...s, campos: [] }));
@@ -482,9 +483,21 @@ export function formatarRespostasFormSecoes(formData, anotacoes = []) {
       const n = Number(v);
       if (Number.isFinite(n) && n > 0) valorRender = brl(n);
     }
+    // Link inline para documento relacionado
+    let docLinkHtml = '';
+    if (envioId && DOC_LINK_MAP[k]) {
+      const docsRel = DOC_LINK_MAP[k].map(c => docPorCampo[c]).filter(Boolean);
+      if (docsRel.length) {
+        docLinkHtml = docsRel.map(d => {
+          const ext = (d.nome_original||'').split('.').pop().toUpperCase();
+          return `<a href="/api/envios/${envioId}/documentos/${d.id}/preview" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--primary);color:var(--primary);text-decoration:none;white-space:nowrap;margin-top:6px;margin-right:4px;font-weight:600">👁 Ver ${ext}</a>`;
+        }).join('');
+      }
+    }
     return `<div class="form-readout-field" data-campo="${k}" style="padding:10px 0;border-bottom:1px dotted var(--border)">
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span style="font-family:ui-monospace,monospace;background:rgba(91,84,153,.08);color:var(--primary-2);padding:1px 5px;border-radius:3px;font-size:10px">${qn != null ? qn : '—'}</span><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600;flex:1">${label}</span>${statusBadge}${acoes}</div>
       <div style="margin-top:4px;font-size:13.5px">${valorRender}</div>
+      ${docLinkHtml}
       ${obs}
     </div>`;
   };
