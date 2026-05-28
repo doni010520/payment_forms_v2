@@ -417,13 +417,32 @@
       q7_telefone:       u.fornecedor_telefone || '',
     };
 
-    // Aguarda renderização do formulário (até 6s)
-    let tentativas = 0;
-    while (tentativas++ < 60) {
-      if (document.getElementById('fld_q1_nomeFornecedor')) break;
-      await new Promise(r => setTimeout(r, 100));
+    // Aguarda renderização do formulário via MutationObserver.
+    // O formulário HCC tem uma "view-cover" inicial — os campos só são renderizados
+    // quando o usuário clica em "Iniciar preenchimento →". O observer dispara o
+    // prefill exatamente quando os campos aparecem no DOM (sem polling, sem timeout fixo).
+    const esperarFormularioRenderizado = () => new Promise(resolve => {
+      // Caso 1: form já renderizado (refresh com state em form-view)
+      if (document.getElementById('fld_q1_nomeFornecedor')) return resolve(true);
+      // Caso 2: aguardar até aparecer (capa → form)
+      const obs = new MutationObserver(() => {
+        if (document.getElementById('fld_q1_nomeFornecedor')) {
+          obs.disconnect();
+          resolve(true);
+        }
+      });
+      obs.observe(document.body, { childList: true, subtree: true });
+      // safety: máx 5 minutos (caso o user nunca clique em iniciar, libera o observer)
+      setTimeout(() => { obs.disconnect(); resolve(false); }, 5 * 60 * 1000);
+    });
+
+    const renderizou = await esperarFormularioRenderizado();
+    if (!renderizou) {
+      console.warn('[form-adapter] form não renderizou após 5min — prefill abortado');
+      return;
     }
-    if (tentativas >= 60) { console.warn('[form-adapter] form não renderizou em 6s — prefill abortado'); return; }
+    // Pequena pausa para o renderer terminar de pintar todos os campos
+    await new Promise(r => setTimeout(r, 100));
 
     // V300.2: se tinha draft, limpar os campos VARIÁVEIS que o renderer preencheu
     // do localStorage stale. Resetar window.state.data também para o submit não
