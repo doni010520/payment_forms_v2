@@ -473,13 +473,22 @@
 
     // SEMPRE escreve com o valor do cadastro (autoridade do backend).
     // Dado fixo do cadastro vence sobre qualquer rascunho local.
+    // Para CNPJ e telefone, o form aplica máscara visual após o prefill —
+    // por isso comparamos apenas os dígitos para detectar "mesmo valor"
+    // (evita retry infinito de algo que já está correto, só formatado).
+    const soDigitos = s => String(s || '').replace(/D/g, '');
+    const camposComMascara = new Set(['q2_cnpj', 'q7_telefone']);
     const aplicar = () => {
       let n = 0;
       for (const [campo, valor] of Object.entries(fixos)) {
         if (!valor) continue;
         const input = document.getElementById('fld_' + campo);
         if (!input) continue;
-        if (input.value === String(valor)) continue;
+        // Comparação inteligente: para campos com máscara, compara só dígitos
+        const jaIgual = camposComMascara.has(campo)
+          ? soDigitos(input.value) === soDigitos(valor)
+          : input.value === String(valor);
+        if (jaIgual) continue;
         input.value = valor;
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
