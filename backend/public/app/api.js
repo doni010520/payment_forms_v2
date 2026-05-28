@@ -492,7 +492,9 @@ export function formatarRespostasFormSecoes(formData, anotacoes = [], documentos
       const docsRel = DOC_LINK_MAP[k].map(c => docPorCampo[c]).filter(Boolean);
       if (docsRel.length) { docLinkHtml = docsRel.map(d => {
         const ext = (d.nome_original||'').split('.').pop().toUpperCase();
-        return `<a href='/api/envios/${envioId}/documentos/${d.id}/preview' target='_blank' rel='noopener' style='display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--primary);color:var(--primary);text-decoration:none;white-space:nowrap;margin-top:6px;margin-right:4px;font-weight:600'>👁 Ver ${ext}</a>`;
+        const nomeEsc = (d.nome_original||'').replace(/'/g,"\'");
+        const mimeEsc = (d.mime_type||'application/octet-stream').replace(/'/g,"\'");
+        return `<button type='button' onclick="visualizar(${envioId},${d.id},'${nomeEsc}','${mimeEsc}')" style='display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid var(--primary);background:transparent;color:var(--primary);cursor:pointer;white-space:nowrap;margin-top:6px;margin-right:4px;font-weight:600'>👁 Ver ${ext}</button>`;
       }).join(''); }
     }
     return `<div class="form-readout-field" data-campo="${k}" style="padding:10px 0;border-bottom:1px dotted var(--border)">
