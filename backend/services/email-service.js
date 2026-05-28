@@ -41,12 +41,34 @@ export function resetTransporter() {
 }
 
 /**
+ * Envia via API HTTP do Resend (usa HTTPS:443 — funciona em qualquer hospedagem).
+ * Ativado quando process.env.RESEND_API_KEY está definido.
+ */
+async function enviarViaResendAPI({ destinatario, assunto, corpo }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const cfg = await getSmtpConfig();
+  const from = cfg.from_name
+    ? `${cfg.from_name} <${cfg.from_email || 'onboarding@resend.dev'}>`
+    : (cfg.from_email || 'onboarding@resend.dev');
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to: [destinatario], subject: assunto, text: corpo }),
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(`Resend API ${r.status}: ${err.message || JSON.stringify(err)}`);
+  }
+  const data = await r.json();
+  return data.id || null;
+}
+
+/**
  * Envia (ou simula) e-mail. Sempre persiste em emails_simulados.
  *
- * Retorna o registro inserido (com colunas enviado_real, erro_envio).
- * Erros de SMTP NÃO viram exceções — são gravados em erro_envio para
- * que o fluxo de negócio (aprovação, retificação, etc.) não falhe por
- * causa de uma queda transitória do servidor de e-mail.
+ * Prioridade: 1) Resend HTTP API (RESEND_API_KEY env) 2) SMTP nodemailer 3) simulado.
+ * Erros de envio NÃO viram exceções — são gravados em erro_envio para
+ * que o fluxo de negócio não falhe por causa de uma queda transitória.
  */
 export async function enviarEmail({ destinatario, assunto, corpo, tipo = 'sistema', entidade = null, entidadeId = null }) {
   if (!destinatario) return null;
@@ -55,7 +77,16 @@ export async function enviarEmail({ destinatario, assunto, corpo, tipo = 'sistem
   let erro_envio = null;
   let smtp_message_id = null;
 
-  if (await isSmtpEnabled()) {
+  if (process.env.RESEND_API_KEY) {
+    // Caminho preferido: Resend HTTP API (contorna bloqueio SMTP em hospedagens)
+    try {
+      smtp_message_id = await enviarViaResendAPI({ destinatario, assunto, corpo });
+      enviado_real = true;
+    } catch (e) {
+      erro_envio = String(e.message || e).substring(0, 500);
+    }
+  } else if (await isSmtpEnabled()) {
+    // Fallback: SMTP tradicional via nodemailer
     try {
       const { transporter, cfg } = await getTransporter();
       const from = cfg.from_name ? `"${cfg.from_name}" <${cfg.from_email}>` : cfg.from_email;
@@ -80,16 +111,37 @@ export async function enviarEmail({ destinatario, assunto, corpo, tipo = 'sistem
 
 /**
  * Envia e-mail de teste sem persistir (usado pelo POST /api/admin/smtp/test).
- * Recebe a config diretamente (geralmente do body do request) para que o
- * admin possa testar antes de salvar.
+ * Tenta Resend API primeiro; cai em SMTP se não houver RESEND_API_KEY.
  */
 export async function enviarTestEmail({ destinatario, host, port, secure, user, password, from_name, from_email }) {
   if (!destinatario || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(destinatario)) {
     throw Object.assign(new Error('destinatario invalido'), { code: 'INVALID' });
   }
+
+  // Resend HTTP API (prioridade)
+  if (process.env.RESEND_API_KEY) {
+    const remetente = from_name ? `${from_name} <${from_email || 'onboarding@resend.dev'}>` : (from_email || 'onboarding@resend.dev');
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: remetente,
+        to: [destinatario],
+        subject: '[FESF-SUS] Teste de configuração de e-mail',
+        text: `Este e-mail confirma que o Portal de Pagamentos FESF-SUS está configurado para enviar notificações reais.\n\nProvedor: Resend (API HTTP)\nDe: ${remetente}\nPara: ${destinatario}\n\nAtenciosamente,\nFESF-SUS · Portal de Pagamentos`,
+      }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(`Resend API ${r.status}: ${err.message || JSON.stringify(err)}`);
+    }
+    const data = await r.json();
+    return { ok: true, messageId: data.id || null, via: 'resend-api' };
+  }
+
+  // Fallback SMTP
   if (!host) throw Object.assign(new Error('host obrigatorio'), { code: 'INVALID' });
   if (!from_email) throw Object.assign(new Error('from_email obrigatorio'), { code: 'INVALID' });
-
   const transporter = nodemailer.createTransport({
     host, port: Number(port) || 587, secure: !!secure,
     auth: user ? { user, pass: password || '' } : undefined,
@@ -99,14 +151,11 @@ export async function enviarTestEmail({ destinatario, host, port, secure, user, 
   const info = await transporter.sendMail({
     from, to: destinatario,
     subject: '[FESF-SUS] Teste de configuração SMTP',
-    text: `Este e-mail confirma que a configuração SMTP do Portal de Pagamentos FESF-SUS está funcionando corretamente.\n\nHost: ${host}:${port}\nDe: ${from}\nPara: ${destinatario}\n\nSe você recebeu esta mensagem, o sistema está pronto para enviar notificações automáticas (aprovações, lembretes, retificações).\n\nAtenciosamente,\nFESF-SUS · Portal de Pagamentos`,
+    text: `Este e-mail confirma que a configuração SMTP do Portal de Pagamentos FESF-SUS está funcionando corretamente.\n\nHost: ${host}:${port}\nDe: ${from}\nPara: ${destinatario}\n\nAtenciosamente,\nFESF-SUS · Portal de Pagamentos`,
   });
-  return { ok: true, messageId: info.messageId || null };
+  return { ok: true, messageId: info.messageId || null, via: 'smtp' };
 }
 
-/**
- * Helpers de template — geram assunto + corpo conforme o tipo.
- */
 export const templates = {
   envio_aprovado: ({ protocolo, valor, unidade }) => ({
     assunto: `[FESF-SUS] Envio APROVADO · ${protocolo}`,
