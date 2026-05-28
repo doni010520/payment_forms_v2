@@ -140,6 +140,12 @@ export const templates = {
     assunto: '[FESF-SUS] Sua conta no Portal de Pagamentos foi ativada',
     corpo: `Olá,\n\nA conta de "${razao_social}" no Portal de Pagamentos da FESF-SUS foi APROVADA e ativada.\n\nAcesso:\n  Login: ${email}\n  Senha temporária: ${senha_temp}\n\nAcesse o portal e altere a senha no primeiro login:\nhttps://pagamentos.fesfsus.ba.gov.br/app/login.html\n\nAtenciosamente,\nFESF-SUS`,
   }),
+
+  // Enviado ao fornecedor logo após a criação do envio via portal
+  envio_recebido: ({ protocolo, competencia, valor, unidade, fornecedor, linkRecibo }) => ({
+    assunto: `[FESF-SUS] Solicitação recebida · ${protocolo}`,
+    corpo: `Olá,\n\nSua solicitação de pagamento foi recebida com sucesso pela FESF-SUS.\n\n──────────────────────────────────────\n  Protocolo:    ${protocolo}\n  Empresa:      ${fornecedor}\n  Unidade:      ${unidade}\n  Competência:  ${competencia}\n  Valor:        ${valor}\n──────────────────────────────────────\n\n📄 Recibo da solicitação (imprimir / salvar):\n${linkRecibo}\n\n🔍 Acompanhar status a qualquer momento:\nhttps://fesf-payment-forms.onrender.com/app/consulta.html\n\nPróximos passos:\n  1. Sua documentação será analisada pela equipe FESF em até 5 dias úteis.\n  2. Caso seja necessário corrigir ou complementar algum documento, você\n     receberá um novo e-mail com as instruções.\n  3. Após a aprovação, o pagamento será processado pela FESF Sede e você\n     será notificado por e-mail.\n\nGuarde o protocolo acima — ele identifica sua solicitação em qualquer\nconsulta ou contato com a FESF.\n\nAtenciosamente,\nFESF-SUS · Portal de Pagamentos\nhttps://fesf-payment-forms.onrender.com`,
+  }),
 };
 
 /**

@@ -132,6 +132,31 @@ router.post('/portal', requireAuth, requireRole('fornecedor'), rateLimit({ max: 
         });
       } catch (e) { console.error('[envios/portal/complementos]', e.message); }
     }
+    // Email de recibo ao fornecedor (fire-and-forget — não bloqueia a resposta)
+    ;(async () => {
+      try {
+        const { enviarEmail, templates } = await import('../services/email-service.js');
+        const [usr, unid, forn] = await Promise.all([
+          queryOne('SELECT email, nome FROM usuarios WHERE id=$1', [req.usuario.id]),
+          queryOne('SELECT sigla, nome FROM unidades WHERE id=$1', [envio.unidade_id]),
+          queryOne('SELECT razao_social FROM fornecedores WHERE id=$1', [req.usuario.fornecedor_id]),
+        ]);
+        if (!usr?.email) return;
+        const valorFmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+          .format((envio.valor_centavos || 0) / 100);
+        const [ano, mes] = (envio.competencia || '').split('-');
+        const competenciaFmt = mes && ano ? `${mes}/${ano}` : envio.competencia;
+        const { assunto, corpo } = templates.envio_recebido({
+          protocolo:   envio.protocolo,
+          competencia: competenciaFmt,
+          valor:       valorFmt,
+          unidade:     unid ? `${unid.sigla} — ${unid.nome}` : String(envio.unidade_id),
+          fornecedor:  forn?.razao_social || usr.nome,
+          linkRecibo:  `https://fesf-payment-forms.onrender.com/app/recibo.html?protocolo=${encodeURIComponent(envio.protocolo)}`,
+        });
+        await enviarEmail({ destinatario: usr.email, assunto, corpo, tipo: 'envio_recebido', entidade: 'envio', entidadeId: envio.id });
+      } catch (e) { console.error('[envios/portal/email-recibo]', e.message); }
+    })();
     res.status(201).json({ envio });
   } catch (e) {
     if (e.code === 'FORBIDDEN')  return res.status(403).json({ error: e.message });
