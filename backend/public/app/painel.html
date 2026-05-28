@@ -1444,6 +1444,27 @@ if (envioParam) {
   setTimeout(() => verDetalhes(envioParam), 300); // espera carregar a lista
 }
 
+// Leitura de parâmetros da URL vindos do dashboard (KPIs clicáveis)
+// ?status=em_analise  → pré-seleciona filtro na aba Envios
+// ?tab=pendencias     → abre diretamente a aba Pendências
+(function() {
+  const p = new URLSearchParams(location.search);
+  const statusParam = p.get('status');
+  const tabParam    = p.get('tab');
+  if (statusParam) {
+    setTimeout(() => {
+      const sel = document.getElementById('f-status');
+      if (sel) { sel.value = statusParam; carregarEnvios(); }
+    }, 400);
+  }
+  if (tabParam) {
+    setTimeout(() => {
+      const tabEl = document.querySelector(`[data-tab="${tabParam}"]`);
+      if (tabEl) tabEl.click();
+    }, 200);
+  }
+})();
+
 // V230/O1: Hotkeys de triagem
 // J/K navega na lista de envios; Enter abre detalhes; ? mostra ajuda; Esc fecha modal.
 // As ações são minimalistas no painel — A/R/C ficam dentro de envio.html (página dedicada).

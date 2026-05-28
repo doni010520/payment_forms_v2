@@ -32,7 +32,7 @@
   </div>
   <div class="tabs">
     <a class="active" data-tab="kpis">Dashboard</a>
-    <a data-tab="pendentes">Pendentes <span id="badge-pend" class="pill rejeitado" style="display:none"></span></a>
+    <a href="/app/painel.html">Pendentes <span id="badge-pend" class="pill rejeitado" style="display:none"></span></a>
     <a href="/app/admin-pagamentos.html">Pagamentos</a>
     <a href="/app/admin-unidades.html">Unidades</a>
     <a href="/app/admin-fornecedores.html">Fornecedores</a>
@@ -225,10 +225,10 @@ async function carregarMetricas() {
     const semResp = (m.pendencias.find(p=>p.status==='sem_resposta')||{n:0}).n;
     const criticas = atrasadas + semResp;
     document.getElementById('kpis-totais').innerHTML = `
-      <div class="kpi"><div class="label">Em análise</div><div class="value">${emAnalise}</div><div class="sub">${brl(m.totais.total_centavos)} movimento total</div></div>
-      <div class="kpi warn"><div class="label">Aguardando ret.</div><div class="value">${aguardRet}</div><div class="sub">${aguardRet > 0 ? 'esperando fornecedor' : '— sem pendências'}</div></div>
-      <div class="kpi accent"><div class="label">Aprovados (mês)</div><div class="value">${aprovados}</div><div class="sub">${aprovados > 0 ? 'incluindo pagos' : '— ainda nenhum'}</div></div>
-      <div class="kpi ${criticas > 0 ? 'danger' : 'warn'}"><div class="label">Pendências críticas</div><div class="value">${criticas}</div><div class="sub">${criticas > 0 ? `${atrasadas} atrasada${atrasadas !== 1 ? 's' : ''} · ${semResp} sem resposta` : '— sem pendências'}</div></div>
+      <a class="kpi" href="/app/painel.html?status=em_analise" style="text-decoration:none;cursor:pointer;display:block" title="Ver envios em análise"><div class="label">Em análise</div><div class="value">${emAnalise}</div><div class="sub">${brl(m.totais.total_centavos)} movimento total</div></a>
+      <a class="kpi warn" href="/app/painel.html?status=aguardando_ret" style="text-decoration:none;cursor:pointer;display:block" title="Ver aguardando retificação"><div class="label">Aguardando ret.</div><div class="value">${aguardRet}</div><div class="sub">${aguardRet > 0 ? 'esperando fornecedor' : '— sem pendências'}</div></a>
+      <a class="kpi accent" href="/app/admin-pagamentos.html" style="text-decoration:none;cursor:pointer;display:block" title="Ver aprovados para pagamento"><div class="label">Aprovados (mês)</div><div class="value">${aprovados}</div><div class="sub">${aprovados > 0 ? 'incluindo pagos' : '— ainda nenhum'}</div></a>
+      <a class="kpi ${criticas > 0 ? 'danger' : 'warn'}" href="/app/painel.html?tab=pendencias" style="text-decoration:none;cursor:pointer;display:block" title="Ver pendências críticas"><div class="label">Pendências críticas</div><div class="value">${criticas}</div><div class="sub">${criticas > 0 ? `${atrasadas} atrasada${atrasadas !== 1 ? 's' : ''} · ${semResp} sem resposta` : '— sem pendências'}</div></a>
     `;
     // V273: labels mais legíveis nos bar charts — origem usa statusLabel para mostrar "Portal", "Link público", "Manual"
     renderBar(document.getElementById('bars-unidade'), m.por_unidade.map(u => ({ label: u.sigla + (u.cidade?` · ${u.cidade}`:''), n: u.total_envios })), 'label', 'n');
