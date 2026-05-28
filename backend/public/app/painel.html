@@ -339,6 +339,7 @@
     <h2>Gerar link público</h2>
     <p class="sub">Link com token único para fornecedor enviar sem login.</p>
     <form id="form-link">
+      <div class="field" id="lnk-unit-wrap" style="display:none"><label>Unidade</label><select id="lnk-unit"></select></div>
       <div class="field"><label>Fornecedor (opcional)</label><select id="lnk-forn"><option value="">— vincular depois —</option></select></div>
       <div class="row">
         <div class="field"><label>Modalidade</label><select id="lnk-mod" required></select></div>
@@ -704,6 +705,21 @@ async function inicializar() {
     popularSelectModalidades('exp-mod');
     popularSelectModalidades('lnk-mod');
     popularSelectModalidades('man-mod');
+    // admin_fesf: mostrar seletor de unidade nos modais de link/lançamento
+    if (usuario && usuario.papel === 'admin_fesf') {
+      try {
+        const { unidades } = await api.unidadesTodas().catch(() => ({ unidades: [] }));
+        const optsHtml = unidades.map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
+        ['lnk-unit', 'man-unit'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.innerHTML = optsHtml;
+        });
+        ['lnk-unit-wrap', 'man-unit-wrap'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = '';
+        });
+      } catch(e) { console.warn('Erro ao carregar unidades para admin:', e); }
+    }
     await carregarKPIs();
     await carregarEnvios();
     await carregarBarChart();
@@ -1298,7 +1314,7 @@ document.getElementById('form-link').addEventListener('submit', async (e) => {
     const usosMaxRaw = document.getElementById('lnk-usos-max').value;
     const r = await api.criarLink({
       fornecedor_id: document.getElementById('lnk-forn').value || null,
-      unidade_id: usuario.unidade_id,
+      unidade_id: usuario.unidade_id || Number(document.getElementById('lnk-unit')?.value) || null,
       modalidade_id: Number(document.getElementById('lnk-mod').value),
       email_destinatario: document.getElementById('lnk-email').value || null,
       expira_em: document.getElementById('lnk-expira').value || null,
