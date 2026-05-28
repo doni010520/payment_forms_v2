@@ -42,10 +42,10 @@ export function resetTransporter() {
 
 /**
  * Envia via API HTTP do Resend (usa HTTPS:443 — funciona em qualquer hospedagem).
- * Ativado quando process.env.RESEND_API_KEY está definido.
+ * Ativado quando process.env.RESEND_API_KEY || process.env.resend_api_key está definido.
  */
 async function enviarViaResendAPI({ destinatario, assunto, corpo }) {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = process.env.RESEND_API_KEY || process.env.resend_api_key;
   const cfg = await getSmtpConfig();
   const from = cfg.from_name
     ? `${cfg.from_name} <${cfg.from_email || 'onboarding@resend.dev'}>`
@@ -77,7 +77,7 @@ export async function enviarEmail({ destinatario, assunto, corpo, tipo = 'sistem
   let erro_envio = null;
   let smtp_message_id = null;
 
-  if (process.env.RESEND_API_KEY) {
+  if (process.env.RESEND_API_KEY || process.env.resend_api_key) {
     // Caminho preferido: Resend HTTP API (contorna bloqueio SMTP em hospedagens)
     try {
       smtp_message_id = await enviarViaResendAPI({ destinatario, assunto, corpo });
@@ -119,11 +119,11 @@ export async function enviarTestEmail({ destinatario, host, port, secure, user, 
   }
 
   // Resend HTTP API (prioridade)
-  if (process.env.RESEND_API_KEY) {
+  if (process.env.RESEND_API_KEY || process.env.resend_api_key) {
     const remetente = from_name ? `${from_name} <${from_email || 'onboarding@resend.dev'}>` : (from_email || 'onboarding@resend.dev');
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': `Bearer ${process.env.RESEND_API_KEY || process.env.resend_api_key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: remetente,
         to: [destinatario],
