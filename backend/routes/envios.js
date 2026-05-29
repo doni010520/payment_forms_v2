@@ -1009,7 +1009,7 @@ router.post('/:id/anotacoes', requireAuth, requireRole('operador_unidade', 'admi
     const envioId = Number(req.params.id);
     const { campo, status, observacao } = req.body || {};
     if (!campo) return res.status(400).json({ error: 'campo obrigatorio' });
-    if (!['verificado','duvida','problema'].includes(status)) return res.status(400).json({ error: 'status invalido' });
+    if (!['verificado','duvida','problema','comentario'].includes(status)) return res.status(400).json({ error: 'status invalido' });
     const envio = await queryOne('SELECT unidade_id FROM envios WHERE id=$1', [envioId]);
     if (!envio) return res.status(404).json({ error: 'envio nao encontrado' });
     if (req.usuario.papel === 'operador_unidade' && envio.unidade_id !== req.usuario.unidade_id) return res.status(403).json({ error: 'Acesso negado' });
@@ -1153,7 +1153,7 @@ router.post('/:id/documentos/:docId/anotacao', requireAuth, requireRole('operado
     const envioId = Number(req.params.id);
     const docId = Number(req.params.docId);
     const { status, observacao } = req.body || {};
-    if (!['verificado','duvida','problema'].includes(status)) return res.status(400).json({ error: 'status invalido' });
+    if (!['verificado','duvida','problema','comentario'].includes(status)) return res.status(400).json({ error: 'status invalido' });
     const envio = await queryOne('SELECT unidade_id FROM envios WHERE id=$1', [envioId]);
     if (!envio) return res.status(404).json({ error: 'envio nao encontrado' });
     if (req.usuario.papel === 'operador_unidade' && envio.unidade_id !== req.usuario.unidade_id) return res.status(403).json({ error: 'Acesso negado' });

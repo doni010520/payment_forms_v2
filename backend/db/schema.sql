@@ -359,7 +359,7 @@ CREATE TABLE IF NOT EXISTS anotacoes_envio (
   id            SERIAL PRIMARY KEY,
   envio_id      INTEGER NOT NULL REFERENCES envios(id) ON DELETE CASCADE,
   campo         TEXT NOT NULL,                        -- ex: q1_nomeFornecedor, q10_nfNumero
-  status        TEXT NOT NULL CHECK (status IN ('verificado','duvida','problema')),
+  status        TEXT NOT NULL CHECK (status IN ('verificado','duvida','problema','comentario')),
   observacao    TEXT,
   operador_id   INTEGER NOT NULL REFERENCES usuarios(id),  -- ÚLTIMO que tocou (V231/O2: ver criado_por_id)
   criado_por_id INTEGER REFERENCES usuarios(id),       -- V231/O2: criador original (preservado)
@@ -378,7 +378,7 @@ CREATE TABLE IF NOT EXISTS anotacoes_documento (
   id            SERIAL PRIMARY KEY,
   documento_id  INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
   envio_id      INTEGER NOT NULL REFERENCES envios(id) ON DELETE CASCADE,
-  status        TEXT NOT NULL CHECK (status IN ('verificado','duvida','problema')),
+  status        TEXT NOT NULL CHECK (status IN ('verificado','duvida','problema','comentario')),
   observacao    TEXT,
   operador_id   INTEGER NOT NULL REFERENCES usuarios(id),  -- ÚLTIMO que tocou
   criado_por_id INTEGER REFERENCES usuarios(id),       -- V231/O2: criador original
