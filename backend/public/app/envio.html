@@ -145,8 +145,7 @@
 <div class="modal-bg" id="modal-anotacao">
   <div class="modal" style="width:480px;max-width:92vw">
     <h2 id="anot-titulo">Adicionar anotação</h2>
-    <p class="sub" id="anot-subtitulo">—</p>
-    <div class="field" style="margin-top:8px"><label for="anot-obs">Observação (opcional)</label><textarea id="anot-obs" rows="4" placeholder="Descreva o que precisa ser observado..." style="resize:vertical"></textarea></div>
+    <div class="field" style="margin-top:14px"><textarea id="anot-obs" rows="4" placeholder="Descreva o que precisa ser observado..." style="resize:vertical"></textarea></div>
     <div class="actions">
       <button type="button" onclick="window.__anotResolve(null); fecharModal('modal-anotacao')">Cancelar</button>
       <button id="anot-confirmar" class="primary" type="button" onclick="window.__anotResolve(document.getElementById('anot-obs').value || null); fecharModal('modal-anotacao')">Salvar</button>
@@ -197,9 +196,6 @@ document.querySelectorAll('.modal-bg').forEach(bg => bg.addEventListener('click'
 window.promptAnotacao = ({ titulo = 'Adicionar anotação', subtitulo = '', corStatus = null, valorInicial = '' } = {}) => {
   return new Promise(resolve => {
     document.getElementById('anot-titulo').textContent = titulo;
-    const subEl = document.getElementById('anot-subtitulo');
-    subEl.innerHTML = subtitulo;
-    if (corStatus) subEl.style.color = corStatus; else subEl.style.color = '';
     const ta = document.getElementById('anot-obs');
     ta.value = valorInicial;
     window.__anotResolve = resolve;
