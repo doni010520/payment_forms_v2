@@ -474,11 +474,11 @@ export function formatarRespostasFormSecoes(formData, anotacoes = [], documentos
     const status = an ? an.status : null;
     const statusBadge = status === 'verificado' ? '<span class="ano-badge ok" title="Verificado">✓</span>' :
                         status === 'duvida' ? '<span class="ano-badge dub" title="Em duvida">?</span>' :
-                        status === 'problema' ? '<span class="ano-badge prob" title="Problema">!</span>' :
-                        status === 'comentario' ? '<span class="ano-badge com" title="Comentário" style="background:#e7e7e2;color:#555;border:1px solid #d4d4cc">💬</span>' : '';
-    const obs = an && an.observacao ? `<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px">📝 ${an.observacao}</div>` : '';
+                        status === 'problema' ? '<span class="ano-badge prob" title="Problema">!</span>' : '';
+    // V304: observação visivelmente destacada — é onde o operador deixa comentários
+    const obs = an && an.observacao ? `<div style="margin-top:8px;padding:8px 10px;background:rgba(91,84,153,0.05);border-left:3px solid var(--primary);border-radius:0 6px 6px 0;font-size:12.5px;color:var(--text);line-height:1.45"><span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600;display:block;margin-bottom:2px">💬 observação</span>${an.observacao}</div>` : '';
     const labelEsc = String(label || k).replace(/"/g, '&quot;');
-    const acoes = `<div class="ano-btns" style="display:flex;gap:3px"><button class="mini-btn ok" data-anotar="${k}" data-label="${labelEsc}" data-status="verificado" title="Marcar verificado">✓</button><button class="mini-btn dub" data-anotar="${k}" data-label="${labelEsc}" data-status="duvida" title="Marcar duvida">?</button><button class="mini-btn prob" data-anotar="${k}" data-label="${labelEsc}" data-status="problema" title="Marcar problema">!</button><button class="mini-btn com" data-anotar="${k}" data-label="${labelEsc}" data-status="comentario" title="Adicionar comentário" style="background:transparent;color:#666;border:1.5px solid #c8c8be;font-size:11px">💬</button></div>`;
+    const acoes = `<div class="ano-btns" style="display:flex;gap:3px"><button class="mini-btn ok" data-anotar="${k}" data-label="${labelEsc}" data-status="verificado" title="Marcar verificado">✓</button><button class="mini-btn dub" data-anotar="${k}" data-label="${labelEsc}" data-status="duvida" title="Em dúvida">?</button><button class="mini-btn prob" data-anotar="${k}" data-label="${labelEsc}" data-status="problema" title="Marcar problema">!</button></div>`;
     // V300: formatação inteligente — se o campo é monetário, formatar como BRL
     let valorRender = v;
     const klow = String(k).toLowerCase();

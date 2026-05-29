@@ -373,10 +373,9 @@ async function carregar() {
               const verif = ans.filter(a => a.status === 'verificado').length;
               const duv = ans.filter(a => a.status === 'duvida').length;
               const prob = ans.filter(a => a.status === 'problema').length;
-              const com = ans.filter(a => a.status === 'comentario').length;
               const totalCampos = d.form_data ? Object.keys(d.form_data).filter(k => !['seed','files_meta','modalidade_codigo'].includes(k) && d.form_data[k]).length : 0;
               const naoAnotados = Math.max(0, totalCampos - ans.length);
-              return `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
+              return `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
                 <div style="padding:10px 14px;background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:6px">
                   <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600">✓ Verificados</div>
                   <div style="font-size:22px;font-weight:700;color:var(--accent);margin-top:2px">${verif}</div>
@@ -389,17 +388,13 @@ async function carregar() {
                   <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600">! Problemas</div>
                   <div style="font-size:22px;font-weight:700;color:var(--danger);margin-top:2px">${prob}</div>
                 </div>
-                <div style="padding:10px 14px;background:#ececea;border-left:3px solid #999;border-radius:6px">
-                  <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600">💬 Comentários</div>
-                  <div style="font-size:22px;font-weight:700;color:#555;margin-top:2px">${com}</div>
-                </div>
                 <div style="padding:10px 14px;background:var(--surface-2);border-left:3px solid var(--border-strong);border-radius:6px">
                   <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600">Não revisados</div>
                   <div style="font-size:22px;font-weight:700;color:var(--text-3);margin-top:2px">${naoAnotados}</div>
                 </div>
               </div>
               ${prob > 0 ? `<div class="alert danger" style="margin-bottom:12px">⚠️ <strong>${prob} campo(s) marcado(s) como problema.</strong> Recomenda-se solicitar retificação ao fornecedor antes de aprovar.</div>` : ''}
-              <div class="alert info" style="margin-bottom:12px">📝 Marque cada campo como ✓ verificado, ? em dúvida, ! problema ou 💬 comentário durante a análise.</div>`;
+              <div class="alert info" style="margin-bottom:12px">📝 Marque cada campo como ✓ verificado, ? em dúvida ou ! problema. Adicione uma observação se necessário.</div>`;
             })() : ''}
             ${formatarRespostasFormSecoes(d.form_data, d.anotacoes || [], d.documentos || [], d.id)}
           </div>
@@ -497,7 +492,6 @@ async function carregar() {
                       verificado: '<span style="background:#d4f0d6;color:#2f7d5c;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">✓ verificado</span>',
                       duvida:     '<span style="background:#fff4d6;color:#a06800;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">? em dúvida</span>',
                       problema:   '<span style="background:#ffd6d6;color:#b22828;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">! problema</span>',
-                      comentario: '<span style="background:#ececea;color:#555;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">💬 comentário</span>',
                     };
                     const ultimaVersaoNum = Math.max(...(d.versoes || []).map(v => v.numero), 0);
                     const cards = d.documentos.map(doc => {
@@ -514,7 +508,6 @@ async function carregar() {
                           <button style="padding:2px 8px;font-size:13px;font-weight:700;background:transparent;color:#2d8659;border:1.5px solid #b4d9c0;border-radius:4px;line-height:1.2" data-anot-doc="${doc.id}" data-status="verificado" title="Marcar como verificado">✓</button>
                           <button style="padding:2px 8px;font-size:13px;font-weight:700;background:transparent;color:#a67500;border:1.5px solid #e5d088;border-radius:4px;line-height:1.2" data-anot-doc="${doc.id}" data-status="duvida"     title="Marcar como em dúvida">?</button>
                           <button style="padding:2px 8px;font-size:13px;font-weight:700;background:transparent;color:#b81b1b;border:1.5px solid #e5b4b4;border-radius:4px;line-height:1.2" data-anot-doc="${doc.id}" data-status="problema"   title="Marcar como problema">!</button>
-                          <button style="padding:2px 8px;font-size:13px;background:transparent;color:#666;border:1.5px solid #c8c8be;border-radius:4px;line-height:1.2" data-anot-doc="${doc.id}" data-status="comentario"  title="Adicionar comentário">💬</button>
                           <button style="padding:3px 8px;font-size:11px" data-reenvio-doc="${doc.id}" data-campo="${doc.campo}" title="Pedir reenvio deste arquivo">↻ Reenvio</button>
                         </div>` : '';
                       const uploaderInfo = doc.uploaded_por_nome ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">Enviado por: ${doc.uploaded_por_nome}</div>` : '';
