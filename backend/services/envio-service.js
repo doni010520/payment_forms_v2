@@ -288,7 +288,8 @@ export async function listarEnviosUnidade(unidadeId, { origem = null, status = n
 
   const sql = `
     SELECT e.id, e.protocolo, e.competencia, e.origem, e.status, e.valor_centavos, e.numero_nf, e.descricao, e.criado_em,
-           e.unidade_id, un.sigla AS unidade_sigla, un.nome AS unidade_nome,
+           e.unidade_id, e.fornecedor_id, e.submetido_por_nome, e.submetido_por_documento,
+           un.sigla AS unidade_sigla, un.nome AS unidade_nome,
            f.razao_social, f.documento, f.tipo AS fornecedor_tipo,
            m.codigo AS modalidade_codigo, m.nome AS modalidade_nome
     FROM envios e
