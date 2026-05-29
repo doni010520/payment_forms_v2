@@ -92,7 +92,7 @@
         <h3 style="margin:0">Envios da unidade · últimas semanas</h3>
         <div class="muted" style="font-size:11.5px">📊 acumulado por semana</div>
       </div>
-      <div id="bar-chart" style="margin-top:14px;display:flex;align-items:flex-end;gap:14px;height:200px;padding:0 6px;border-bottom:1px solid var(--border)"></div>
+      <div id="bar-chart" style="margin-top:14px;position:relative;height:200px;padding:8px 8px 0"></div>
       <div style="display:flex;gap:14px;margin-top:10px;font-size:11.5px;color:var(--muted);justify-content:center">
         <span><span style="display:inline-block;width:10px;height:10px;background:var(--info);border-radius:2px;vertical-align:middle"></span> Em análise</span>
         <span><span style="display:inline-block;width:10px;height:10px;background:var(--warning);border-radius:2px;vertical-align:middle"></span> Aguard. ret.</span>
@@ -756,26 +756,62 @@ async function carregarBarChart() {
       return;
     }
     const max = Math.max(...serie.map(s => s.total)) || 1;
-    cont.innerHTML = serie.map(s => {
-      const semanaInicio = new Date(s.semana);
-      const label = `${String(semanaInicio.getDate()).padStart(2,'0')}/${String(semanaInicio.getMonth()+1).padStart(2,'0')}`;
-      const segs = [
-        { val: s.em_analise, cor: 'var(--info)' },
-        { val: s.aguardando_ret, cor: 'var(--warning)' },
-        { val: s.aprovados, cor: 'var(--accent)' },
-        { val: s.rejeitados, cor: 'var(--danger)' },
-      ];
-      const total = s.total;
-      const altura = Math.max(8, (total / max) * 170);
+    // Escala "amigável": arredonda max para próximo múltiplo de 5/10 para ticks legíveis
+    const escalaMax = max <= 5 ? 5 : max <= 10 ? 10 : Math.ceil(max / 5) * 5;
+    const altUtil = 140; // altura efetiva da área de barras
+    const cores = {
+      em_analise:     '#6c8ed4',  // azul suave
+      aguardando_ret: '#d4a55c',  // âmbar
+      aprovados:      '#7ab78a',  // verde suave
+      rejeitados:     '#d47a7a',  // vermelho suave
+    };
+    // Linhas de referência horizontais (0, 25, 50, 75, 100% do escalaMax)
+    const gridLines = [0.25, 0.5, 0.75, 1].map(pct => {
+      const val = Math.round(escalaMax * pct);
+      const top = altUtil - (altUtil * pct);
       return `
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end">
-          <div style="font-size:13px;font-weight:600;color:var(--text)">${total}</div>
-          <div style="display:flex;flex-direction:column;width:36px;height:${altura}px;border-radius:4px 4px 0 0;overflow:hidden;background:var(--surface-2)">
-            ${segs.filter(x => x.val > 0).map(x => `<div style="background:${x.cor};flex:${x.val}" title="${x.val}"></div>`).join('')}
-          </div>
-          <div style="font-size:11px;color:var(--muted)">${label}</div>
+        <div style="position:absolute;left:0;right:0;top:${top + 22}px;border-top:1px dashed rgba(0,0,0,0.07);pointer-events:none">
+          <span style="position:absolute;left:0;top:-7px;font-size:10px;color:var(--muted);background:var(--surface);padding:0 4px">${val}</span>
         </div>`;
     }).join('');
+    const baseLine = `<div style="position:absolute;left:0;right:0;bottom:24px;border-top:1px solid var(--border)"></div>`;
+    // Barras
+    const barsHtml = serie.map(s => {
+      const semanaInicio = new Date(s.semana);
+      const label = `${String(semanaInicio.getDate()).padStart(2,'0')}/${String(semanaInicio.getMonth()+1).padStart(2,'0')}`;
+      const total = s.total;
+      const altura = total > 0 ? Math.max(4, (total / escalaMax) * altUtil) : 0;
+      const segs = [
+        { val: s.em_analise, cor: cores.em_analise, lbl: 'Em análise' },
+        { val: s.aguardando_ret, cor: cores.aguardando_ret, lbl: 'Aguard. ret.' },
+        { val: s.aprovados, cor: cores.aprovados, lbl: 'Aprovados' },
+        { val: s.rejeitados, cor: cores.rejeitados, lbl: 'Rejeitados' },
+      ].filter(x => x.val > 0);
+      const tooltip = total === 0 ? 'Sem envios nesta semana' : segs.map(x => `${x.lbl}: ${x.val}`).join(' · ');
+      // Vazio: traço discreto na base
+      const barInner = total === 0
+        ? `<div style="width:32px;height:3px;background:rgba(0,0,0,0.08);border-radius:2px"></div>`
+        : `<div style="display:flex;flex-direction:column;width:36px;height:${altura}px;border-radius:4px 4px 0 0;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,0.06)">
+             ${segs.map(x => `<div style="background:${x.cor};flex:${x.val}"></div>`).join('')}
+           </div>`;
+      const valLabel = total > 0
+        ? `<div style="font-size:12px;font-weight:600;color:var(--text);line-height:1">${total}</div>`
+        : `<div style="font-size:12px;color:var(--muted);line-height:1">·</div>`;
+      return `
+        <div title="${label} · ${tooltip}" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px;cursor:default">
+          ${valLabel}
+          ${barInner}
+          <div style="font-size:10.5px;color:var(--muted);margin-top:2px">${label}</div>
+        </div>`;
+    }).join('');
+    cont.innerHTML = `
+      <div style="position:relative;height:${altUtil + 50}px;padding-left:28px">
+        ${gridLines}
+        ${baseLine}
+        <div style="position:absolute;left:28px;right:0;bottom:0;top:0;display:flex;align-items:flex-end;gap:10px">
+          ${barsHtml}
+        </div>
+      </div>`;
   } catch (e) {
     console.warn('chart erro', e);
     document.getElementById('chart-sidebar-wrap').style.display = 'none';
