@@ -177,6 +177,25 @@ export const templates = {
     assunto: '[FESF-SUS] Solicitação de reset de senha recebida',
     corpo: `Olá ${nome},\n\nSua solicitação de reset de senha foi recebida. Um administrador FESF Sede entrará em contato para enviar a nova senha por canal seguro.\n\nSe não foi você que solicitou, ignore este e-mail.\n\nAtenciosamente,\nFESF-SUS`,
   }),
+  envio_aprovado_sede: ({ protocolo, valor, unidade, fornecedor, link }) => ({
+    assunto: `[FESF-SUS] Aprovado · ${protocolo} · aguarda pagamento`,
+    corpo: `Olá,
+
+Um envio foi APROVADO pela unidade e aguarda processamento financeiro pela FESF Sede.
+
+──────────────────────────────────────
+  Protocolo:   ${protocolo}
+  Fornecedor:  ${fornecedor}
+  Unidade:     ${unidade}
+  Valor:       ${valor}
+──────────────────────────────────────
+
+Acesse para processar o pagamento:
+${link}
+
+Atenciosamente,
+FESF-SUS · Portal de Pagamentos`,
+  }),
   envio_pago: ({ protocolo, valor, observacao }) => ({
     assunto: `[FESF-SUS] Pagamento processado · ${protocolo}`,
     corpo: `Olá,\n\nO pagamento referente ao envio ${protocolo} (valor ${valor}) foi processado pela FESF Sede.\n\n${observacao ? 'Observação: ' + observacao + '\n\n' : ''}Atenciosamente,\nFESF-SUS · Portal de Pagamentos`,

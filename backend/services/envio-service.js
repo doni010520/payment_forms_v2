@@ -361,6 +361,53 @@ export async function mudarStatusEnvio({ envioId, novoStatus, usuarioId, motivo 
     link: `/app/portal.html?envio=${envioId}`, entidade: 'envio', entidadeId: envioId,
   });
 
+  // V302: quando o envio é aprovado, notifica admin_fesf (Sede) por painel + e-mail.
+  // Fire-and-forget — não bloqueia a resposta caso algo falhe.
+  if (novoStatus === 'aprovado') {
+    (async () => {
+      try {
+        const { notificarAdmins } = await import('./notificacao-service.js');
+        await notificarAdmins({
+          tipo: 'envio_aprovado_para_sede',
+          mensagem: `Envio ${envio.protocolo} aprovado pela unidade · aguarda pagamento`,
+          link: `/app/envio.html?id=${envioId}`,
+          entidade: 'envio', entidadeId: envioId,
+        });
+        // E-mail individual para cada admin_fesf ativo
+        const { rows: admins } = await query(
+          `SELECT id, email, nome FROM usuarios WHERE papel='admin_fesf' AND ativo=TRUE AND email IS NOT NULL`
+        );
+        if (admins.length > 0) {
+          const { enviarEmail, templates } = await import('./email-service.js');
+          const ctxRow = await queryOne(
+            `SELECT e.protocolo, e.valor_centavos, COALESCE(f.razao_social, e.submetido_por_nome, '(sem fornecedor)') AS fornecedor, u.nome AS unidade
+             FROM envios e
+             LEFT JOIN fornecedores f ON f.id = e.fornecedor_id
+             JOIN unidades u ON u.id = e.unidade_id
+             WHERE e.id = $1`, [envioId]
+          );
+          const valorFmt = 'R$ ' + (Number(ctxRow.valor_centavos || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+          const linkAbs = (process.env.APP_BASE_URL || 'https://fesf-payment-forms.onrender.com') + `/app/envio.html?id=${envioId}`;
+          const { assunto, corpo } = templates.envio_aprovado_sede({
+            protocolo: ctxRow.protocolo,
+            valor: valorFmt,
+            unidade: ctxRow.unidade,
+            fornecedor: ctxRow.fornecedor,
+            link: linkAbs,
+          });
+          for (const a of admins) {
+            await enviarEmail({
+              destinatario: a.email, assunto, corpo,
+              tipo: 'envio_aprovado_sede', entidade: 'envio', entidadeId: envioId,
+            });
+          }
+        }
+      } catch (e) {
+        console.error('[envio/aprovado/notif-sede]', e.message);
+      }
+    })();
+  }
+
   // Notifica operadores da unidade quando fornecedor retifica (status->retificado)
   if (novoStatus === 'retificado') {
     const { rows: ops } = await query(
