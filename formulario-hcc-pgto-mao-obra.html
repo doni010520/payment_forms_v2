@@ -1232,7 +1232,18 @@ const SCHEMA = [
 /* ------------------------------------------------------------------
    State + persistence
 ------------------------------------------------------------------ */
-const STORAGE_KEY = "hcc_form_pagamento_v1";
+// Chave do rascunho — isolada por link público (token) ou por modalidade (logado),
+// para evitar mistura de dados entre formulários diferentes.
+const STORAGE_KEY = (function() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const tk = p.get('public_token');
+    const mod = p.get('modalidade') || 'default';
+    return tk
+      ? `hcc_form_pagamento_v1_pub_${tk.substring(0, 24)}`
+      : `hcc_form_pagamento_v1_${mod}`;
+  } catch { return "hcc_form_pagamento_v1"; }
+})();
 const SUBMISSIONS_KEY = "hcc_form_submissions_v1";
 const state = {
   step: -1,
