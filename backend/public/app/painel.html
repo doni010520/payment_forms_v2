@@ -462,16 +462,26 @@ document.getElementById('userAvatar').textContent = (usuario.nome || '?').split(
 
 // V244: contexto da unidade no topnav + page-head (alinhado ao mockup)
 const brandLabel = document.getElementById('brand-unit-label');
-if (brandLabel && usuario.unidade_sigla) {
-  brandLabel.textContent = `${usuario.unidade_sigla} · Painel da unidade`;
+if (brandLabel) {
+  if (usuario.papel === 'admin_fesf') {
+    brandLabel.textContent = 'Painel FESF Sede';
+  } else if (usuario.unidade_sigla) {
+    brandLabel.textContent = `${usuario.unidade_sigla} · Painel da unidade`;
+  }
 }
 (async () => {
   try {
     const eyebrow = document.getElementById('page-eyebrow');
     const subtitle = document.getElementById('page-subtitle');
     const visaoPill = document.getElementById('page-visao-pill');
-    if (visaoPill) visaoPill.textContent = `● Visão: Operador ${usuario.unidade_sigla || ''}`.trim();
-    if (usuario.unidade_id) {
+    if (visaoPill) {
+      visaoPill.textContent = usuario.papel === 'admin_fesf'
+        ? '● Visão: FESF Sede · todas as unidades'
+        : `● Visão: Operador ${usuario.unidade_sigla || ''}`.trim();
+    }
+    if (usuario.papel === 'admin_fesf') {
+      if (eyebrow) eyebrow.textContent = 'FUNDAÇÃO ESTATAL SAÚDE DA FAMÍLIA · SEDE';
+    } else if (usuario.unidade_id) {
       const { unidade } = await api.detalheUnidade(usuario.unidade_id).catch(() => ({ unidade: null }));
       if (unidade && eyebrow) {
         eyebrow.textContent = `${unidade.nome || ''}${unidade.cidade ? ' · ' + unidade.cidade : ''}`.toUpperCase();
@@ -495,12 +505,14 @@ window.exportarCSV = async () => {
 // Tabs
 // =====================================================================
 // V248: títulos por tab (alinha com mockup screen-links / screen-fornecedores / etc)
+const ehAdmin = usuario.papel === 'admin_fesf';
+const visaoStr = ehAdmin ? '● Visão: FESF Sede' : '● Visão: Operador';
 const TAB_HEADERS = {
-  envios:       { title: 'Painel da unidade',     sub: '— ',                                                            visao: '● Visão: Operador' },
-  pendencias:   { title: 'Pendências da unidade', sub: '— ', visao: '● Visão: Operador' }, // V257: sub dinâmico em carregarPendencias()
-  fornecedores: { title: 'Fornecedores da unidade', sub: '— ', visao: '● Visão: Operador' }, // V256: sub atualizado dinamicamente em carregarFornecedores()
-  links:        { title: 'Links de envio',        sub: 'Crie links persistentes para fornecedores enviarem documentos diretamente para esta unidade. Configure se exige login e validade.', visao: '● Visão: Operador' },
-  lancar:       { title: 'Iniciar novo pagamento', sub: 'Escolha como o fornecedor irá interagir com este pagamento — ou faça você mesmo o lançamento manual.', visao: '● Visão: Operador' }, // V258: alinhado ao mockup screen-lanc-manual
+  envios:       { title: ehAdmin ? 'Análise de envios' : 'Painel da unidade', sub: '— ', visao: visaoStr },
+  pendencias:   { title: ehAdmin ? 'Pendências FESF' : 'Pendências da unidade', sub: '— ', visao: visaoStr },
+  fornecedores: { title: ehAdmin ? 'Fornecedores cadastrados' : 'Fornecedores da unidade', sub: '— ', visao: visaoStr },
+  links:        { title: 'Links de envio', sub: ehAdmin ? 'Crie links públicos para fornecedores enviarem documentos diretamente. Configure unidade, modalidade e validade.' : 'Crie links persistentes para fornecedores enviarem documentos diretamente para esta unidade. Configure se exige login e validade.', visao: visaoStr },
+  lancar:       { title: 'Iniciar novo pagamento', sub: 'Escolha como o fornecedor irá interagir com este pagamento — ou faça você mesmo o lançamento manual.', visao: visaoStr },
 };
 function aplicarHeaderTab(tab) {
   const h = TAB_HEADERS[tab];
