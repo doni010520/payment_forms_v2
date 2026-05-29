@@ -126,6 +126,8 @@ export const api = {
   detalheUnidade: (id) => req('GET', `/api/unidades/${id}/detalhe`),
   atividadeUnidade: (id, limit = 15) => req('GET', `/api/unidades/${id}/atividade?limit=${limit}`),
   serieUnidade: (id, periodos = 6, granularidade = 'week') => req('GET', `/api/unidades/${id}/serie?periodos=${periodos}&granularidade=${granularidade}`),
+  serieGlobal: (periodos = 6, granularidade = 'week') => req('GET', `/api/metricas/serie-global?periodos=${periodos}&granularidade=${granularidade}`),
+  atividadeGlobal: (limit = 15) => req('GET', `/api/metricas/atividade-global?limit=${limit}`),
   detalheFornecedor: (id) => req('GET', `/api/fornecedores/${id}/detalhe`),
   // CRUD usuarios
   listarUsuarios: ({ papel, unidade_id } = {}) => {

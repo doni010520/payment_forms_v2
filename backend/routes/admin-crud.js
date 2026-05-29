@@ -66,6 +66,24 @@ router.get('/unidades/:id/atividade', requireAuth, async (req, res) => {
   } catch (e) { console.error('[unidades/atividade]', e); res.status(500).json({ error: 'Erro' }); }
 });
 
+// V304: atividade recente AGREGADA de todas as unidades (admin_fesf)
+router.get('/metricas/atividade-global', requireAuth, async (req, res) => {
+  try {
+    if (req.usuario.papel !== 'admin_fesf') return res.status(403).json({ error: 'Apenas admin FESF' });
+    const atividade = await atividadeRecenteUnidade(null, Number(req.query.limit) || 15);
+    res.json({ atividade });
+  } catch (e) { console.error('[metricas/atividade-global]', e); res.status(500).json({ error: 'Erro' }); }
+});
+
+// V304: serie temporal AGREGADA de todas as unidades (admin_fesf)
+router.get('/metricas/serie-global', requireAuth, async (req, res) => {
+  try {
+    if (req.usuario.papel !== 'admin_fesf') return res.status(403).json({ error: 'Apenas admin FESF' });
+    const serie = await serieTemporal(null, Number(req.query.periodos) || 6, req.query.granularidade || 'week');
+    res.json({ serie });
+  } catch (e) { console.error('[metricas/serie-global]', e); res.status(500).json({ error: 'Erro' }); }
+});
+
 router.get('/unidades/:id/serie', requireAuth, async (req, res) => {
   try {
     const id = Number(req.params.id);

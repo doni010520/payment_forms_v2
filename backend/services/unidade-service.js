@@ -43,6 +43,23 @@ export async function alternarAtivaUnidade(id, ativa) {
  * Atividade recente da unidade — trilha de auditoria com nomes legiveis.
  */
 export async function atividadeRecenteUnidade(unidadeId, limit = 15) {
+  // unidadeId pode ser null = todas as unidades (admin FESF)
+  if (unidadeId == null) {
+    const { rows } = await query(
+      `SELECT a.id, a.acao, a.detalhe, a.criado_em,
+              u.nome AS usuario_nome, u.papel AS usuario_papel,
+              e.protocolo, e.id AS envio_id, un.sigla AS unidade_sigla
+       FROM auditoria a
+       LEFT JOIN usuarios u ON u.id = a.usuario_id
+       LEFT JOIN envios e ON e.id = a.entidade_id AND a.entidade = 'envio'
+       LEFT JOIN unidades un ON un.id = e.unidade_id
+       WHERE a.entidade IN ('envio','expectativa')
+       ORDER BY a.criado_em DESC
+       LIMIT $1`,
+      [limit]
+    );
+    return rows;
+  }
   const { rows } = await query(
     `SELECT a.id, a.acao, a.detalhe, a.criado_em,
             u.nome AS usuario_nome, u.papel AS usuario_papel,
@@ -65,11 +82,13 @@ export async function atividadeRecenteUnidade(unidadeId, limit = 15) {
  */
 export async function serieTemporal(unidadeId, periodos = 6, granularidade = 'week') {
   // granularidade: 'day' | 'week' | 'month'
+  // unidadeId: número OU null = todas as unidades (visão FESF Sede)
   const gran = ['day', 'week', 'month'].includes(granularidade) ? granularidade : 'week';
-  // Cap pra não estourar query
   const max = { day: 60, week: 26, month: 24 };
   const n = Math.min(Math.max(Number(periodos) || 6, 1), max[gran]);
-  const interval = `${n} ${gran}s`;
+  const todasUnidades = unidadeId == null;
+  const params = todasUnidades ? [] : [unidadeId];
+  const whereUnid = todasUnidades ? '' : 'unidade_id = $1 AND ';
   const { rows } = await query(
     `SELECT
        DATE_TRUNC('${gran}', criado_em)::date AS periodo,
@@ -79,10 +98,9 @@ export async function serieTemporal(unidadeId, periodos = 6, granularidade = 'we
        SUM(CASE WHEN status IN ('aprovado','pago') THEN 1 ELSE 0 END)::int AS aprovados,
        SUM(CASE WHEN status='rejeitado' THEN 1 ELSE 0 END)::int AS rejeitados
      FROM envios
-     WHERE unidade_id = $1
-       AND criado_em >= DATE_TRUNC('${gran}', NOW()) - INTERVAL '${n - 1} ${gran}s'
+     WHERE ${whereUnid}criado_em >= DATE_TRUNC('${gran}', NOW()) - INTERVAL '${n - 1} ${gran}s'
      GROUP BY 1 ORDER BY 1`,
-    [unidadeId]
+    params
   );
   // Backfill: preenche períodos vazios para o frontend não precisar lidar com lacunas
   const result = [];

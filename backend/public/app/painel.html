@@ -89,7 +89,7 @@
   <div id="chart-sidebar-wrap" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
     <div class="card" style="margin:0">
       <div class="between">
-        <h3 style="margin:0">Envios da unidade</h3>
+        <h3 style="margin:0" id="chart-titulo">Envios da unidade</h3>
         <div id="bar-chart-gran" style="display:inline-flex;background:var(--surface-2);border-radius:6px;padding:2px;gap:0;margin-left:10px">
           <button data-gran="day"   style="padding:4px 10px;font-size:11.5px;font-weight:500;background:transparent;color:var(--text-2);border:none;border-radius:4px;cursor:pointer">Dia</button>
           <button data-gran="week"  class="active" style="padding:4px 10px;font-size:11.5px;font-weight:600;background:var(--surface);color:var(--text);border:none;border-radius:4px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.06)">Semana</button>
@@ -778,13 +778,21 @@ function popularSelectModalidades(id) {
 
 let barChartGran = 'week';
 async function carregarBarChart() {
-  if (!usuario.unidade_id) {
+  // Admin: gráfico agregado de todas as unidades (serieGlobal)
+  // Operador: gráfico só da unidade dele (serieUnidade)
+  if (!usuario.unidade_id && usuario.papel !== 'admin_fesf') {
     document.getElementById('chart-sidebar-wrap').style.display = 'none';
     return;
   }
   try {
     const periodosPorGran = { day: 14, week: 6, month: 6 };
-    const { serie } = await api.serieUnidade(usuario.unidade_id, periodosPorGran[barChartGran], barChartGran);
+    const periodos = periodosPorGran[barChartGran];
+    const tituloEl = document.getElementById('chart-titulo');
+    if (tituloEl) tituloEl.textContent = usuario.papel === 'admin_fesf' ? 'Envios FESF · todas as unidades' : 'Envios da unidade';
+    const resp = usuario.papel === 'admin_fesf'
+      ? await api.serieGlobal(periodos, barChartGran)
+      : await api.serieUnidade(usuario.unidade_id, periodos, barChartGran);
+    const { serie } = resp;
     const cont = document.getElementById('bar-chart');
     if (!serie || serie.length === 0) {
       cont.innerHTML = '<div class="muted" style="margin:auto">Sem envios nas últimas semanas.</div>';
@@ -860,9 +868,12 @@ async function carregarBarChart() {
 }
 
 async function carregarAtividade() {
-  if (!usuario.unidade_id) return;
+  // Admin não tem unidade específica, mas vê atividade da unidade primária (1ª) ou de todas
+  if (!usuario.unidade_id && usuario.papel !== 'admin_fesf') return;
   try {
-    const { atividade } = await api.atividadeUnidade(usuario.unidade_id, 12);
+    const { atividade } = usuario.papel === 'admin_fesf'
+      ? await api.atividadeGlobal(12)
+      : await api.atividadeUnidade(usuario.unidade_id, 12);
     const cont = document.getElementById('sidebar-atividade');
     if (atividade.length === 0) { cont.innerHTML = '<div class="muted">Sem atividade recente.</div>'; return; }
     cont.innerHTML = atividade.map(a => `

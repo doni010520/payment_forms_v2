@@ -309,6 +309,7 @@ router.get('/', requireAuth, async (req, res) => {
     if (competencia) { where.push(`e.competencia = $${params.length + 1}`); params.push(competencia); }
     const sql = `
       SELECT e.id, e.protocolo, e.competencia, e.origem, e.status, e.valor_centavos, e.criado_em,
+             e.fornecedor_id, e.submetido_por_nome, e.submetido_por_documento,
              f.razao_social, f.documento, f.tipo AS fornecedor_tipo,
              u.sigla AS unidade_sigla, u.nome AS unidade_nome,
              m.codigo AS modalidade_codigo, m.nome AS modalidade_nome
