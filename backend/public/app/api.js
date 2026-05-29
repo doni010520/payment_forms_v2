@@ -125,7 +125,7 @@ export const api = {
   desativarUnidade: (id) => req('POST', `/api/unidades/${id}/desativar`),
   detalheUnidade: (id) => req('GET', `/api/unidades/${id}/detalhe`),
   atividadeUnidade: (id, limit = 15) => req('GET', `/api/unidades/${id}/atividade?limit=${limit}`),
-  serieUnidade: (id, semanas = 4) => req('GET', `/api/unidades/${id}/serie?semanas=${semanas}`),
+  serieUnidade: (id, periodos = 6, granularidade = 'week') => req('GET', `/api/unidades/${id}/serie?periodos=${periodos}&granularidade=${granularidade}`),
   detalheFornecedor: (id) => req('GET', `/api/fornecedores/${id}/detalhe`),
   // CRUD usuarios
   listarUsuarios: ({ papel, unidade_id } = {}) => {

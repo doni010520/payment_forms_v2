@@ -63,11 +63,16 @@ export async function atividadeRecenteUnidade(unidadeId, limit = 15) {
 /**
  * Serie temporal de envios (ultimas N semanas) para grafico de barras.
  */
-export async function serieTemporal(unidadeId, semanas = 4) {
-  // Agrupa por semana — Postgres EXTRACT(WEEK FROM criado_em)
+export async function serieTemporal(unidadeId, periodos = 6, granularidade = 'week') {
+  // granularidade: 'day' | 'week' | 'month'
+  const gran = ['day', 'week', 'month'].includes(granularidade) ? granularidade : 'week';
+  // Cap pra não estourar query
+  const max = { day: 60, week: 26, month: 24 };
+  const n = Math.min(Math.max(Number(periodos) || 6, 1), max[gran]);
+  const interval = `${n} ${gran}s`;
   const { rows } = await query(
     `SELECT
-       DATE_TRUNC('week', criado_em)::date AS semana,
+       DATE_TRUNC('${gran}', criado_em)::date AS periodo,
        COUNT(*)::int AS total,
        SUM(CASE WHEN status='em_analise' THEN 1 ELSE 0 END)::int AS em_analise,
        SUM(CASE WHEN status='aguardando_ret' THEN 1 ELSE 0 END)::int AS aguardando_ret,
@@ -75,11 +80,43 @@ export async function serieTemporal(unidadeId, semanas = 4) {
        SUM(CASE WHEN status='rejeitado' THEN 1 ELSE 0 END)::int AS rejeitados
      FROM envios
      WHERE unidade_id = $1
-       AND criado_em >= NOW() - INTERVAL '${Math.min(Number(semanas) || 4, 26)} weeks'
+       AND criado_em >= DATE_TRUNC('${gran}', NOW()) - INTERVAL '${n - 1} ${gran}s'
      GROUP BY 1 ORDER BY 1`,
     [unidadeId]
   );
-  return rows;
+  // Backfill: preenche períodos vazios para o frontend não precisar lidar com lacunas
+  const result = [];
+  const map = Object.fromEntries(rows.map(r => [r.periodo.toISOString().slice(0,10), r]));
+  const hoje = new Date();
+  // Início do período atual conforme granularidade
+  function truncDate(d, g) {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    if (g === 'month') return new Date(x.getFullYear(), x.getMonth(), 1);
+    if (g === 'week') {
+      // Postgres week começa na segunda
+      const day = (x.getDay() + 6) % 7; // 0=segunda
+      x.setDate(x.getDate() - day);
+      return x;
+    }
+    return x;
+  }
+  let cursor = truncDate(hoje, gran);
+  const periodos_lst = [];
+  for (let i = 0; i < n; i++) {
+    periodos_lst.unshift(new Date(cursor));
+    if (gran === 'day') cursor.setDate(cursor.getDate() - 1);
+    else if (gran === 'week') cursor.setDate(cursor.getDate() - 7);
+    else if (gran === 'month') cursor.setMonth(cursor.getMonth() - 1);
+  }
+  for (const p of periodos_lst) {
+    const key = p.toISOString().slice(0,10);
+    const row = map[key];
+    result.push(row ? { ...row, periodo: key, semana: key } : {
+      periodo: key, semana: key, total: 0,
+      em_analise: 0, aguardando_ret: 0, aprovados: 0, rejeitados: 0
+    });
+  }
+  return result;
 }
 
 /**

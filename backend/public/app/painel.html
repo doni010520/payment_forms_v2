@@ -89,7 +89,12 @@
   <div id="chart-sidebar-wrap" style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
     <div class="card" style="margin:0">
       <div class="between">
-        <h3 style="margin:0">Envios da unidade · últimas semanas</h3>
+        <h3 style="margin:0">Envios da unidade</h3>
+        <div id="bar-chart-gran" style="display:inline-flex;background:var(--surface-2);border-radius:6px;padding:2px;gap:0;margin-left:10px">
+          <button data-gran="day"   style="padding:4px 10px;font-size:11.5px;font-weight:500;background:transparent;color:var(--text-2);border:none;border-radius:4px;cursor:pointer">Dia</button>
+          <button data-gran="week"  class="active" style="padding:4px 10px;font-size:11.5px;font-weight:600;background:var(--surface);color:var(--text);border:none;border-radius:4px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.06)">Semana</button>
+          <button data-gran="month" style="padding:4px 10px;font-size:11.5px;font-weight:500;background:transparent;color:var(--text-2);border:none;border-radius:4px;cursor:pointer">Mês</button>
+        </div>
         <div class="muted" style="font-size:11.5px">📊 acumulado por semana</div>
       </div>
       <div id="bar-chart" style="margin-top:14px;position:relative;height:200px;padding:8px 8px 0"></div>
@@ -724,6 +729,22 @@ async function inicializar() {
     await carregarKPIs();
     await carregarEnvios();
     await carregarBarChart();
+    // V303: toggle Dia/Semana/Mês — re-renderiza ao trocar
+    document.querySelectorAll('#bar-chart-gran button[data-gran]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (barChartGran === btn.dataset.gran) return;
+        barChartGran = btn.dataset.gran;
+        document.querySelectorAll('#bar-chart-gran button').forEach(b => {
+          const ativo = b.dataset.gran === barChartGran;
+          b.style.background = ativo ? 'var(--surface)' : 'transparent';
+          b.style.color = ativo ? 'var(--text)' : 'var(--text-2)';
+          b.style.fontWeight = ativo ? '600' : '500';
+          b.style.boxShadow = ativo ? '0 1px 2px rgba(0,0,0,0.06)' : 'none';
+          b.classList.toggle('active', ativo);
+        });
+        await carregarBarChart();
+      });
+    });
     await carregarAtividade();
   } catch (e) {
     toast('Erro ao inicializar: ' + e.message, 'erro');
@@ -743,13 +764,15 @@ function popularSelectModalidades(id) {
   el.innerHTML = cacheModalidades.map(m => `<option value="${m.id}">${m.nome}</option>`).join('');
 }
 
+let barChartGran = 'week';
 async function carregarBarChart() {
   if (!usuario.unidade_id) {
     document.getElementById('chart-sidebar-wrap').style.display = 'none';
     return;
   }
   try {
-    const { serie } = await api.serieUnidade(usuario.unidade_id, 6);
+    const periodosPorGran = { day: 14, week: 6, month: 6 };
+    const { serie } = await api.serieUnidade(usuario.unidade_id, periodosPorGran[barChartGran], barChartGran);
     const cont = document.getElementById('bar-chart');
     if (!serie || serie.length === 0) {
       cont.innerHTML = '<div class="muted" style="margin:auto">Sem envios nas últimas semanas.</div>';
@@ -777,8 +800,14 @@ async function carregarBarChart() {
     const baseLine = `<div style="position:absolute;left:0;right:0;bottom:24px;border-top:1px solid var(--border)"></div>`;
     // Barras
     const barsHtml = serie.map(s => {
-      const semanaInicio = new Date(s.semana);
-      const label = `${String(semanaInicio.getDate()).padStart(2,'0')}/${String(semanaInicio.getMonth()+1).padStart(2,'0')}`;
+      const dt = new Date(s.semana + 'T00:00:00');
+      let label;
+      if (barChartGran === 'month') {
+        const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+        label = `${meses[dt.getMonth()]}/${String(dt.getFullYear()).slice(2)}`;
+      } else {
+        label = `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
+      }
       const total = s.total;
       const altura = total > 0 ? Math.max(4, (total / escalaMax) * altUtil) : 0;
       const segs = [

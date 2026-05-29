@@ -71,7 +71,7 @@ router.get('/unidades/:id/serie', requireAuth, async (req, res) => {
     const id = Number(req.params.id);
     if (req.usuario.papel === 'operador_unidade' && req.usuario.unidade_id !== id) return res.status(403).json({ error: 'Acesso negado' });
     if (req.usuario.papel === 'fornecedor') return res.status(403).json({ error: 'Acesso negado' });
-    const serie = await serieTemporal(id, Number(req.query.semanas) || 4);
+    const serie = await serieTemporal(id, Number(req.query.periodos || req.query.semanas) || 6, req.query.granularidade || "week");
     res.json({ serie });
   } catch (e) { console.error('[unidades/serie]', e); res.status(500).json({ error: 'Erro' }); }
 });
