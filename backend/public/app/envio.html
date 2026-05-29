@@ -317,7 +317,7 @@ async function carregar() {
               <div class="body">
                 <div class="kv-grid">
                   <div class="kv"><div class="k">Fornecedor</div><div class="v">${e.razao_social || e.submetido_por_nome || '—'}${!e.fornecedor_id ? ' <span class="muted" style="font-size:11px">(sem cadastro)</span>' : ''}</div></div>
-                  <div class="kv"><div class="k">Documento</div><div class="v mono">${e.documento}</div></div>
+                  <div class="kv"><div class="k">Documento</div><div class="v mono">${e.documento || e.submetido_por_documento || '—'}</div></div>
                   <div class="kv"><div class="k">Unidade</div><div class="v">${e.unidade_sigla} · ${e.unidade_nome || ''}</div></div>
                   <div class="kv"><div class="k">Competência</div><div class="v">${e.competencia}</div></div>
                   <div class="kv"><div class="k">Valor</div><div class="v mono">${brl(e.valor_centavos)}</div></div>
@@ -548,9 +548,9 @@ async function carregar() {
             <header><h3>Ações</h3></header>
             <div class="body sidebar-actions">
               ${podeDecidir ? `
-                <button class="success" onclick="acaoAprovar()">✓ Aprovar envio</button>
-                <button class="warn" onclick="acaoSolicitarRet()">⚠ Solicitar retificação</button>
-                <button class="danger" onclick="acaoRejeitar()">✕ Rejeitar</button>
+                <button class="success" onclick="acaoAprovar()" style="font-weight:600">✓ Aprovar envio</button>
+                <button onclick="acaoSolicitarRet()" style="background:transparent;color:#a67500;border:1.5px solid #d49b00">⚠ Solicitar retificação</button>
+                <button onclick="acaoRejeitar()" style="background:transparent;color:#b81b1b;border:1.5px solid #d33">✕ Rejeitar</button>
               ` : ''}
               ${usuario.papel === 'operador_unidade' && ['em_analise','retificado'].includes(e.status) ? `<button onclick="acaoEncaminharSede()">🔺 Encaminhar para FESF Sede</button>` : ''}
               ${podePagar ? `<button class="success" onclick="acaoMarcarPago()">💰 Marcar como pago</button>` : ''}
