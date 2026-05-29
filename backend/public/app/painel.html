@@ -705,6 +705,7 @@ async function inicializar() {
     popularSelectModalidades('exp-mod');
     popularSelectModalidades('lnk-mod');
     popularSelectModalidades('man-mod');
+    popularCompetencias();
     // admin_fesf: mostrar seletor de unidade nos modais de link/lançamento
     if (usuario && usuario.papel === 'admin_fesf') {
       try {
@@ -799,10 +800,11 @@ async function carregarAtividade() {
 
 async function carregarKPIs() {
   const c = competenciaAtual();
+  const filtroComp = c ? { competencia: c } : {};
   const [{ por_origem }, { expectativas }, { envios }] = await Promise.all([
-    api.resumoOrigem({ competencia: c }),
-    api.listarExpectativas({ competencia: c }).catch(()=>({expectativas:[]})),
-    api.envios({ competencia: c }),
+    api.resumoOrigem(filtroComp),
+    api.listarExpectativas(filtroComp).catch(()=>({expectativas:[]})),
+    api.envios(filtroComp),
   ]);
   const porOrigem = Object.fromEntries((por_origem||[]).map(r => [r.origem, r]));
   const totalEnvios = envios.length;
@@ -817,7 +819,7 @@ async function carregarKPIs() {
   const atrasadas = criticas.filter(e => e.status === 'atrasada').length;
   const semResp = criticas.filter(e => e.status === 'sem_resposta').length;
   document.getElementById('kpis').innerHTML = `
-    <div class="kpi"><div class="label">Recebidos · ${c}</div><div class="value">${totalEnvios}</div><div class="sub">${brl(totalValor)}${fornUnicos > 0 ? ' · ' + fornUnicos + ' fornecedor' + (fornUnicos > 1 ? 'es' : '') : ''}</div></div>
+    <div class="kpi"><div class="label">Recebidos · ${c || 'todas comp.'}</div><div class="value">${totalEnvios}</div><div class="sub">${brl(totalValor)}${fornUnicos > 0 ? ' · ' + fornUnicos + ' fornecedor' + (fornUnicos > 1 ? 'es' : '') : ''}</div></div>
     <div class="kpi warn"><div class="label">Aguardando ret.</div><div class="value">${aguardRet.length}</div><div class="sub">${aguardRet.length > 0 ? brl(aguardValor) : '— sem pendências'}</div></div>
     <div class="kpi ${criticasN > 0 ? 'danger':'warn'}"><div class="label">Pendências críticas</div><div class="value">${criticasN}</div><div class="sub">${criticasN > 0 ? atrasadas + ' atrasada' + (atrasadas !== 1 ? 's' : '') + ' · ' + semResp + ' sem resposta' : '— sem pendências'}</div></div>
     <div class="kpi accent"><div class="label">Aprovados (mês)</div><div class="value">${aprovados.length}</div><div class="sub">${aprovados.length > 0 ? brl(aprovValor) + ' liberados' : '— ainda nenhum'}</div></div>
@@ -826,7 +828,7 @@ async function carregarKPIs() {
   // V244: page subtitle dinâmico (mockup-alike)
   const subtitle = document.getElementById('page-subtitle');
   if (subtitle) {
-    subtitle.textContent = `${c} · ${totalEnvios} envio${totalEnvios !== 1 ? 's' : ''} recebido${totalEnvios !== 1 ? 's' : ''} · ${expectativas.length} pendência${expectativas.length !== 1 ? 's' : ''} · ${brl(totalValor)} movimentados`;
+    subtitle.textContent = `${c || 'todas competências'} · ${totalEnvios} envio${totalEnvios !== 1 ? 's' : ''} recebido${totalEnvios !== 1 ? 's' : ''} · ${expectativas.length} pendência${expectativas.length !== 1 ? 's' : ''} · ${brl(totalValor)} movimentados`;
   }
   const badge = document.getElementById('badge-pend');
   if (criticasN > 0) { badge.style.display = 'inline-block'; badge.textContent = criticasN; } else { badge.style.display = 'none'; }
@@ -851,14 +853,41 @@ async function carregarKPIs() {
 }
 
 function competenciaAtual() {
+  // Lê o dropdown f-periodo; '' = todas as competências, senão YYYY-MM.
+  const sel = document.getElementById('f-periodo');
+  if (sel && sel.value) return sel.value;
+  return '';
+}
+function mesAtual() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+function popularCompetencias() {
+  const sel = document.getElementById('f-periodo');
+  if (!sel) return;
+  // Gera opções: 12 meses passados + 1 futuro
+  const hoje = new Date();
+  const opts = ['<option value="">Todas competências</option>'];
+  for (let i = -1; i < 13; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const v = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    opts.push(`<option value="${v}">${v} · ${label}</option>`);
+  }
+  sel.innerHTML = opts.join('');
+  sel.addEventListener('change', () => {
+    carregarKPIs();
+    carregarEnvios();
+  });
 }
 
 async function carregarEnvios() {
   const origem = document.getElementById('f-origem').value;
   const status = document.getElementById('f-status').value;
-  const { envios } = await api.envios({ origem, status });
+  const competencia = competenciaAtual();
+  const filtros = { origem, status };
+  if (competencia) filtros.competencia = competencia;
+  const { envios } = await api.envios(filtros);
   const tbl = document.getElementById('envios-tabela');
   if (envios.length === 0) {
     tbl.innerHTML = '<div class="empty" style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:40px">∅</div><h3>Nenhum envio encontrado</h3><p>Ajuste os filtros ou registre um novo lançamento.</p></div>';
