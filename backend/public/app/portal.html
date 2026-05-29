@@ -307,7 +307,7 @@ async function carregarMeus() {
             <td>${e.unidade_sigla || ''}</td>
             <td>${e.modalidade_nome || ''}</td>
             <td>${e.competencia}</td>
-            <td style="text-align:right;font-family:ui-monospace,monospace">${brl(e.valor_centavos)}</td>
+            <td style="text-align:right;font-family:ui-monospace,monospace;white-space:nowrap">${brl(e.valor_centavos)}</td>
             <td><span class="pill ${e.status}">${statusLabel(e.status)}</span></td>
             <td>${dataBR(e.criado_em)}</td>
             <td style="text-align:right;white-space:nowrap">

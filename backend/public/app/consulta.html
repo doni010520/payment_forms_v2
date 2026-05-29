@@ -90,7 +90,7 @@ document.getElementById('form-consulta').addEventListener('submit', async (e) =>
         <tr><td style="padding:6px 0;border:none"><strong>Unidade:</strong></td><td style="padding:6px 0;border:none">${envio.unidade_sigla} · ${envio.unidade_nome}</td></tr>
         <tr><td style="padding:6px 0;border:none"><strong>Modalidade:</strong></td><td style="padding:6px 0;border:none">${envio.modalidade_nome}</td></tr>
         <tr><td style="padding:6px 0;border:none"><strong>Competência:</strong></td><td style="padding:6px 0;border:none">${envio.competencia}</td></tr>
-        <tr><td style="padding:6px 0;border:none"><strong>Valor:</strong></td><td style="padding:6px 0;border:none;font-family:ui-monospace,monospace">${brl(envio.valor_centavos)}</td></tr>
+        <tr><td style="padding:6px 0;border:none"><strong>Valor:</strong></td><td style="padding:6px 0;border:none;font-family:ui-monospace,monospace;white-space:nowrap">${brl(envio.valor_centavos)}</td></tr>
         <tr><td style="padding:6px 0;border:none"><strong>NF:</strong></td><td style="padding:6px 0;border:none">${envio.numero_nf || '—'}</td></tr>
         <tr><td style="padding:6px 0;border:none"><strong>Enviado em:</strong></td><td style="padding:6px 0;border:none">${dataBR(envio.criado_em)}</td></tr>
         <tr><td style="padding:6px 0;border:none"><strong>Última atualização:</strong></td><td style="padding:6px 0;border:none">${new Date(envio.atualizado_em).toLocaleString('pt-BR')}</td></tr>

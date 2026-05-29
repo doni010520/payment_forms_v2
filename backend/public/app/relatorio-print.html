@@ -87,13 +87,13 @@ document.getElementById('emitido').textContent = new Date().toLocaleString('pt-B
         ${m.por_unidade.map(u => `<tr>
           <td><strong>${u.sigla}</strong></td><td>${u.nome}</td><td>${u.total_envios}</td>
           <td>${u.em_analise}</td><td>${u.aprovados}</td><td>${u.pagos}</td>
-          <td style="font-family:ui-monospace,monospace">${brl(u.total_centavos)}</td>
+          <td style="font-family:ui-monospace,monospace;white-space:nowrap">${brl(u.total_centavos)}</td>
         </tr>`).join('')}
       </tbody></table>`;
 
     document.getElementById('por-origem').innerHTML = `<table>
       <thead><tr><th>Origem</th><th>Quantidade</th><th>Movimento</th></tr></thead>
-      <tbody>${m.por_origem.map(o => `<tr><td>${statusLabel(o.origem)}</td><td>${o.n}</td><td style="font-family:ui-monospace,monospace">${brl(o.total_centavos)}</td></tr>`).join('')}</tbody>
+      <tbody>${m.por_origem.map(o => `<tr><td>${statusLabel(o.origem)}</td><td>${o.n}</td><td style="font-family:ui-monospace,monospace;white-space:nowrap">${brl(o.total_centavos)}</td></tr>`).join('')}</tbody>
     </table>`;
 
     document.getElementById('por-status').innerHTML = `<table>
@@ -103,7 +103,7 @@ document.getElementById('emitido').textContent = new Date().toLocaleString('pt-B
 
     document.getElementById('por-modalidade').innerHTML = `<table>
       <thead><tr><th>Modalidade</th><th>Envios</th><th>Movimento</th></tr></thead>
-      <tbody>${m.por_modalidade.map(x => `<tr><td>${x.nome}</td><td>${x.n}</td><td style="font-family:ui-monospace,monospace">${brl(x.total_centavos)}</td></tr>`).join('')}</tbody>
+      <tbody>${m.por_modalidade.map(x => `<tr><td>${x.nome}</td><td>${x.n}</td><td style="font-family:ui-monospace,monospace;white-space:nowrap">${brl(x.total_centavos)}</td></tr>`).join('')}</tbody>
     </table>`;
 
     const sla = m.sla || {};

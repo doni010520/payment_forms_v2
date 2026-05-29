@@ -152,7 +152,7 @@ function renderListaUnidades() {
             <td>${u.estado}</td>
             <td>${u.ativa ? '<span class="pill aprovado">Ativa</span>' : '<span class="pill cancelada">Inativa</span>'}</td>
             <td>${met.total_envios}</td>
-            <td style="font-family:ui-monospace,monospace">${brl(met.total_centavos)}</td>
+            <td style="font-family:ui-monospace,monospace;white-space:nowrap">${brl(met.total_centavos)}</td>
             <td style="white-space:nowrap">
               <button onclick="verDetalhe(${u.id})">Detalhes</button>
               <button onclick="editar(${u.id}, ${JSON.stringify(u).replace(/"/g,'&quot;')})">Editar</button>

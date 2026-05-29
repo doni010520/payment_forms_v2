@@ -125,7 +125,7 @@ try {
             <td>${e.competencia}</td>
             <td><span class="origin ${e.origem}">${statusLabel(e.origem)}</span></td>
             <td><span class="pill ${e.status}">${statusLabel(e.status)}</span></td>
-            <td style="font-family:ui-monospace,monospace">${brl(e.valor_centavos)}</td>
+            <td style="font-family:ui-monospace,monospace;white-space:nowrap">${brl(e.valor_centavos)}</td>
             <td>${dataBR(e.criado_em)}</td>
           </tr>`).join('')}
         </tbody></table>`}

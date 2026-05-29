@@ -120,7 +120,7 @@ async function carregar() {
             <td>${e.unidade_sigla || ''}</td>
             <td>${e.modalidade_nome}</td>
             <td>${e.competencia}</td>
-            <td style="text-align:right;font-family:ui-monospace,monospace">${brl(e.valor_centavos)}</td>
+            <td style="text-align:right;font-family:ui-monospace,monospace;white-space:nowrap">${brl(e.valor_centavos)}</td>
             <td><span class="origin ${e.origem}">${statusLabel(e.origem)}</span></td>
             <td>${dataBR(e.atualizado_em || e.criado_em)}</td>
             <td><button class="success" onclick="event.stopPropagation();window.open('/app/envio.html?id=${e.id}', '_blank')" title="Abre envio para registrar pagamento com TED/banco/comprovante">💰 Registrar →</button></td>
