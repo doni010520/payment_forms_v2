@@ -372,7 +372,11 @@
       // V238 fix FH1: só renderiza o segmento "Unidade ..." se houver unidade real (evita "Unidade —" vazio quando admin testa o form sem unidade vinculada).
       const unidadeSigla = unidade ? unidade.sigla : cfg.unidadeIdent;
       const unidadeFrag = unidadeSigla ? `<span style="opacity:.8">· Unidade ${unidadeSigla}</span>` : '';
-      const competenciaFrag = cfg.competencia ? `<span style="opacity:.8">· Competência ${cfg.competencia}</span>` : '';
+      // Se veio competência travada na URL (fluxo logado/admin), mostra como texto.
+      // Caso contrário (link público sem competência), renderiza <input type="month"> editável.
+      const competenciaFrag = params.get('competencia')
+        ? `<span style="opacity:.8">· Competência ${cfg.competencia}</span>`
+        : `<span style="opacity:.8;display:inline-flex;align-items:center;gap:6px">· Competência <input type="month" id="fesf-banner-comp" value="${cfg.competencia}" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:3px;padding:1px 4px;font-size:12.5px;color-scheme:dark"></span>`;
       b.innerHTML = `
         <strong>FESF-SUS · ${modalidade ? modalidade.nome : cfg.modalidadeCodigo}</strong>
         ${unidadeFrag}
@@ -382,6 +386,13 @@
         <a href="/app/portal.html" style="color:#fff;text-decoration:underline">← portal</a>
       `;
       document.body.appendChild(b);
+      // Atualiza cfg.competencia quando o usuário muda o seletor no banner
+      const compInput = document.getElementById('fesf-banner-comp');
+      if (compInput) {
+        compInput.addEventListener('change', () => {
+          if (compInput.value) cfg.competencia = compInput.value;
+        });
+      }
       // Empurra o conteudo pra baixo
       document.body.style.paddingTop = '36px';
     }).catch(e => console.warn(e));

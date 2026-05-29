@@ -146,9 +146,8 @@ if (!token) {
         pagamento_insumos: '/formulario-hcc-pgto-insumos.html',
       };
       const form = codigoToForm[ctx.modalidade_codigo] || '/formulario-hcc.html';
-      const hoje = new Date();
-      const competencia = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
-      const url = `${form}?modalidade=${ctx.modalidade_codigo}&unidade=${ctx.unidade_sigla}&competencia=${competencia}&public_token=${token}`;
+      // Não trava a competência na URL — o fornecedor escolhe no formulário
+      const url = `${form}?modalidade=${ctx.modalidade_codigo}&unidade=${ctx.unidade_sigla}&public_token=${token}`;
       document.getElementById('btn-abrir').addEventListener('click', () => {
         location.href = url;
       });
