@@ -393,8 +393,11 @@ async function carregar() {
             <!-- V300: Complementos pendentes (FGTS/INSS pos-pagamento) -->
             ${(() => {
               const compls = d.complementos_pendentes || [];
-              const podeAddRemove = (usuario.papel === 'fornecedor' && e.fornecedor_id === usuario.fornecedor_id) || podeAtuar;
-              if (compls.length === 0 && !podeAddRemove) return '';
+              const ehFornecedor = usuario.papel === 'fornecedor' && e.fornecedor_id === usuario.fornecedor_id;
+              const podeAddRemove = ehFornecedor; // só o próprio fornecedor sinaliza
+              // V301: operadores não veem o card se não há nada sinalizado.
+              // Operadores veem complementos existentes (read-only) para acompanhar.
+              if (compls.length === 0 && !ehFornecedor) return '';
               const pendentes = compls.filter(x => x.status === 'pendente');
               const recebidos = compls.filter(x => x.status === 'recebido');
               const vencidos  = compls.filter(x => x.status === 'vencido');
@@ -424,7 +427,9 @@ async function carregar() {
                 '</header>' +
                 '<div class="body">' +
                   (compls.length === 0
-                    ? '<div class="muted" style="font-size:13px;margin-bottom:10px">Nenhum complemento sinalizado. FGTS e INSS chegam após o dia 20 do mês seguinte — clique abaixo para sinalizar que você vai enviar depois.</div>'
+                    ? (ehFornecedor
+                        ? '<div class="muted" style="font-size:13px;margin-bottom:10px">Nenhum complemento sinalizado. FGTS e INSS normalmente chegam após o dia 20 do mês seguinte — clique abaixo para sinalizar que você vai enviar depois.</div>'
+                        : '<div class="muted" style="font-size:13px;margin-bottom:10px">Nenhum complemento sinalizado pelo fornecedor.</div>')
                     : '<div style="display:grid;gap:8px;margin-bottom:12px">' + itens + '</div>') +
                   (podeAddRemove ? '<button class="primary" onclick="acaoAdicionarComplemento()" style="font-size:12px">+ Sinalizar complemento pendente (FGTS, INSS, etc.)</button>' : '') +
                 '</div>' +
