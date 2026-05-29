@@ -309,10 +309,13 @@
         // começa com slate limpo — mesmo se usuário não recarregar a página.
         window._fesfFiles = {};
 
+        // Snapshot dos dados do formulário ANTES do reset (necessário para popular a tela de sucesso)
+        const snapData = (window.state && window.state.data) ? { ...window.state.data } : {};
+
         // V300: limpa o rascunho do formulário no localStorage para o próximo envio
-        // não puxar dados antigos. Todos os 6 forms HCC compartilham a mesma chave.
+        // não puxar dados antigos. (O form em si já limpa via STORAGE_KEY no seu próprio submit,
+        // mas garantimos o reset em memória aqui pra próximo envio na mesma aba.)
         try {
-          localStorage.removeItem('hcc_form_pagamento_v1');
           // Reset do estado em memória (se o usuário ficar na mesma aba)
           if (window.state) {
             window.state.data = {};
@@ -341,10 +344,11 @@
           const setText = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
           setText('protocolNum', envio.protocolo);
           setText('sentAt', new Date(envio.criado_em).toLocaleString('pt-BR'));
-          if (window.state) {
-            setText('sentSupplier', window.state.data?.q1_nomeFornecedor || '—');
-            setText('sentValue', window.state.data?.q3_valor ? 'R$ ' + window.state.data.q3_valor : '—');
-          }
+          // Usa o snapshot capturado ANTES do reset (window.state.data já foi zerado acima)
+          const fornecedorNome = snapData.q1_nomeFornecedor || snapData.q1_nomeRepresentante || '—';
+          const valorTxt = snapData.q3_valor || snapData.q3_valorTotalServico || snapData.q3_valorTotalInsumos || snapData.q3_valorTotal || '';
+          setText('sentSupplier', fornecedorNome);
+          setText('sentValue', valorTxt ? (valorTxt.toString().startsWith('R$') ? valorTxt : 'R$ ' + valorTxt) : '—');
           if (typeof window.showView === 'function') {
             window.showView('view-success');
           }
