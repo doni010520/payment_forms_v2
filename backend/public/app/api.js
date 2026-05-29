@@ -476,7 +476,8 @@ export function formatarRespostasFormSecoes(formData, anotacoes = [], documentos
                         status === 'duvida' ? '<span class="ano-badge dub" title="Em duvida">?</span>' :
                         status === 'problema' ? '<span class="ano-badge prob" title="Problema">!</span>' : '';
     const obs = an && an.observacao ? `<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px">📝 ${an.observacao}</div>` : '';
-    const acoes = `<div class="ano-btns" style="display:flex;gap:3px"><button class="mini-btn ok" data-anotar="${k}" data-status="verificado" title="Marcar verificado">✓</button><button class="mini-btn dub" data-anotar="${k}" data-status="duvida" title="Marcar duvida">?</button><button class="mini-btn prob" data-anotar="${k}" data-status="problema" title="Marcar problema">!</button></div>`;
+    const labelEsc = String(label || k).replace(/"/g, '&quot;');
+    const acoes = `<div class="ano-btns" style="display:flex;gap:3px"><button class="mini-btn ok" data-anotar="${k}" data-label="${labelEsc}" data-status="verificado" title="Marcar verificado">✓</button><button class="mini-btn dub" data-anotar="${k}" data-label="${labelEsc}" data-status="duvida" title="Marcar duvida">?</button><button class="mini-btn prob" data-anotar="${k}" data-label="${labelEsc}" data-status="problema" title="Marcar problema">!</button></div>`;
     // V300: formatação inteligente — se o campo é monetário, formatar como BRL
     let valorRender = v;
     const klow = String(k).toLowerCase();

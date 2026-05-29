@@ -141,6 +141,19 @@
 </div>
 
 <!-- Modal: Marcar como pago (estruturado, com upload de comprovante) -->
+<!-- V303: modal genérico de anotação (substitui prompt nativo) -->
+<div class="modal-bg" id="modal-anotacao">
+  <div class="modal" style="width:480px;max-width:92vw">
+    <h2 id="anot-titulo">Adicionar anotação</h2>
+    <p class="sub" id="anot-subtitulo">—</p>
+    <div class="field" style="margin-top:8px"><label for="anot-obs">Observação (opcional)</label><textarea id="anot-obs" rows="4" placeholder="Descreva o que precisa ser observado..." style="resize:vertical"></textarea></div>
+    <div class="actions">
+      <button type="button" onclick="window.__anotResolve(null); fecharModal('modal-anotacao')">Cancelar</button>
+      <button id="anot-confirmar" class="primary" type="button" onclick="window.__anotResolve(document.getElementById('anot-obs').value || null); fecharModal('modal-anotacao')">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="modal-pagamento">
   <div class="modal" style="width:560px">
     <h2>Registrar pagamento</h2>
@@ -178,6 +191,30 @@ window.sair = () => { clearSession(); location.href = '/app/login.html'; };
 window.abrirModal = id => document.getElementById(id).classList.add('open');
 window.fecharModal = id => document.getElementById(id).classList.remove('open');
 document.querySelectorAll('.modal-bg').forEach(bg => bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); }));
+
+// V303: Modal de anotação (substitui prompt() nativo)
+// Uso: const obs = await promptAnotacao({ titulo, subtitulo, corStatus, valorInicial });
+window.promptAnotacao = ({ titulo = 'Adicionar anotação', subtitulo = '', corStatus = null, valorInicial = '' } = {}) => {
+  return new Promise(resolve => {
+    document.getElementById('anot-titulo').textContent = titulo;
+    const subEl = document.getElementById('anot-subtitulo');
+    subEl.innerHTML = subtitulo;
+    if (corStatus) subEl.style.color = corStatus; else subEl.style.color = '';
+    const ta = document.getElementById('anot-obs');
+    ta.value = valorInicial;
+    window.__anotResolve = resolve;
+    abrirModal('modal-anotacao');
+    setTimeout(() => ta.focus(), 50);
+    // Ctrl+Enter pra salvar rápido
+    ta.onkeydown = (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        document.getElementById('anot-confirmar').click();
+      } else if (e.key === 'Escape') {
+        document.querySelector('#modal-anotacao .actions button').click();
+      }
+    };
+  });
+};
 
 // Topnav tabs por papel
 const topnav = document.getElementById('topnav-tabs');
@@ -596,11 +633,21 @@ async function carregar() {
     document.querySelectorAll('[data-anotar]').forEach(btn => btn.addEventListener('click', async (ev) => {
       const campo = ev.target.dataset.anotar;
       const status = ev.target.dataset.status;
-      const obs = prompt(`Anotação para "${campo}" (status: ${status})\n\nObservação opcional:`, '') || null;
+      const labelFront = ev.target.dataset.label || campo;
+      const corMap = { verificado: '#2d8659', duvida: '#a67500', problema: '#b81b1b' };
+      const statusLbl = { verificado: 'Verificado', duvida: 'Em dúvida', problema: 'Problema' }[status] || status;
+      const obs = await promptAnotacao({
+        titulo: 'Anotar campo: ' + labelFront,
+        subtitulo: 'Marcando como <strong>' + statusLbl + '</strong>',
+        corStatus: corMap[status],
+      });
       try {
         await api.anotarCampo(id, { campo, status, observacao: obs });
-        toast('Anotado: ' + campo + ' = ' + status, 'sucesso');
-        carregar();
+        toast('Anotado: ' + labelFront + ' = ' + statusLbl, 'sucesso');
+        const abaAtiva = document.querySelector('.dtab.active')?.dataset.tab || 'resumo';
+        await carregar();
+        const tabBtn = document.querySelector('.dtab[data-tab="' + abaAtiva + '"]');
+        if (tabBtn) tabBtn.click();
       } catch (err) { toast(err.message, 'erro'); }
     }));
 
@@ -608,7 +655,13 @@ async function carregar() {
     document.querySelectorAll('[data-anot-doc]').forEach(btn => btn.addEventListener('click', async (ev) => {
       const docId = Number(ev.currentTarget.dataset.anotDoc);
       const status = ev.currentTarget.dataset.status;
-      const obs = prompt(`Observação opcional (status: ${status})`, '') || null;
+      const corMap = { verificado: '#2d8659', duvida: '#a67500', problema: '#b81b1b' };
+      const statusLbl = { verificado: '✓ Verificado', duvida: '? Em dúvida', problema: '! Problema' }[status] || status;
+      const obs = await promptAnotacao({
+        titulo: `Anotar documento`,
+        subtitulo: `Marcando como <strong>${statusLbl}</strong>`,
+        corStatus: corMap[status],
+      });
       try {
         await api.anotarDocumento(id, docId, { status, observacao: obs });
         toast('Documento marcado como ' + status, 'sucesso');
