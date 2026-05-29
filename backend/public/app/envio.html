@@ -432,7 +432,7 @@ async function carregar() {
             })()}            <div class="section-card">
               <header>
                 <h3>Documentos anexados</h3>
-                <span class="meta">${d.documentos.length} arquivo(s) · ${(d.documentos.reduce((a,x)=>a+(x.tamanho_bytes||0),0)/1024).toFixed(1)} KB total</span>
+                <span class="meta">${d.documentos.length} arquivo(s) · ${(() => { const tot = d.documentos.reduce((a,x)=>a+Number(x.tamanho_bytes||0),0); return tot >= 1048576 ? (tot/1048576).toFixed(1)+' MB' : (tot/1024).toFixed(1)+' KB'; })()} total</span>
               </header>
               <div class="body">
                 ${d.documentos.length === 0 ? '<div class="muted">Nenhum documento anexado</div>' :
@@ -441,7 +441,7 @@ async function carregar() {
                     const tipos = {};
                     d.documentos.forEach(doc => { const e=(doc.nome_original.split('.').pop()||'').toLowerCase(); tipos[e] = (tipos[e]||0)+1; });
                     const tipoCores = { pdf: '#b22828', xml: '#3b6ea5', xls: '#2d8659', xlsx: '#2d8659', doc: '#3b6ea5', docx: '#3b6ea5', jpg: '#d99020', jpeg: '#d99020', png: '#d99020', zip: '#7a7a7a' };
-                    const tipoHeader = `<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">${Object.entries(tipos).map(([t, n]) => `<span style="padding:4px 10px;background:${tipoCores[t]||'#7a7a7a'};color:#fff;border-radius:14px;font-size:11.5px;font-weight:600;text-transform:uppercase">${t} · ${n}</span>`).join('')}</div>`;
+                    const tipoHeader = `<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">${Object.entries(tipos).map(([t, n]) => `<span style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;background:#f4f4f1;color:#555;border:1px solid #e0e0d8;border-radius:12px;font-size:11.5px;font-weight:600"><span style="width:8px;height:8px;border-radius:50%;background:${tipoCores[t]||'#7a7a7a'};display:inline-block"></span>${t.toUpperCase()} · ${n}</span>`).join('')}</div>`;
                     const ehOperador = ['operador_unidade','admin_fesf'].includes(usuario.papel);
                     const anotMap = {};
                     (d.anotacoes_documento || []).forEach(a => { anotMap[a.documento_id] = a; });
@@ -463,9 +463,9 @@ async function carregar() {
                         : '';
                       const anotActions = ehOperador ? `
                         <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
-                          <button class="success" style="padding:3px 8px;font-size:11px" data-anot-doc="${doc.id}" data-status="verificado" title="Marcar como verificado">✓</button>
-                          <button class="warn"    style="padding:3px 8px;font-size:11px" data-anot-doc="${doc.id}" data-status="duvida"     title="Marcar como em dúvida">?</button>
-                          <button class="danger"  style="padding:3px 8px;font-size:11px" data-anot-doc="${doc.id}" data-status="problema"   title="Marcar como problema">!</button>
+                          <button style="padding:2px 8px;font-size:13px;font-weight:700;background:transparent;color:#2d8659;border:1.5px solid #b4d9c0;border-radius:4px;line-height:1.2" data-anot-doc="${doc.id}" data-status="verificado" title="Marcar como verificado">✓</button>
+                          <button style="padding:2px 8px;font-size:13px;font-weight:700;background:transparent;color:#a67500;border:1.5px solid #e5d088;border-radius:4px;line-height:1.2" data-anot-doc="${doc.id}" data-status="duvida"     title="Marcar como em dúvida">?</button>
+                          <button style="padding:2px 8px;font-size:13px;font-weight:700;background:transparent;color:#b81b1b;border:1.5px solid #e5b4b4;border-radius:4px;line-height:1.2" data-anot-doc="${doc.id}" data-status="problema"   title="Marcar como problema">!</button>
                           <button style="padding:3px 8px;font-size:11px" data-reenvio-doc="${doc.id}" data-campo="${doc.campo}" title="Pedir reenvio deste arquivo">↻ Reenvio</button>
                         </div>` : '';
                       const uploaderInfo = doc.uploaded_por_nome ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">Enviado por: ${doc.uploaded_por_nome}</div>` : '';
@@ -474,7 +474,7 @@ async function carregar() {
                           <div class="ext" style="background:${cor};color:#fff">${ext}</div>
                           <div class="info">
                             <div class="nome">${doc.nome_original}${novoBadge}</div>
-                            <div class="meta">Campo: <code>${doc.campo}</code> · ${(doc.tamanho_bytes/1024).toFixed(1)} KB · ${dataBR(doc.criado_em)}</div>
+                            <div class="meta">Campo: <code>${doc.campo}</code> · ${(() => { const t = Number(doc.tamanho_bytes||0); return t >= 1048576 ? (t/1048576).toFixed(1)+' MB' : (t/1024).toFixed(1)+' KB'; })()} · ${dataBR(doc.criado_em)}</div>
                             ${doc.status_validade ? `<div class="meta" style="margin-top:3px"><span class="pill ${doc.status_validade}" style="font-size:11px;padding:2px 8px">${{ok:"✓ Válida",alerta:"⚠ A vencer",vencido:"⛔ VENCIDA",pendente:"⏳ Aguardando validação"}[doc.status_validade] || doc.status_validade}</span>${doc.data_expiracao ? ` <span style="font-size:11px;color:#888">· Validade: ${dataBR(doc.data_expiracao)}</span>` : ""}</div>` : ""}
                             ${uploaderInfo}
                             ${badge}
