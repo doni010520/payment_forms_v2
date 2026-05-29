@@ -585,7 +585,7 @@ async function carregarTabLancar() {
                 <td><code style="font-size:11.5px">${e.protocolo || ('#' + e.id)}</code></td>
                 <td><strong>${e.razao_social || e.submetido_por_nome || '—'}</strong><div class="muted" style="font-size:11px">${e.documento || e.submetido_por_documento || (e.fornecedor_id ? '' : 'via link público')}</div></td>
                 <td>${e.modalidade_nome || '—'}</td>
-                <td style="text-align:right;font-variant-numeric:tabular-nums">${brl(e.valor_centavos)}</td>
+                <td style="text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap">${brl(e.valor_centavos)}</td>
                 <td><span class="pill ${e.status}">${statusLabel(e.status)}</span></td>
                 <td>${dataBR(e.criado_em)}</td>
                 <td style="text-align:right"><a href="/app/envio.html?id=${e.id}" style="font-size:12.5px;font-weight:600">Ver →</a></td>
@@ -937,7 +937,7 @@ async function carregarEnvios() {
             <td><span class="origin ${e.origem}">${statusLabel(e.origem)}</span></td>
             <td><span class="pill ${e.status}">${statusLabel(e.status)}</span></td>
             ${slaCell(e)}
-            <td style="text-align:right;font-family:ui-monospace,monospace">${brl(e.valor_centavos)}</td>
+            <td style="text-align:right;font-family:ui-monospace,monospace;white-space:nowrap">${brl(e.valor_centavos)}</td>
             <td><button onclick="location.href='/app/envio.html?id=${e.id}'">Ver</button></td>
           </tr>
         `).join('')}
