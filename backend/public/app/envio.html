@@ -603,7 +603,11 @@ async function carregar() {
       try {
         await api.anotarDocumento(id, docId, { status, observacao: obs });
         toast('Documento marcado como ' + status, 'sucesso');
-        carregar();
+        const abaAtiva = document.querySelector('.dtab.active')?.dataset.tab || 'resumo';
+        await carregar();
+        // Restaura a aba para o operador continuar validando documentos em sequência
+        const btn = document.querySelector(`.dtab[data-tab="${abaAtiva}"]`);
+        if (btn) btn.click();
       } catch (err) { toast(err.message, 'erro'); }
     }));
 
@@ -616,7 +620,10 @@ async function carregar() {
       try {
         await api.solicitarReenvio(id, { campo, motivo, documento_id: docId });
         toast('Reenvio solicitado · fornecedor notificado', 'sucesso');
-        carregar();
+        const abaAtiva = document.querySelector('.dtab.active')?.dataset.tab || 'resumo';
+        await carregar();
+        const btn = document.querySelector(`.dtab[data-tab="${abaAtiva}"]`);
+        if (btn) btn.click();
       } catch (err) { toast(err.message, 'erro'); }
     }));
 
