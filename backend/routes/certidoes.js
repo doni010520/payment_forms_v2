@@ -66,7 +66,7 @@ router.get(
            u.nome          AS unidade_nome
          FROM documentos d
          JOIN envios e    ON e.id = d.envio_id
-         JOIN fornecedores f ON f.id = e.fornecedor_id
+         LEFT JOIN fornecedores f ON f.id = e.fornecedor_id
          JOIN unidades u  ON u.id = e.unidade_id
          WHERE d.status_validade IN ('alerta', 'vencido')
            AND d.data_expiracao IS NOT NULL

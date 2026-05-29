@@ -58,7 +58,7 @@ router.get('/protocolo/:protocolo/recibo', rateLimit({ max: 30, windowMs: 60_000
        FROM envios e
        JOIN unidades u ON u.id = e.unidade_id
        JOIN modalidades m ON m.id = e.modalidade_id
-       JOIN fornecedores f ON f.id = e.fornecedor_id
+       LEFT JOIN fornecedores f ON f.id = e.fornecedor_id
        WHERE e.protocolo = $1`,
       [req.params.protocolo]
     );
@@ -313,7 +313,7 @@ router.get('/', requireAuth, async (req, res) => {
              u.sigla AS unidade_sigla, u.nome AS unidade_nome,
              m.codigo AS modalidade_codigo, m.nome AS modalidade_nome
       FROM envios e
-      JOIN fornecedores f ON f.id = e.fornecedor_id
+      LEFT JOIN fornecedores f ON f.id = e.fornecedor_id
       JOIN modalidades m ON m.id = e.modalidade_id
       JOIN unidades u ON u.id = e.unidade_id
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
@@ -357,7 +357,7 @@ router.get('/export.csv', requireAuth, async (req, res) => {
       const sql = `
         SELECT e.protocolo, e.competencia, e.origem, e.status, e.valor_centavos, e.numero_nf, e.descricao, e.criado_em,
                u.sigla AS unidade, m.nome AS modalidade, f.razao_social, f.documento
-        FROM envios e JOIN fornecedores f ON f.id=e.fornecedor_id JOIN unidades u ON u.id=e.unidade_id JOIN modalidades m ON m.id=e.modalidade_id
+        FROM envios e LEFT JOIN fornecedores f ON f.id=e.fornecedor_id JOIN unidades u ON u.id=e.unidade_id JOIN modalidades m ON m.id=e.modalidade_id
         ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
         ORDER BY e.criado_em DESC LIMIT $${params.length}`;
       envios = (await query(sql, params)).rows;
@@ -498,7 +498,7 @@ router.get('/:id', requireAuth, async (req, res) => {
               u.sigla AS unidade_sigla, u.nome AS unidade_nome,
               m.codigo AS modalidade_codigo, m.nome AS modalidade_nome
        FROM envios e
-       JOIN fornecedores f ON f.id = e.fornecedor_id
+       LEFT JOIN fornecedores f ON f.id = e.fornecedor_id
        JOIN unidades u ON u.id = e.unidade_id
        JOIN modalidades m ON m.id = e.modalidade_id
        WHERE e.id = $1`,

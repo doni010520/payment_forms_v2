@@ -156,7 +156,7 @@ export async function rodarAlertasComplementos() {
             e.protocolo, e.fornecedor_id, f.email AS fornecedor_email, f.razao_social
      FROM complementos_pendentes cp
      JOIN envios e ON e.id = cp.envio_id
-     JOIN fornecedores f ON f.id = e.fornecedor_id
+     LEFT JOIN fornecedores f ON f.id = e.fornecedor_id
      WHERE cp.status = 'pendente'
        AND cp.data_esperada = (CURRENT_DATE + INTERVAL '3 days')::date
        AND cp.alerta_d3_enviado = FALSE`
@@ -198,7 +198,7 @@ export async function rodarAlertasComplementos() {
             e.protocolo, e.fornecedor_id, f.email AS fornecedor_email, f.razao_social
      FROM complementos_pendentes cp
      JOIN envios e ON e.id = cp.envio_id
-     JOIN fornecedores f ON f.id = e.fornecedor_id
+     LEFT JOIN fornecedores f ON f.id = e.fornecedor_id
      WHERE cp.status = 'pendente'
        AND cp.data_esperada = CURRENT_DATE
        AND cp.alerta_d0_enviado = FALSE`

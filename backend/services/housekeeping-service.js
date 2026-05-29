@@ -148,7 +148,7 @@ export async function rodarMonitoramentoCertidoes() {
       (d.data_expiracao - CURRENT_DATE) AS dias_restantes
     FROM documentos d
     JOIN envios e ON e.id = d.envio_id
-    JOIN fornecedores f ON f.id = e.fornecedor_id
+    LEFT JOIN fornecedores f ON f.id = e.fornecedor_id
     WHERE d.data_expiracao IS NOT NULL
       AND d.campo IN (
         'certidao_federal','cnd_federal','q15_fiscalFederal',

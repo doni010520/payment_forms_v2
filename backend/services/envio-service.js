@@ -292,7 +292,7 @@ export async function listarEnviosUnidade(unidadeId, { origem = null, status = n
            f.razao_social, f.documento, f.tipo AS fornecedor_tipo,
            m.codigo AS modalidade_codigo, m.nome AS modalidade_nome
     FROM envios e
-    JOIN fornecedores f ON f.id = e.fornecedor_id
+    LEFT JOIN fornecedores f ON f.id = e.fornecedor_id
     JOIN modalidades m ON m.id = e.modalidade_id
     JOIN unidades un ON un.id = e.unidade_id
     WHERE ${where.join(' AND ')}

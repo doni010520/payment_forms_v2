@@ -109,7 +109,7 @@ export async function detalheUnidade(id) {
   const ultimos = (await query(
     `SELECT e.id, e.protocolo, e.competencia, e.origem, e.status, e.valor_centavos, e.criado_em,
             f.razao_social, m.nome AS modalidade_nome
-     FROM envios e JOIN fornecedores f ON f.id=e.fornecedor_id JOIN modalidades m ON m.id=e.modalidade_id
+     FROM envios e LEFT JOIN fornecedores f ON f.id=e.fornecedor_id JOIN modalidades m ON m.id=e.modalidade_id
      WHERE e.unidade_id=$1 ORDER BY e.criado_em DESC LIMIT 10`, [id]
   )).rows;
 

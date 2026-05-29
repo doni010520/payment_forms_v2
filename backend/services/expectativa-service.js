@@ -281,7 +281,7 @@ export async function listarExpectativasUnidade(unidadeId, { status = null, comp
             un.sigla AS unidade_sigla, un.nome AS unidade_nome,
             (SELECT COUNT(*)::int FROM lembretes l WHERE l.expectativa_id = e.id) AS lembretes_enviados
      FROM expectativas e
-     JOIN fornecedores f ON f.id = e.fornecedor_id
+     LEFT JOIN fornecedores f ON f.id = e.fornecedor_id
      JOIN modalidades m ON m.id = e.modalidade_id
      JOIN unidades un ON un.id = e.unidade_id
      WHERE ${where.join(' AND ')}
