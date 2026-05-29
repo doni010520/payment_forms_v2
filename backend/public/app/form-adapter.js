@@ -197,11 +197,18 @@
       : [];
     const fullDados = { ...stateData, files_meta: stateFiles, modalidade_codigo: cfg.modalidadeCodigo };
 
+    // Competência: preferir o campo q5_competencia preenchido pelo usuário no formulário.
+    // Cai pra cfg.competencia (URL) só se o campo não estiver preenchido.
+    const competenciaFinal = stateData.q5_competencia || cfg.competencia;
+    if (!competenciaFinal || !/^\d{4}-\d{2}$/.test(competenciaFinal)) {
+      throw new Error('Preencha a Competência (mês/ano de referência) na Seção 1.');
+    }
+
     let envio;
     if (cfg.publicToken) {
       // Submissao via link publico (anonimo)
       const r = await api('POST', `/api/envios/publico/${cfg.publicToken}`, {
-        competencia: cfg.competencia,
+        competencia: competenciaFinal,
         valor_centavos: summary.valor_centavos,
         numero_nf: summary.numero_nf,
         descricao: summary.descricao,
@@ -222,7 +229,7 @@
       const r = await api('POST', '/api/envios/portal', {
         unidade_id: unidadeId,
         modalidade_id: modalidade.id,
-        competencia: cfg.competencia,
+        competencia: competenciaFinal,
         valor_centavos: summary.valor_centavos,
         numero_nf: summary.numero_nf,
         descricao: summary.descricao,
@@ -372,11 +379,9 @@
       // V238 fix FH1: só renderiza o segmento "Unidade ..." se houver unidade real (evita "Unidade —" vazio quando admin testa o form sem unidade vinculada).
       const unidadeSigla = unidade ? unidade.sigla : cfg.unidadeIdent;
       const unidadeFrag = unidadeSigla ? `<span style="opacity:.8">· Unidade ${unidadeSigla}</span>` : '';
-      // Se veio competência travada na URL (fluxo logado/admin), mostra como texto.
-      // Caso contrário (link público sem competência), renderiza <input type="month"> editável.
-      const competenciaFrag = params.get('competencia')
-        ? `<span style="opacity:.8">· Competência ${cfg.competencia}</span>`
-        : `<span style="opacity:.8;display:inline-flex;align-items:center;gap:6px">· Competência <input type="month" id="fesf-banner-comp" value="${cfg.competencia}" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:3px;padding:1px 4px;font-size:12.5px;color-scheme:dark"></span>`;
+      // Banner só mostra competência quando ela vem fixa pela URL (fluxo logado/admin).
+      // No fluxo de link público, a competência é o campo q5_competencia do próprio formulário.
+      const competenciaFrag = params.get('competencia') ? `<span style="opacity:.8">· Competência ${cfg.competencia}</span>` : '';
       b.innerHTML = `
         <strong>FESF-SUS · ${modalidade ? modalidade.nome : cfg.modalidadeCodigo}</strong>
         ${unidadeFrag}
@@ -386,13 +391,6 @@
         <a href="/app/portal.html" style="color:#fff;text-decoration:underline">← portal</a>
       `;
       document.body.appendChild(b);
-      // Atualiza cfg.competencia quando o usuário muda o seletor no banner
-      const compInput = document.getElementById('fesf-banner-comp');
-      if (compInput) {
-        compInput.addEventListener('change', () => {
-          if (compInput.value) cfg.competencia = compInput.value;
-        });
-      }
       // Empurra o conteudo pra baixo
       document.body.style.paddingTop = '36px';
     }).catch(e => console.warn(e));
