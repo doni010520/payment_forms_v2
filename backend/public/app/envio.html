@@ -338,6 +338,24 @@ async function carregar() {
         <div class="timeline">${timelineHtml}</div>
       </div>
 
+      ${(() => {
+        const todasAlertas = (d.documentos || []).flatMap(doc => {
+          if (!doc.validacao_json) return [];
+          const v = typeof doc.validacao_json === 'string' ? (() => { try { return JSON.parse(doc.validacao_json); } catch { return null; } })() : doc.validacao_json;
+          return (v && Array.isArray(v.alertas)) ? v.alertas.map(a => ({ ...a, docNome: doc.nome_original, campo: doc.campo })) : [];
+        });
+        if (todasAlertas.length === 0) return '';
+        const problemas = todasAlertas.filter(a => a.severidade === 'problema').length;
+        const duvidas  = todasAlertas.filter(a => a.severidade === 'duvida').length;
+        const corBoxe  = problemas > 0 ? { bg: '#fff5f5', border: '#b81b1b', text: '#7a1212' } : { bg: '#fff9ed', border: '#a67500', text: '#664400' };
+        return `<div style="background:${corBoxe.bg};border:1px solid ${corBoxe.border}33;border-left:4px solid ${corBoxe.border};border-radius:8px;padding:12px 16px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:8px;font-weight:600;color:${corBoxe.text};font-size:13.5px">
+            🤖 ${todasAlertas.length} inconsistência(s) detectada(s) automaticamente
+          </div>
+          <div style="font-size:12px;color:${corBoxe.text};opacity:.85;margin-top:3px">${problemas > 0 ? problemas + ' crítica(s)' : ''}${problemas > 0 && duvidas > 0 ? ' · ' : ''}${duvidas > 0 ? duvidas + ' a verificar' : ''} — <a href="#" onclick="document.querySelector('[data-tab=documentos]')?.click(); return false;" style="color:${corBoxe.text};font-weight:600">ver detalhes na aba Documentos →</a></div>
+        </div>`;
+      })()}
+
       <div class="detail-tabs" role="tablist">
         <button class="dtab active" data-tab="resumo">Resumo</button>
         <button class="dtab" data-tab="formulario">Formulário <span class="count">${d.form_data ? Object.keys(d.form_data).length : 0}</span></button>
@@ -518,6 +536,16 @@ async function carregar() {
                             <div class="nome">${doc.nome_original}${novoBadge}</div>
                             <div class="meta">Campo: <code>${doc.campo}</code> · ${(() => { const t = Number(doc.tamanho_bytes||0); return t >= 1048576 ? (t/1048576).toFixed(1)+' MB' : (t/1024).toFixed(1)+' KB'; })()} · ${dataBR(doc.criado_em)}</div>
                             ${doc.status_validade ? `<div class="meta" style="margin-top:3px"><span class="pill ${doc.status_validade}" style="font-size:11px;padding:2px 8px">${{ok:"✓ Válida",alerta:"⚠ A vencer",vencido:"⛔ VENCIDA",pendente:"⏳ Aguardando validação"}[doc.status_validade] || doc.status_validade}</span>${doc.data_expiracao ? ` <span style="font-size:11px;color:#888">· Validade: ${dataBR(doc.data_expiracao)}</span>` : ""}</div>` : ""}
+                            ${(() => {
+                              const vj = doc.validacao_json;
+                              if (!vj) return '';
+                              const v = typeof vj === 'string' ? (() => { try { return JSON.parse(vj); } catch { return null; } })() : vj;
+                              if (!v || !Array.isArray(v.alertas) || v.alertas.length === 0) return '';
+                              const cores = { problema: { bg: 'rgba(184,27,27,0.08)', border: '#b81b1b', icon: '⚠️' }, duvida: { bg: 'rgba(166,117,0,0.08)', border: '#a67500', icon: '⚠' }, info: { bg: 'rgba(91,84,153,0.06)', border: '#5b5499', icon: 'ℹ' } };
+                              return `<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">
+                                ${v.alertas.map(a => { const co = cores[a.severidade] || cores.info; return `<div style="padding:6px 10px;background:${co.bg};border-left:3px solid ${co.border};border-radius:0 4px 4px 0;font-size:12px;line-height:1.4"><strong>${co.icon} ${a.severidade === 'problema' ? 'Inconsistência detectada' : a.severidade === 'duvida' ? 'Verificar' : 'Info'}:</strong> ${a.mensagem}</div>`; }).join('')}
+                              </div>`;
+                            })()}
                             ${uploaderInfo}
                             ${badge}
                           </div>

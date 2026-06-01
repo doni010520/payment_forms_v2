@@ -291,7 +291,8 @@ async function processarDocumento(docId, tabela = 'documentos') {
 
   const doc = await queryOne(
     `SELECT d.id, d.caminho, d.mime_type, d.campo,
-            e.fornecedor_id
+            e.id AS envio_id, e.fornecedor_id, e.unidade_id, e.competencia,
+            e.valor_centavos, e.numero_nf
      FROM ${tabelaSegura} d
      LEFT JOIN envios e ON e.id = d.envio_id
      WHERE d.id = $1`,
@@ -403,6 +404,14 @@ async function processarDocumento(docId, tabela = 'documentos') {
 
   resultado.validado_em = new Date().toISOString();
 
+  // V305: gera alertas comparando o extraido contra os dados do envio
+  const envioCtx = {
+    envio_id: doc.envio_id, unidade_id: doc.unidade_id,
+    competencia: doc.competencia,
+    valor_centavos: doc.valor_centavos, numero_nf: doc.numero_nf,
+  };
+  resultado.alertas = gerarAlertasValidacao(resultado, statusValidade, dataExpiracao, envioCtx);
+
   // Persiste resultado no banco
   await query(
     `UPDATE ${tabelaSegura}
@@ -418,7 +427,119 @@ async function processarDocumento(docId, tabela = 'documentos') {
     ]
   );
 
-  console.log(`[validacao] doc ${docId} processado → status=${statusValidade} exp=${dataExpiracao ?? 'N/A'}`);
+  // V305: notifica operadores se ha alertas de severidade 'problema'
+  const problemaAlerts = (resultado.alertas || []).filter(a => a.severidade === 'problema');
+  if (problemaAlerts.length > 0 && doc.envio_id && doc.unidade_id) {
+    (async () => {
+      try {
+        const { notificarOperadoresUnidade } = await import('./notificacao-service.js');
+        await notificarOperadoresUnidade({
+          unidadeId: doc.unidade_id,
+          tipo: 'validacao_alerta',
+          mensagem: `🤖 ${problemaAlerts.length} inconsistencia(s) detectada(s) automaticamente em documento do envio`,
+          link: `/app/envio.html?id=${doc.envio_id}&tab=documentos`,
+          entidade: 'envio', entidadeId: doc.envio_id,
+        });
+      } catch (e) { console.error('[validacao/notif]', e.message); }
+    })();
+  }
+
+  console.log(`[validacao] doc ${docId} processado -> status=${statusValidade} exp=${dataExpiracao ?? 'N/A'} alertas=${(resultado.alertas||[]).length}`);
+}
+
+// ---------------------------------------------------------------------------
+// V305: Gerador de alertas em linguagem natural
+// Retorna array de { severidade, codigo, mensagem }
+// ---------------------------------------------------------------------------
+
+function gerarAlertasValidacao(resultado, statusValidade, dataExpiracao, envioCtx = {}) {
+  const alertas = [];
+
+  if (resultado.tipo === 'certidao') {
+    if (statusValidade === 'vencido' && dataExpiracao) {
+      const dt = new Date(dataExpiracao).toLocaleDateString('pt-BR');
+      alertas.push({
+        severidade: 'problema', codigo: 'CERTIDAO_VENCIDA',
+        mensagem: `Certidao vencida em ${dt} - solicitar atualizacao ao fornecedor`,
+      });
+    } else if (statusValidade === 'alerta' && dataExpiracao) {
+      const dt = new Date(dataExpiracao).toLocaleDateString('pt-BR');
+      const diasRest = Math.ceil((new Date(dataExpiracao) - new Date()) / 86400000);
+      alertas.push({
+        severidade: 'duvida', codigo: 'CERTIDAO_A_VENCER',
+        mensagem: `Certidao vence em ${diasRest} dia(s) (${dt})`,
+      });
+    } else if (resultado.aviso === 'data_validade_nao_encontrada') {
+      alertas.push({
+        severidade: 'duvida', codigo: 'VALIDADE_NAO_DETECTADA',
+        mensagem: 'Data de validade nao pode ser extraida automaticamente - confirmar visualmente',
+      });
+    }
+  }
+
+  if (resultado.tipo === 'nfe') {
+    if (resultado.cnpj_match === false && resultado.cnpj_emitente) {
+      alertas.push({
+        severidade: 'problema', codigo: 'CNPJ_DIVERGENTE',
+        mensagem: `CNPJ do emitente (${resultado.cnpj_emitente}) nao confere com o fornecedor cadastrado`,
+      });
+    }
+    if (resultado.razao_match === false && resultado.razao_social_emitente) {
+      alertas.push({
+        severidade: 'duvida', codigo: 'RAZAO_DIVERGENTE',
+        mensagem: `Razao social no XML difere do cadastro: "${resultado.razao_social_emitente.substring(0, 60)}"`,
+      });
+    }
+    if (resultado.valor_nf && envioCtx.valor_centavos) {
+      const valorDeclaradoCents = Math.round(resultado.valor_nf * 100);
+      const valorEnvio = Number(envioCtx.valor_centavos);
+      const diff = Math.abs(valorDeclaradoCents - valorEnvio);
+      if (diff > 2) {
+        alertas.push({
+          severidade: 'problema', codigo: 'VALOR_DIVERGENTE',
+          mensagem: `Valor da NF no XML (R$ ${resultado.valor_nf.toFixed(2)}) difere do declarado no formulario (R$ ${(valorEnvio / 100).toFixed(2)})`,
+        });
+      }
+    }
+    if (resultado.numero_nf && envioCtx.numero_nf) {
+      const a = String(resultado.numero_nf).replace(/^0+/, '');
+      const b = String(envioCtx.numero_nf).replace(/^0+/, '');
+      if (a !== b) {
+        alertas.push({
+          severidade: 'problema', codigo: 'NF_NUMERO_DIVERGENTE',
+          mensagem: `Numero da NF no XML (${resultado.numero_nf}) difere do declarado no formulario (${envioCtx.numero_nf})`,
+        });
+      }
+    }
+    if (resultado.data_emissao && envioCtx.competencia) {
+      const m = String(resultado.data_emissao).match(/^(\d{4})-(\d{2})/);
+      if (m) {
+        const compNF = `${m[1]}-${m[2]}`;
+        if (compNF !== envioCtx.competencia) {
+          alertas.push({
+            severidade: 'duvida', codigo: 'COMPETENCIA_DIVERGENTE',
+            mensagem: `Data de emissao da NF (${compNF}) difere da competencia declarada (${envioCtx.competencia})`,
+          });
+        }
+      }
+    }
+  }
+
+  if (resultado.confianca_ocr != null && resultado.confianca_ocr < 0.5) {
+    alertas.push({
+      severidade: 'duvida', codigo: 'OCR_BAIXA_CONFIANCA',
+      mensagem: `Texto extraido via OCR com confianca ${Math.round(resultado.confianca_ocr * 100)}% - revisar visualmente`,
+    });
+  }
+
+  if (resultado.erro_processamento) {
+    alertas.push({
+      severidade: 'info', codigo: 'ERRO_PROCESSAMENTO',
+      mensagem: `Falha tecnica na validacao: ${resultado.erro_processamento}`,
+    });
+  }
+
+  return alertas;
 }
 
 // ---------------------------------------------------------------------------
