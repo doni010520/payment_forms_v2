@@ -1434,6 +1434,12 @@ router.post('/publico/:token/:envioId/documentos',
        VALUES ('envio', $1, 'documento_anexado', NULL, $2)`,
       [envId, `[publico] ${req.file.originalname} (${req.file.size} bytes)`]
     );
+    // V305: dispara validacao em background tambem para uploads via link publico
+    try {
+      const { dispararValidacaoBackground, obterCertidaoConfig } = await import('../services/validacao-documentos-service.js');
+      const cfg = await obterCertidaoConfig();
+      if (cfg.validacao_ativa !== false) dispararValidacaoBackground(doc.id);
+    } catch (e) { console.warn('[envios/upload/publico/validacao]', e.message); }
     res.status(201).json({ documento: doc });
   } catch (e) {
     console.error('[envios/upload/publico]', e);
