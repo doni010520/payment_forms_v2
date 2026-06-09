@@ -206,6 +206,28 @@ Escolhas conscientes que devem ser preservadas.
 
 ## 📜 HISTÓRICO
 
+### V307 — 2026-06-09 — Fix: título da tab admin carregava errado no load inicial
+
+**Por quê**: auditoria automática (Playwright) detectou que admin_fesf via `admin.html` → aba Envios exibia "Painel da unidade" em vez de "Análise de envios" no carregamento inicial. `aplicarHeaderTab()` só era chamada no handler `.click()` das abas — logo, o título estático do HTML nunca era substituído até o usuário clicar em outra aba e voltar.
+
+**Mudanças**:
+- `backend/public/app/painel.html`: adicionada chamada `aplicarHeaderTab('envios')` logo após `popularCompetencias()` no bloco de inicialização de `admin_fesf`, garantindo que o `<h2>` e o `<p>` corretos apareçam imediatamente no load sem interação do usuário.
+
+**Testes**: script de auditoria `teste_audit_completo.js` confirma `<h2>` = "Análise de envios" em carga fresh.
+
+---
+
+### V306 — 2026-06-09 — Formalização do processo de trabalho + catch-up CHANGELOG
+
+**Por quê**: sessão de trabalho acumulou V300-V305 sem registro no CHANGELOG. Acordos de processo (plano de 3 partes antes de codar, causa raiz explícita antes de bug fix) foram formalizados.
+
+**Mudanças**:
+- `CLAUDE.md`: nova seção `🤝 Processo de Trabalho` com regras de fluxo livre (pequenas) vs plano aprovado (não-triviais), e anti-padrão "reverter rápido sem insistir".
+- `CHANGELOG.md`: catch-up com entradas V300-V305.
+- `backend/server.js`: `APP_VERSION` bumped V299 → V306.
+
+---
+
 ### V305 — 2026-06-01 — Validação automática de documentos com alertas visíveis
 **Por quê**: o serviço de validação (`validacao-documentos-service.js`) já extraía dados (CNPJ, valor, validade), mas salvava silenciosamente em `validacao_json`. Operador não via nada mesmo com inconsistências graves. Além disso, a rota de upload **via link público** sequer disparava a validação.
 
