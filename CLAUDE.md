@@ -100,6 +100,38 @@ Quando há alerta de severidade `problema`, dispara **notificação no sino** do
 - **CND/CNDT/CRF**: certidões fiscais (Federal/Trabalhista/FGTS)
 - **NF-e**: Nota Fiscal eletrônica (XML)
 
+## 🤝 Processo de Trabalho
+
+Acordo definido na revisão de 2026-06: o trabalho tem dois tamanhos, com rituais diferentes.
+
+### Para mudanças pequenas (ajuste UX, fix cosmético, label, cor)
+Fluxo livre: usuário mostra screenshot ou pede ajuste → eu corrijo → push.
+Sem cerimônia. Mais rápido que processo formal.
+
+### Para mudanças não-triviais (feature, refactor, mudança de modelo)
+**Plano de 3 partes ANTES de codar**, no chat, e aguardar OK:
+1. **O que muda** — em 1-2 frases
+2. **Por quê** — motivação
+3. **Arquivos afetados** — lista curta
+
+Só depois do OK, executar. Evita reverter trabalho feito por causa de desalinhamento.
+
+### Para bugs
+**Identificar causa raiz EXPLICITAMENTE antes do fix.** Padrão de resposta:
+- "Achei: [causa]. Vou [solução]."
+- Não pular direto pro "vou consertar" sem dizer o que era.
+- Quando o sintoma é cosmético mas a causa é estrutural, registrar em `⛔ NÃO REINTRODUZIR` do CHANGELOG.
+
+### Quando algo deu errado
+**Reverter rápido sem insistir.** Se uma decisão de UX não funcionou (usuário disse "ficou pior" ou "não entendi"), reverter na próxima resposta, registrar o erro em `⛔ NÃO REINTRODUZIR` se for um anti-pattern, e seguir. Não tentar justificar o trabalho perdido.
+
+### Registro
+- Toda mudança não-trivial → entrada no `CHANGELOG.md` (formato `### V### — YYYY-MM-DD — Título`)
+- Padrão que já causou bug e foi removido → entrada em `⛔ NÃO REINTRODUZIR`
+- Convenção nova aprendida na sessão → atualizar este `CLAUDE.md`
+
+---
+
 ## 👤 Preferencias do Usuario
 
 - Documentos para impressao: sem cores decorativas, sem legendas de cores, layout limpo e funcional

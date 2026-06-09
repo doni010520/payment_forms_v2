@@ -328,7 +328,7 @@ try { GIT_COMMIT = execSync('git rev-parse --short HEAD', { cwd: __dirname, stdi
 // V295: bump para acompanhar refinos visuais (V268-V294) e novas integrações (V291 client-errors, V292 OneDrive).
 // V298: bump para forçar invalidação de cache no navegador via query string ?v=APP_VERSION.
 // V299: fix vazamento de window._fesfFiles entre envios consecutivos.
-const APP_VERSION = process.env.APP_VERSION || 'V299';
+const APP_VERSION = process.env.APP_VERSION || 'V306';
 app.get('/api/version', (_, res) => res.json({
   app: 'fesf-portal-pagamentos',
   versao: APP_VERSION,

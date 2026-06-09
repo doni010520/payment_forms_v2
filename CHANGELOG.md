@@ -89,6 +89,66 @@ Coisas que já causaram bugs e foram removidas/substituídas. Antes de adicionar
 
 ---
 
+
+### 11. 4º botão 💬 "comentário" separado dos status (✓/?/!) em campos/documentos
+- **O que era**: V303 adicionou um 4º botão (com status='comentario') para deixar nota neutra sem julgar como verificado/dúvida/problema.
+- **Por que removido**: UX confusa — usuário não entendeu pra que servia. Após clicar e confirmar, a observação parecia "sumir" porque o card visual destacava o status mas a obs ficava muito abaixo. Reverter foi necessário (V303 mesmo).
+- **Substituto correto**: cada status (✓/?/!) já permite uma observação opcional. A observação É o comentário. Manter observação destacada (card com borda lateral roxa + label "💬 OBSERVAÇÃO").
+- **Schema mantém 'comentario'** como valor válido em `anotacoes_*.status` (migration 018), mas a UI não expõe o botão. Se for retomar, repensar UX antes.
+- **Referência**: V303 (adicionado), V303 (revertido na mesma versão).
+
+### 12. Subtítulo "Nota neutra, sem severidade" + label "OBSERVAÇÃO (OPCIONAL)" no modal de anotação
+- **O que era**: modal `#modal-anotacao` exibia subtítulo descritivo + label do textarea.
+- **Por que removido**: ruído visual; título já comunica a ação ("Comentar campo: NOME DO FORNECEDOR"). Placeholder do textarea já guia ("Descreva o que precisa ser observado...").
+- **Substituto correto**: só título + textarea com placeholder. Mais limpo.
+- **Referência**: V303.
+
+### 13. Dropdown "Todas competências" sem listener nem opções dinâmicas
+- **O que era**: `<select id="f-periodo">` no painel só tinha 1 option "Todas competências", sem listener. `competenciaAtual()` ignorava o dropdown e sempre retornava o mês corrente. Resultado: KPI mostrava só 2026-05 enquanto tabela mostrava todas — discrepância.
+- **Por que removido**: dropdown morto não filtra nada.
+- **Substituto correto**: função `popularCompetencias()` chamada no init gera 13 meses + event listener que dispara `carregarKPIs() + carregarEnvios()` ao trocar. `competenciaAtual()` lê o valor do dropdown ('' = todas).
+- **Referência**: V303.
+
+### 14. Chart escondido pra admin_fesf (sem unidade_id)
+- **O que era**: `carregarBarChart()` fazia `if (!usuario.unidade_id) { esconde; return }`. Admin não tem `unidade_id` → gráfico sumia.
+- **Por que removido**: admin precisa ver chart agregado de todas as unidades.
+- **Substituto correto**: `usuario.papel === 'admin_fesf'` → chama `api.serieGlobal(...)` (rota `/api/metricas/serie-global`). Mesma lógica para atividade recente (`atividadeGlobal`).
+- **Referência**: V304.
+
+### 15. STORAGE_KEY fixa do rascunho do formulário entre todos os forms HCC
+- **O que era**: 6 forms HCC compartilhavam `const STORAGE_KEY = "hcc_form_pagamento_v1"`. Um fornecedor abria link, o rascunho de outro (ou de outra modalidade) vazava pra ele.
+- **Por que removido**: vazamento grave de dados entre sessões/fornecedores.
+- **Substituto correto**: chave dinâmica por contexto:
+  - Link público: `hcc_form_pagamento_v1_pub_<token24chars>`
+  - Logado/admin: `hcc_form_pagamento_v1_<modalidade>`
+- **Referência**: V300.
+
+### 16. INNER JOIN fornecedores em queries de listagem/agregação de envios
+- **O que era**: `JOIN fornecedores f ON f.id = e.fornecedor_id` (INNER JOIN) em ~10 lugares.
+- **Por que removido**: envios criados via link público sem fornecedor vinculado (`fornecedor_id=null`, permitido pela migration 017) eram silenciosamente filtrados. KPI mostrava 0 envios mesmo com dados na base.
+- **Substituto correto**: `LEFT JOIN fornecedores`. Aplicado em `envio-service`, `routes/envios`, `unidade-service`, `complementos-service`, `expectativa-service`, `housekeeping-service`, `routes/certidoes`.
+- **Para envios sem fornecedor**: usar `submetido_por_nome` como display fallback no front.
+- **Referência**: V300.
+
+### 17. `JOIN.*tamanho_bytes` sem `Number()`
+- **O que era**: `d.documentos.reduce((a,x) => a + (x.tamanho_bytes||0), 0)` na tela de envio.
+- **Por que problemático**: PG bigint serializa como string. `0 + "150000" + "200000"` = `"0150000200000"` — concatenação. `/1024` vira notação científica (`6.67e+156 KB`).
+- **Substituto correto**: `Number(x.tamanho_bytes||0)` antes do `+`.
+- **Para qualquer coluna bigint**: sempre `Number()` ao somar/comparar matematicamente.
+- **Referência**: V300.
+
+### 18. CSP sem `frame-src 'self' blob:`
+- **O que era**: `Content-Security-Policy: default-src 'self'; ...` sem `frame-src` explícito.
+- **Por que problemático**: preview de PDF via `URL.createObjectURL()` num iframe é bloqueado — `default-src 'self'` não inclui `blob:`. Ícone de arquivo quebrado.
+- **Substituto correto**: incluir `"frame-src 'self' blob:"` no array do CSP em `server.js`.
+- **Referência**: V300.
+
+### 19. Link `<a target="_blank">` para endpoint autenticado
+- **O que era**: botão "👁 Ver PDF" abria `/api/envios/X/documentos/Y/preview` em nova aba.
+- **Por que problemático**: nova aba abre sem token Bearer → 401 → ícone de arquivo quebrado.
+- **Substituto correto**: chamar `window.visualizar(envioId, docId, nome, mime)` que faz `fetch` autenticado → `blob` → exibe em modal local.
+- **Referência**: V300.
+
 ## 🎯 DECISÕES DE DESIGN
 
 Escolhas conscientes que devem ser preservadas.
@@ -145,6 +205,102 @@ Escolhas conscientes que devem ser preservadas.
 ---
 
 ## 📜 HISTÓRICO
+
+### V305 — 2026-06-01 — Validação automática de documentos com alertas visíveis
+**Por quê**: o serviço de validação (`validacao-documentos-service.js`) já extraía dados (CNPJ, valor, validade), mas salvava silenciosamente em `validacao_json`. Operador não via nada mesmo com inconsistências graves. Além disso, a rota de upload **via link público** sequer disparava a validação.
+
+**Mudanças**:
+- `services/validacao-documentos-service.js`: nova função `gerarAlertasValidacao()` que compara dados extraídos contra envio (valor, número NF, competência, CNPJ do fornecedor) e devolve lista de `{severidade, codigo, mensagem}`. Códigos: `CERTIDAO_VENCIDA`, `CERTIDAO_A_VENCER`, `VALIDADE_NAO_DETECTADA`, `CNPJ_DIVERGENTE`, `RAZAO_DIVERGENTE`, `VALOR_DIVERGENTE`, `NF_NUMERO_DIVERGENTE`, `COMPETENCIA_DIVERGENTE`, `OCR_BAIXA_CONFIANCA`, `ERRO_PROCESSAMENTO`.
+- Notifica operadores da unidade (sino) quando há alerta de severidade `problema`.
+- `routes/envios.js`: rota pública `/publico/:token/:envioId/documentos` também chama `dispararValidacaoBackground` (antes só a autenticada chamava).
+- `envio.html`: card 🤖 "X inconsistência(s) detectada(s)" no resumo + alertas inline em cada doc-card.
+- **Não bloqueia** envio nem aprovação — só observação.
+
+**Teste E2E validado**: upload de 4 docs em envio público → todos os alertas esperados disparados; 2 notificações no sino do operador HECC.
+
+---
+
+### V304 — 2026-06-01 — Painel admin_fesf agregado (chart, atividade, labels)
+**Por quê**: admin Maria via "Painel da unidade" / "Visão: Operador" / gráfico escondido — tudo herdado do código pensado pra operador. Quando o usuário não tem `unidade_id`, vários componentes sumiam.
+
+**Mudanças**:
+- `services/unidade-service.js`: `serieTemporal()` e `atividadeRecenteUnidade()` aceitam `unidadeId=null` (= todas as unidades). Backfill de períodos vazios.
+- `routes/admin-crud.js`: novas rotas `/api/metricas/serie-global` e `/api/metricas/atividade-global` (admin_fesf only).
+- `api.js`: helpers `serieGlobal()` e `atividadeGlobal()`.
+- `painel.html`: labels condicionais por papel — pill "Visão: FESF Sede · todas as unidades", título "Análise de envios", eyebrow "FUNDAÇÃO ESTATAL SAÚDE DA FAMÍLIA · SEDE". Chart e atividade usam rotas globais quando admin_fesf.
+- `routes/envios.js`: branch "admin lista todos" inclui `submetido_por_nome` no SELECT → coluna FORNECEDOR não mostra mais "—" pra envios via link público.
+
+---
+
+### V303 — 2026-06-01 — Modal de anotação + redesign de chart + paleta de botões
+**Por quê**: várias melhorias acumuladas de UX. Modal nativo `prompt()` exibia variável do backend (`q1_nomeFornecedor`) em vez do label do front (`NOME DO FORNECEDOR`). Botões de ação saturados brigavam pela atenção. Gráfico estava feio (barra solitária sem escala, semanas vazias invisíveis).
+
+**Mudanças**:
+- `envio.html`: novo `#modal-anotacao` centralizado + helper `promptAnotacao({titulo, valorInicial})` Promise-based. Auto-focus, Ctrl+Enter salva, ESC cancela.
+- `api.js`: botões `data-anotar` ganham `data-label` com o rótulo amigável da seção.
+- `envio.html`: botões "Aprovar | Solicitar retificação | Rejeitar" — só Aprovar solid (verde), os outros outline (ambar/vermelho). Aplica mesma hierarquia em ✓/?/! dos documentos.
+- `painel.html`: redesign do bar chart — 6 semanas sempre visíveis (vazias com tracinho), linhas dashed horizontais de referência, escala arredondada (múltiplos de 5), cores suavizadas (azul-acinzentado/âmbar/verde-sálvia/terracota).
+- **Toggle Dia/Semana/Mês** no header do chart — segmented control que dispara re-render via `api.serieUnidade(periodos, granularidade)`. Backend: `serieTemporal(unidadeId, periodos, granularidade)` aceita `'day'|'week'|'month'`. Frontend: 14 dias / 6 semanas / 6 meses como defaults.
+- `painel.html`: dropdown `f-periodo` agora populado dinamicamente (13 meses) e dispara `carregarKPIs() + carregarEnvios()` no `change`. Antes era dropdown morto.
+- Multiple HTML: `white-space:nowrap` em todas `<td>` com `font-family:ui-monospace` (R$ não quebra do número).
+
+---
+
+### V302 — 2026-05-31 — Envio aprovado dispara fluxo automático para FESF Sede
+**Por quê**: depois que o operador aprovava, a tela ficava sem ação ("Imprimir recibo" apenas) sem feedback do que viria a seguir. Admin FESF não era avisado.
+
+**Mudanças**:
+- `services/envio-service.js`: ao mudar status para `aprovado`, dispara `notificarAdmins()` (sino) + e-mail individual pra cada `admin_fesf` ativo. Fire-and-forget — erro no e-mail não derruba a aprovação.
+- `services/email-service.js`: novo template `envio_aprovado_sede({protocolo, valor, unidade, fornecedor, link})`.
+- `envio.html`: substitui card vazio de ações por banner verde "✓ Aprovado pela unidade · Encaminhado automaticamente para a FESF Sede" quando operador vê envio aprovado.
+- Marco "Pago" na trajetória mostra `⏳ aguardando FESF Sede` em vez de `—` quando status=aprovado.
+
+---
+
+### V301 — 2026-05-31 — Card "Complementos Pendentes" papel-aware
+**Por quê**: operador via texto/botão "clique abaixo para sinalizar que você vai enviar depois" — mensagem pensada pro fornecedor.
+
+**Mudanças**:
+- `envio.html`: card só aparece pra operador/admin quando há complementos sinalizados pelo fornecedor (modo leitura). Fornecedor mantém texto orientador + botão "+ Sinalizar".
+
+---
+
+### V300 — 2026-05-29/30 — Bugs do fluxo público + Storage Supabase + correções estruturais
+**Por quê**: bateria de bugs descobertos ao testar link público com fornecedor não cadastrado, somados a problemas de cache/CSP/scope.
+
+**Mudanças** (agrupadas por tema):
+
+**Storage e bancos:**
+- Migration `017_envios_fornecedor_nullable.sql`: `envios.fornecedor_id` agora NULLable. Permite link público gerar envio sem fornecedor vinculado.
+- Migration `018_anotacao_comentario.sql`: CHECK constraint de `anotacoes_envio.status` e `anotacoes_documento.status` inclui `'comentario'` (status neutro disponível mas não exposto na UI — ver ⛔ NÃO REINTRODUZIR #11).
+- Várias queries trocadas de `JOIN fornecedores f ON f.id = e.fornecedor_id` → `LEFT JOIN` (`envio-service`, `routes/envios.js`, `unidade-service`, `complementos-service`, `expectativa-service`, `housekeeping-service`, `routes/certidoes`). Sem isso, envios com `fornecedor_id=null` somem dos KPIs e listagens.
+- `services/storage-service.lerBufferArquivo()` reconhece prefixos `supabase://` e `onedrive://` (antes só local).
+
+**Resend / e-mail:**
+- `email-service.js` aceita `RESEND_API_KEY` em maiúsculas OU minúsculas (Render era case-sensitive).
+- Troca de SMTP por HTTP API do Resend (Render bloqueia portas 465/587).
+- **⚠️ Resend sandbox**: sem domínio verificado, só envia pra `sgihecc@gmail.com`. Demais destinos recebem 403 silencioso. Solução definitiva: verificar domínio em resend.com/domains.
+
+**UX / Frontend:**
+- Competência vira campo do formulário (`q5_competencia` na Seção 1) em vez de banner travado.
+- `STORAGE_KEY` do localStorage do form é dinâmica: por token público OU modalidade (antes era fixa, causava vazamento de rascunho entre links).
+- `painel.html`: dropdown "Todas competências" populado + listener (era dummy estático).
+- Modal "Gerar link" mostra seletor de Unidade quando admin_fesf (admin não tem `unidade_id`).
+- `envio.html`: snapshot de `window.state.data` antes do reset → tela de sucesso (link público) deixa de mostrar fornecedor/valor vazios.
+- Tela de sucesso, painel e detalhe: fornecedor mostra `submetido_por_nome` + pílula "via link" quando não há fornecedor cadastrado.
+- KPIs do dashboard clicáveis (links para painel com filtro).
+- Menu "Pendentes" navega para o painel (fila de análise), não para aprovação de fornecedor.
+- "← Dashboard" como primeiro item na barra de abas do painel (admin_fesf).
+- Botões "👁 Ver PDF/XML" inline nos campos NF/CNPJ usando `window.visualizar()` (link `target=_blank` quebrava: abria sem token).
+- CSP do server.js inclui `frame-src 'self' blob:` (sem isso, iframe de blob URL é bloqueado e PDF não preview).
+- `envio.html`: ao marcar documento (✓/?/!), preserva aba ativa (operador continua em "Documentos" pra validar o próximo).
+- DOCUMENTO null no detalhe → fallback pra `submetido_por_documento` ou `—`.
+- Atalhos de teclado (R/A/E) só disparam sem Ctrl/Alt/Meta (Ctrl+Shift+R do navegador era capturado).
+- `envio.html`: tamanho total dos docs com bug de concat de string (PG bigint) → `Number()` + auto-formato KB/MB. Pills de tipo (PDF/XML) viraram chips neutros com bolinha colorida.
+
+**Testes**: validado E2E (login + envio + upload + análise) por papel; validação automática gera alertas conforme esperado.
+
+---
 
 ### V299 — 2026-05-26 — Fix: vazamento de arquivos entre envios consecutivos
 **Por quê**: usuário reportou que arquivos de um preenchimento estavam aparecendo como cache em outro preenchimento. Investigação revelou bug real em `form-adapter.js`: `window._fesfFiles` (variável global JS que armazena File objects) **nunca era limpa** entre envios. Pior: a guarda no upload (`if (aceitos[campo] && !aceitosNomes.includes(file.name)) continue`) só filtrava SE `aceitos[campo]` existisse — se o usuário não tinha anexado nada naquele campo no envio atual, o IF era falsy e o arquivo do envio anterior passava direto.
