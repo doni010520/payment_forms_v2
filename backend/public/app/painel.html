@@ -723,6 +723,8 @@ async function inicializar() {
     popularSelectModalidades('lnk-mod');
     popularSelectModalidades('man-mod');
     popularCompetencias();
+    // V307: aplica header da tab ativa no load (era só no click, então título estático ficava "Painel da unidade" para admin)
+    aplicarHeaderTab('envios');
     // admin_fesf: mostrar seletor de unidade nos modais de link/lançamento
     if (usuario && usuario.papel === 'admin_fesf') {
       try {
