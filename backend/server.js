@@ -508,6 +508,7 @@ app.use(express.static(join(__dirname, '..'), { setHeaders: staticHeaders }));
 
 // Rota raiz vai pro login do app real
 app.get('/', (_, res) => res.redirect('/app/login.html'));
+app.get('/loginteste', (_, res) => res.redirect('/app/loginteste.html'));
 
 // Boot
 (async () => {
