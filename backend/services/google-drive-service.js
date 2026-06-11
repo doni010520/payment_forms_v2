@@ -1,33 +1,28 @@
 // =====================================================================
-// google-drive-service.js
+// google-drive-service.js — Google Drive via Service Account (sem googleapis)
 // ---------------------------------------------------------------------
-// Adapter para armazenar arquivos no Google Drive via Service Account.
+// Usa JWT + fetch direto na REST API do Google Drive v3.
+// Zero dependências extras — usa jsonwebtoken (já no projeto) + fetch nativo.
 //
-// Estrutura de pastas:
+// Estrutura de pastas no Drive:
 //   📁 Pasta raiz (GOOGLE_DRIVE_FOLDER_ID)
-//     📁 PROT-00123 - Hospital São Jorge (2026-06)
+//     📁 PROT-00123 - Hospital Sao Jorge (2026-06)
 //       📄 nf_pdf.pdf
 //       📄 crf_estadual.pdf
-//     📁 PROT-00124 - Clínica Vida (2026-06)
-//       📄 nf_pdf.pdf
 //
 // Referência no DB: `gdrive://<file-id>`
-//
-// Credenciais (via env vars):
-//   GOOGLE_DRIVE_FOLDER_ID           → ID da pasta compartilhada
-//   GOOGLE_SERVICE_ACCOUNT_EMAIL     → email da service account
-//   GOOGLE_SERVICE_ACCOUNT_KEY       → private_key (com \n literais)
 // =====================================================================
 
 import { readFile, unlink } from 'node:fs/promises';
 import { extname } from 'node:path';
-import { randomBytes } from 'node:crypto';
-import { google } from 'googleapis';
+import { randomBytes, createSign } from 'node:crypto';
 
-const SCOPES = ['https://www.googleapis.com/auth/drive'];
+const DRIVE_API = 'https://www.googleapis.com/drive/v3';
+const UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
+const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const SCOPE = 'https://www.googleapis.com/auth/drive';
 
-let _authClient = null;
-let _driveClient = null;
+let _tokenCache = null;
 
 function getEnv() {
   const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
@@ -47,20 +42,44 @@ export function googleDriveDisponivel() {
   );
 }
 
-function getAuth() {
-  if (_authClient) return _authClient;
-  const { email, key } = getEnv();
-  _authClient = new google.auth.GoogleAuth({
-    credentials: { client_email: email, private_key: key },
-    scopes: SCOPES,
-  });
-  return _authClient;
+function base64url(data) {
+  return Buffer.from(data).toString('base64url');
 }
 
-function getDrive() {
-  if (_driveClient) return _driveClient;
-  _driveClient = google.drive({ version: 'v3', auth: getAuth() });
-  return _driveClient;
+async function obterToken() {
+  if (_tokenCache && _tokenCache.expires_at > Date.now() + 30_000) {
+    return _tokenCache.access_token;
+  }
+  const { email, key } = getEnv();
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const payload = base64url(JSON.stringify({
+    iss: email,
+    scope: SCOPE,
+    aud: TOKEN_URL,
+    iat: now,
+    exp: now + 3600,
+  }));
+  const sign = createSign('RSA-SHA256');
+  sign.update(`${header}.${payload}`);
+  const signature = sign.sign(key, 'base64url');
+  const jwt = `${header}.${payload}.${signature}`;
+
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`Google auth falhou HTTP ${res.status}: ${txt.slice(0, 300)}`);
+  }
+  const data = await res.json();
+  _tokenCache = {
+    access_token: data.access_token,
+    expires_at: Date.now() + (Number(data.expires_in || 3500) * 1000),
+  };
+  return _tokenCache.access_token;
 }
 
 function sanitizar(texto) {
@@ -78,40 +97,43 @@ async function obterOuCriarSubpasta(parentId, nome) {
   const cacheKey = `${parentId}/${nome}`;
   if (_folderCache.has(cacheKey)) return _folderCache.get(cacheKey);
 
-  const drive = getDrive();
-  const safeName = nome.replace(/'/g, "\\'");
-  const q = `'${parentId}' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-  const list = await drive.files.list({ q, fields: 'files(id)', pageSize: 1 });
+  const token = await obterToken();
+  const q = encodeURIComponent(`'${parentId}' in parents and name='${nome.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const listRes = await fetch(`${DRIVE_API}/files?q=${q}&fields=files(id)&pageSize=1`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!listRes.ok) throw new Error(`Listar pasta falhou HTTP ${listRes.status}`);
+  const listData = await listRes.json();
 
-  if (list.data.files && list.data.files.length > 0) {
-    const id = list.data.files[0].id;
+  if (listData.files && listData.files.length > 0) {
+    const id = listData.files[0].id;
     _folderCache.set(cacheKey, id);
     return id;
   }
 
-  const created = await drive.files.create({
-    requestBody: {
+  const createRes = await fetch(`${DRIVE_API}/files`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
       name: nome,
       mimeType: 'application/vnd.google-apps.folder',
       parents: [parentId],
-    },
-    fields: 'id',
+    }),
   });
-  const id = created.data.id;
-  _folderCache.set(cacheKey, id);
-  return id;
+  if (!createRes.ok) {
+    const txt = await createRes.text().catch(() => '');
+    throw new Error(`Criar pasta "${nome}" falhou HTTP ${createRes.status}: ${txt.slice(0, 200)}`);
+  }
+  const created = await createRes.json();
+  _folderCache.set(cacheKey, created.id);
+  return created.id;
 }
 
-/**
- * Monta o nome da pasta do envio.
- * Formato: "PROT-00123 - Razão Social (2026-06)"
- * Se não tiver contexto, usa fallback genérico.
- */
 function montarNomePasta(ctx) {
-  if (!ctx) {
-    const rand = randomBytes(4).toString('hex');
-    return `upload-${rand}`;
-  }
+  if (!ctx) return `upload-${randomBytes(4).toString('hex')}`;
   const partes = [];
   if (ctx.protocolo) partes.push(ctx.protocolo);
   if (ctx.fornecedor) partes.push(sanitizar(ctx.fornecedor));
@@ -120,17 +142,12 @@ function montarNomePasta(ctx) {
 }
 
 /**
- * Upload de arquivo local para o Google Drive.
- * Cria subpasta por envio dentro da pasta raiz.
- *
- * @param {string} localPath - Caminho do arquivo temporário (multer)
- * @param {string} nomeOriginal - Nome original do arquivo
- * @param {string} [mimeType] - MIME type
- * @param {object} [ctx] - Contexto do envio: { envioId, protocolo, fornecedor, competencia }
+ * Upload de arquivo para o Google Drive.
+ * Cria subpasta por envio: "PROT-00123 - Razão Social (2026-06)"
  */
 export async function subirArquivoGDrive(localPath, nomeOriginal, mimeType, ctx) {
   const { folderId } = getEnv();
-  const drive = getDrive();
+  const token = await obterToken();
 
   const nomePasta = montarNomePasta(ctx);
   const pastaEnvioId = await obterOuCriarSubpasta(folderId, nomePasta);
@@ -140,26 +157,45 @@ export async function subirArquivoGDrive(localPath, nomeOriginal, mimeType, ctx)
   const nomeArquivo = base.endsWith(ext) ? base : base + ext;
 
   const buf = await readFile(localPath);
-  const { Readable } = await import('node:stream');
 
-  const res = await drive.files.create({
-    requestBody: {
-      name: nomeArquivo,
-      parents: [pastaEnvioId],
-    },
-    media: {
-      mimeType: mimeType || 'application/octet-stream',
-      body: Readable.from(buf),
-    },
-    fields: 'id,name',
+  // Multipart upload (metadata + file content)
+  const boundary = '----GDriveBoundary' + randomBytes(8).toString('hex');
+  const metadata = JSON.stringify({
+    name: nomeArquivo,
+    parents: [pastaEnvioId],
   });
 
+  const bodyParts = [
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`,
+    `--${boundary}\r\nContent-Type: ${mimeType || 'application/octet-stream'}\r\n\r\n`,
+  ];
+  const prefix = Buffer.from(bodyParts[0]);
+  const middle = Buffer.from(bodyParts[1]);
+  const suffix = Buffer.from(`\r\n--${boundary}--`);
+  const body = Buffer.concat([prefix, middle, buf, suffix]);
+
+  const upRes = await fetch(`${UPLOAD_API}/files?uploadType=multipart&fields=id,name`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': `multipart/related; boundary=${boundary}`,
+      'Content-Length': String(body.length),
+    },
+    body,
+  });
+
+  if (!upRes.ok) {
+    const txt = await upRes.text().catch(() => '');
+    throw new Error(`Upload GDrive falhou HTTP ${upRes.status}: ${txt.slice(0, 300)}`);
+  }
+
+  const file = await upRes.json();
   try { await unlink(localPath); } catch {}
 
   return {
-    caminho: `gdrive://${res.data.id}`,
+    caminho: `gdrive://${file.id}`,
     backend: 'gdrive',
-    remote_id: res.data.id,
+    remote_id: file.id,
     pasta: nomePasta,
   };
 }
@@ -172,13 +208,17 @@ export async function obterBufferGDrive(caminho) {
     throw new Error(`Caminho inválido para Google Drive: ${caminho}`);
   }
   const fileId = caminho.replace('gdrive://', '');
-  const drive = getDrive();
+  const token = await obterToken();
 
-  const res = await drive.files.get(
-    { fileId, alt: 'media' },
-    { responseType: 'arraybuffer' },
-  );
-  return Buffer.from(res.data);
+  const res = await fetch(`${DRIVE_API}/files/${fileId}?alt=media`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    throw new Error(`Download GDrive falhou HTTP ${res.status}: ${txt.slice(0, 300)}`);
+  }
+  const ab = await res.arrayBuffer();
+  return Buffer.from(ab);
 }
 
 /**
@@ -187,8 +227,11 @@ export async function obterBufferGDrive(caminho) {
 export async function removerArquivoGDrive(caminho) {
   if (!caminho.startsWith('gdrive://')) return;
   const fileId = caminho.replace('gdrive://', '');
-  const drive = getDrive();
-  await drive.files.delete({ fileId });
+  const token = await obterToken();
+  await fetch(`${DRIVE_API}/files/${fileId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 /**
@@ -196,23 +239,26 @@ export async function removerArquivoGDrive(caminho) {
  */
 export async function testarConexaoGDrive() {
   const { folderId } = getEnv();
-  const drive = getDrive();
+  const token = await obterToken();
 
-  const folder = await drive.files.get({
-    fileId: folderId,
-    fields: 'id,name,mimeType',
+  const folderRes = await fetch(`${DRIVE_API}/files/${folderId}?fields=id,name,mimeType`, {
+    headers: { Authorization: `Bearer ${token}` },
   });
+  if (!folderRes.ok) {
+    const txt = await folderRes.text().catch(() => '');
+    throw new Error(`Acesso à pasta falhou HTTP ${folderRes.status}: ${txt.slice(0, 200)}`);
+  }
+  const folder = await folderRes.json();
 
-  const list = await drive.files.list({
-    q: `'${folderId}' in parents and trashed=false`,
-    fields: 'files(id)',
-    pageSize: 1,
+  const listRes = await fetch(`${DRIVE_API}/files?q=${encodeURIComponent(`'${folderId}' in parents and trashed=false`)}&fields=files(id)&pageSize=1`, {
+    headers: { Authorization: `Bearer ${token}` },
   });
+  const listData = await listRes.json();
 
   return {
     ok: true,
-    folder_name: folder.data.name,
+    folder_name: folder.name,
     folder_id: folderId,
-    has_files: (list.data.files || []).length > 0,
+    has_files: (listData.files || []).length > 0,
   };
 }
