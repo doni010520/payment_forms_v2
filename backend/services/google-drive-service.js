@@ -24,7 +24,7 @@ import { extname } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { google } from 'googleapis';
 
-const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
+const SCOPES = ['https://www.googleapis.com/auth/drive'];
 
 let _authClient = null;
 let _driveClient = null;
