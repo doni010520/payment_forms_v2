@@ -3,18 +3,20 @@
 // ---------------------------------------------------------------------
 // Adapter para armazenar arquivos no Google Drive via Service Account.
 //
-// Convenções:
-//   - pasta raiz: env GOOGLE_DRIVE_FOLDER_ID
-//   - subpastas por competência: AAAA-MM
-//   - nome remoto: <8-hex>-<nome-sanitizado.ext>
-//   - referência no DB: `gdrive://<file-id>`
+// Estrutura de pastas:
+//   📁 Pasta raiz (GOOGLE_DRIVE_FOLDER_ID)
+//     📁 PROT-00123 - Hospital São Jorge (2026-06)
+//       📄 nf_pdf.pdf
+//       📄 crf_estadual.pdf
+//     📁 PROT-00124 - Clínica Vida (2026-06)
+//       📄 nf_pdf.pdf
+//
+// Referência no DB: `gdrive://<file-id>`
 //
 // Credenciais (via env vars):
 //   GOOGLE_DRIVE_FOLDER_ID           → ID da pasta compartilhada
 //   GOOGLE_SERVICE_ACCOUNT_EMAIL     → email da service account
 //   GOOGLE_SERVICE_ACCOUNT_KEY       → private_key (com \n literais)
-//
-// Escopo: drive.file (mínimo — só acessa arquivos criados pela app)
 // =====================================================================
 
 import { readFile, unlink } from 'node:fs/promises';
@@ -61,15 +63,13 @@ function getDrive() {
   return _driveClient;
 }
 
-function gerarNomeRemoto(nomeOriginal) {
-  const rand = randomBytes(4).toString('hex');
-  const ext = extname(nomeOriginal || '').toLowerCase();
-  const base = (nomeOriginal || 'arquivo')
+function sanitizar(texto) {
+  return (texto || '')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^\w.-]/g, '_')
-    .slice(0, 60);
-  const safeName = base.endsWith(ext) ? base : base.replace(/\.[^.]*$/, '') + ext;
-  return `${rand}-${safeName}`;
+    .replace(/[^\w\s.-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
 }
 
 const _folderCache = new Map();
@@ -79,7 +79,8 @@ async function obterOuCriarSubpasta(parentId, nome) {
   if (_folderCache.has(cacheKey)) return _folderCache.get(cacheKey);
 
   const drive = getDrive();
-  const q = `'${parentId}' in parents and name='${nome}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const safeName = nome.replace(/'/g, "\\'");
+  const q = `'${parentId}' in parents and name='${safeName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
   const list = await drive.files.list({ q, fields: 'files(id)', pageSize: 1 });
 
   if (list.data.files && list.data.files.length > 0) {
@@ -102,25 +103,49 @@ async function obterOuCriarSubpasta(parentId, nome) {
 }
 
 /**
- * Upload de arquivo local para o Google Drive.
- * Organiza em subpasta AAAA-MM dentro da pasta raiz.
+ * Monta o nome da pasta do envio.
+ * Formato: "PROT-00123 - Razão Social (2026-06)"
+ * Se não tiver contexto, usa fallback genérico.
  */
-export async function subirArquivoGDrive(localPath, nomeOriginal, mimeType) {
+function montarNomePasta(ctx) {
+  if (!ctx) {
+    const rand = randomBytes(4).toString('hex');
+    return `upload-${rand}`;
+  }
+  const partes = [];
+  if (ctx.protocolo) partes.push(ctx.protocolo);
+  if (ctx.fornecedor) partes.push(sanitizar(ctx.fornecedor));
+  if (ctx.competencia) partes.push(`(${ctx.competencia})`);
+  return partes.join(' - ') || `envio-${ctx.envioId || randomBytes(4).toString('hex')}`;
+}
+
+/**
+ * Upload de arquivo local para o Google Drive.
+ * Cria subpasta por envio dentro da pasta raiz.
+ *
+ * @param {string} localPath - Caminho do arquivo temporário (multer)
+ * @param {string} nomeOriginal - Nome original do arquivo
+ * @param {string} [mimeType] - MIME type
+ * @param {object} [ctx] - Contexto do envio: { envioId, protocolo, fornecedor, competencia }
+ */
+export async function subirArquivoGDrive(localPath, nomeOriginal, mimeType, ctx) {
   const { folderId } = getEnv();
   const drive = getDrive();
 
-  const agora = new Date();
-  const yyyymm = `${agora.getUTCFullYear()}-${String(agora.getUTCMonth() + 1).padStart(2, '0')}`;
-  const subpastaId = await obterOuCriarSubpasta(folderId, yyyymm);
+  const nomePasta = montarNomePasta(ctx);
+  const pastaEnvioId = await obterOuCriarSubpasta(folderId, nomePasta);
 
-  const nomeRemoto = gerarNomeRemoto(nomeOriginal);
+  const ext = extname(nomeOriginal || '').toLowerCase();
+  const base = sanitizar(nomeOriginal || 'arquivo');
+  const nomeArquivo = base.endsWith(ext) ? base : base + ext;
+
   const buf = await readFile(localPath);
-
   const { Readable } = await import('node:stream');
+
   const res = await drive.files.create({
     requestBody: {
-      name: nomeRemoto,
-      parents: [subpastaId],
+      name: nomeArquivo,
+      parents: [pastaEnvioId],
     },
     media: {
       mimeType: mimeType || 'application/octet-stream',
@@ -135,6 +160,7 @@ export async function subirArquivoGDrive(localPath, nomeOriginal, mimeType) {
     caminho: `gdrive://${res.data.id}`,
     backend: 'gdrive',
     remote_id: res.data.id,
+    pasta: nomePasta,
   };
 }
 
@@ -156,7 +182,7 @@ export async function obterBufferGDrive(caminho) {
 }
 
 /**
- * Remove arquivo do Google Drive (trash).
+ * Remove arquivo do Google Drive.
  */
 export async function removerArquivoGDrive(caminho) {
   if (!caminho.startsWith('gdrive://')) return;
@@ -166,7 +192,7 @@ export async function removerArquivoGDrive(caminho) {
 }
 
 /**
- * Testa conexão — lista arquivos na pasta raiz.
+ * Testa conexão — verifica acesso à pasta raiz.
  */
 export async function testarConexaoGDrive() {
   const { folderId } = getEnv();

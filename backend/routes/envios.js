@@ -1307,9 +1307,18 @@ router.post('/:id/documentos', requireAuth, rateLimit({ max: 120, windowMs: 60_0
       );
       duplicatas = dups;
     } catch {}
-    // V292: tenta subir para OneDrive/SharePoint se configurado; senão fica local
     const { subirArquivo } = await import('../services/storage-service.js');
-    const upRes = await subirArquivo(req.file.path, req.file.originalname, req.file.mimetype);
+    const envioCtx = await queryOne(
+      `SELECT e.protocolo, e.competencia, f.razao_social
+       FROM envios e LEFT JOIN fornecedores f ON f.id=e.fornecedor_id
+       WHERE e.id=$1`, [envioId]
+    );
+    const upRes = await subirArquivo(req.file.path, req.file.originalname, req.file.mimetype, {
+      envioId,
+      protocolo: envioCtx?.protocolo,
+      fornecedor: envioCtx?.razao_social,
+      competencia: envioCtx?.competencia,
+    });
     const caminhoSalvo = upRes.caminho;
     const { rows: [doc] } = await query(
       `INSERT INTO documentos (envio_id, versao_id, campo, nome_original, mime_type, tamanho_bytes, caminho, hash_sha256, uploaded_por_id, uploaded_por_nome)
@@ -1411,9 +1420,18 @@ router.post('/publico/:token/:envioId/documentos',
     const fs = await import('node:fs/promises');
     const buf = await fs.readFile(req.file.path);
     const hash = createHash('sha256').update(buf).digest('hex');
-    // V296: usar storage-service também no upload via link público (era só local, agora respeita OneDrive)
     const { subirArquivo } = await import('../services/storage-service.js');
-    const upRes = await subirArquivo(req.file.path, req.file.originalname, req.file.mimetype);
+    const envioCtxPub = await queryOne(
+      `SELECT e.protocolo, e.competencia, f.razao_social
+       FROM envios e LEFT JOIN fornecedores f ON f.id=e.fornecedor_id
+       WHERE e.id=$1`, [envId]
+    );
+    const upRes = await subirArquivo(req.file.path, req.file.originalname, req.file.mimetype, {
+      envioId: envId,
+      protocolo: envioCtxPub?.protocolo,
+      fornecedor: envioCtxPub?.razao_social,
+      competencia: envioCtxPub?.competencia,
+    });
     const caminhoSalvo = upRes.caminho;
     const { rows: [doc] } = await query(
       `INSERT INTO documentos (envio_id, campo, nome_original, caminho, tamanho_bytes, mime_type, hash_sha256, uploaded_por_id, uploaded_por_nome)

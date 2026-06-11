@@ -110,9 +110,14 @@ router.post(
       const fileBuffer = await readFile(req.file.path);
       const hash = createHash('sha256').update(fileBuffer).digest('hex');
 
-      // Armazena via storage-service (local ou OneDrive)
       const { subirArquivo } = await import('../services/storage-service.js');
-      const upRes = await subirArquivo(req.file.path, req.file.originalname, req.file.mimetype);
+      const forn = await queryOne('SELECT razao_social FROM fornecedores WHERE id=$1', [fornecedorId]);
+      const upRes = await subirArquivo(req.file.path, req.file.originalname, req.file.mimetype, {
+        envioId: null,
+        protocolo: `FORN-${fornecedorId}`,
+        fornecedor: forn?.razao_social,
+        competencia: 'docs-fixos',
+      });
 
       // Persiste no banco
       const { rows: [doc] } = await query(

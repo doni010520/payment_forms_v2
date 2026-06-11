@@ -191,14 +191,22 @@ export async function testarConexao() {
  * - nomeOriginal: nome legível (para o arquivo no remote)
  * Retorna { caminho } — pode ser path local OR "onedrive://<item-id>"
  */
-export async function subirArquivo(localPath, nomeOriginal, mimeType) {
+/**
+ * Upload de arquivo. Tenta backends em ordem de prioridade.
+ * @param {string} localPath - Caminho do tmp file (do multer)
+ * @param {string} nomeOriginal - Nome legível do arquivo
+ * @param {string} [mimeType] - Content-Type
+ * @param {object} [ctx] - Contexto do envio para organização (Google Drive):
+ *   { envioId, protocolo, fornecedor, competencia }
+ */
+export async function subirArquivo(localPath, nomeOriginal, mimeType, ctx) {
   const cfg = await obterConfig();
 
   // 1. Google Drive (prioridade máxima — se env vars presentes)
   const { googleDriveDisponivel, subirArquivoGDrive } = await import('./google-drive-service.js');
   if (googleDriveDisponivel()) {
     try {
-      return await subirArquivoGDrive(localPath, nomeOriginal, mimeType);
+      return await subirArquivoGDrive(localPath, nomeOriginal, mimeType, ctx);
     } catch (e) {
       console.error('[storage/subirArquivo] Google Drive falhou, tentando próximo backend:', e.message);
     }
