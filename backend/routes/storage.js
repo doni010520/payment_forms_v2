@@ -72,9 +72,13 @@ router.post('/admin/storage/test-upload', requireAuth, requireRole('admin_fesf')
     const { googleDriveDisponivel, subirArquivoGDrive } = await import('../services/google-drive-service.js');
     if (!googleDriveDisponivel()) return res.status(400).json({ error: 'GDrive não configurado' });
 
-    const { writeFile } = await import('node:fs/promises');
-    const { join } = await import('node:path');
-    const tmpPath = join(process.cwd(), 'backend', '.uploads', 'diag-test-' + Date.now() + '.txt');
+    const { writeFile, mkdir } = await import('node:fs/promises');
+    const { join, dirname } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const uploadsDir = join(__dirname, '..', '.uploads');
+    await mkdir(uploadsDir, { recursive: true });
+    const tmpPath = join(uploadsDir, 'diag-test-' + Date.now() + '.txt');
     await writeFile(tmpPath, 'Teste diagnostico GDrive ' + new Date().toISOString());
 
     const result = await subirArquivoGDrive(tmpPath, 'diagnostico.txt', 'text/plain', {
