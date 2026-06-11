@@ -202,9 +202,9 @@ export async function testarConexao() {
 export async function subirArquivo(localPath, nomeOriginal, mimeType, ctx) {
   const cfg = await obterConfig();
 
-  // 1. Google Drive (prioridade máxima — se env vars presentes)
-  const { googleDriveDisponivel, subirArquivoGDrive } = await import('./google-drive-service.js');
-  if (googleDriveDisponivel()) {
+  // 1. Google Drive OAuth2 (prioridade máxima — se autorizado)
+  const { googleDriveDisponivel, estaAutorizado, subirArquivoGDrive } = await import('./google-drive-service.js');
+  if (googleDriveDisponivel() && await estaAutorizado()) {
     try {
       return await subirArquivoGDrive(localPath, nomeOriginal, mimeType, ctx);
     } catch (e) {
