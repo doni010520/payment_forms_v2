@@ -47,7 +47,7 @@ function getRedirectUri(req) {
   return `${proto}://${host}/api/admin/gdrive/callback`;
 }
 
-router.get('/admin/gdrive/authorize', requireAuth, requireRole('admin_fesf'), async (req, res) => {
+router.get('/admin/gdrive/authorize', async (req, res) => {
   try {
     const { googleDriveDisponivel, gerarUrlAutorizacao } = await import('../services/google-drive-service.js');
     if (!googleDriveDisponivel()) return res.status(400).json({ error: 'GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_DRIVE_FOLDER_ID não configurados no Render' });
