@@ -1,31 +1,14 @@
 // =====================================================================
-// V292: Storage abstraction — local (default) ou OneDrive/SharePoint (MS Graph)
+// Storage abstraction — Google Drive (primário), Supabase, OneDrive, local
 //
-// Config persistida em `configuracoes` chave='storage' como JSON:
-//   {
-//     "backend": "local" | "onedrive",
-//     "onedrive": {
-//       "enabled": boolean,
-//       "tenant_id": string,
-//       "client_id": string,
-//       "client_secret_enc": string,    // encriptado via crypto-helper
-//       "drive_id": string,              // SharePoint site drive ID ou /users/{upn}/drive
-//       "folder_path": string            // ex: "FESF-SUS/anexos"
-//     }
-//   }
+// Prioridade de upload:
+//   1. Google Drive (env vars GOOGLE_DRIVE_*)  → gdrive://<file-id>
+//   2. Supabase Storage (env vars SUPABASE_*)  → supabase://bucket/path
+//   3. OneDrive (config no DB)                 → onedrive://<item-id>
+//   4. Local (fallback)                        → path no disco
 //
-// API exposta:
-//   - obterConfig() / salvarConfig(...)
-//   - obterConfigPublica() — sem segredos, para UI
-//   - testarConexao() — autentica + lista pasta raiz
-//   - subirArquivo(localPath, nomeOriginal) → { caminho }  // upload p/ remote OU mantém local
-//   - obterBuffer(caminho) → Buffer  // baixa do OneDrive ou lê do disco
-//
-// Estratégia: se backend=onedrive E enabled=true E creds válidos → upload remoto.
-// Caso contrário, fica local (caminho = path no disco). O `caminho` salvo na tabela
-// `documentos` pode ser:
-//   - path local (legado): "/uploads/abc123"
-//   - URL OneDrive: "onedrive://<item-id>"
+// Config OneDrive persistida em `configuracoes` chave='storage' como JSON.
+// Google Drive e Supabase são configurados via env vars (sem config no DB).
 // =====================================================================
 import { readFile, unlink } from 'fs/promises';
 import { query, queryOne } from '../db/index.js';
@@ -211,14 +194,23 @@ export async function testarConexao() {
 export async function subirArquivo(localPath, nomeOriginal, mimeType) {
   const cfg = await obterConfig();
 
-  // Backend Supabase Storage (temporário enquanto SharePoint não chega)
+  // 1. Google Drive (prioridade máxima — se env vars presentes)
+  const { googleDriveDisponivel, subirArquivoGDrive } = await import('./google-drive-service.js');
+  if (googleDriveDisponivel()) {
+    try {
+      return await subirArquivoGDrive(localPath, nomeOriginal, mimeType);
+    } catch (e) {
+      console.error('[storage/subirArquivo] Google Drive falhou, tentando próximo backend:', e.message);
+    }
+  }
+
+  // 2. Supabase Storage
   const { supabaseStorageDisponivel, subirArquivoSupabase } = await import('./supabase-storage.js');
   if (cfg.backend === 'supabase' || (cfg.backend !== 'onedrive' && supabaseStorageDisponivel())) {
     try {
       return await subirArquivoSupabase(localPath, nomeOriginal, mimeType);
     } catch (e) {
-      console.error('[storage/subirArquivo] Supabase falhou, mantendo local:', e.message);
-      return { caminho: localPath, backend: 'local-fallback', erro: e.message };
+      console.error('[storage/subirArquivo] Supabase falhou, tentando próximo backend:', e.message);
     }
   }
 
@@ -285,15 +277,18 @@ export async function subirArquivo(localPath, nomeOriginal, mimeType) {
     try { await unlink(localPath); } catch {}
     return { caminho: `onedrive://${itemId}`, backend: 'onedrive', remote_id: itemId };
   } catch (e) {
-    // Fallback: mantém local se upload falhou (não perde o arquivo)
     console.error('[storage/subirArquivo] OneDrive falhou, mantendo local:', e.message);
-    return { caminho: localPath, backend: 'local-fallback', erro: e.message };
   }
+  // 4. Fallback local
+  return { caminho: localPath, backend: 'local' };
 }
 
-/** Lê um arquivo (do disco OU baixa do OneDrive). Retorna Buffer. */
+/** Lê um arquivo de qualquer backend. Retorna Buffer. */
 export async function obterBuffer(caminho) {
-  // Backend Supabase Storage
+  if (caminho && caminho.startsWith('gdrive://')) {
+    const { obterBufferGDrive } = await import('./google-drive-service.js');
+    return obterBufferGDrive(caminho);
+  }
   if (caminho && caminho.startsWith('supabase://')) {
     const { obterBufferSupabase } = await import('./supabase-storage.js');
     return obterBufferSupabase(caminho);
