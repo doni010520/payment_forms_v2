@@ -205,8 +205,8 @@ if (!id && !protocolo) {
     document.getElementById('desc').textContent = envio.descricao || '—';
     document.getElementById('unidade-sigla').textContent = envio.unidade_sigla;
     document.getElementById('unidade-nome').textContent = envio.unidade_nome || '';
-    document.getElementById('forn-nome').textContent = envio.razao_social;
-    document.getElementById('forn-doc').textContent = envio.documento;
+    document.getElementById('forn-nome').textContent = envio.razao_social || envio.submetido_por_nome || '—';
+    document.getElementById('forn-doc').textContent = envio.documento || envio.submetido_por_documento || '';
 
     const docsBody = document.getElementById('docs-body');
     if (documentos.length > 0) {

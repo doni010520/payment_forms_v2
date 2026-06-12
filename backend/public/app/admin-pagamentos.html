@@ -116,7 +116,7 @@ async function carregar() {
           <tr class="pay-row" data-id="${e.id}" data-valor="${e.valor_centavos}">
             <td><input type="checkbox" data-check="${e.id}"></td>
             <td><code>${e.protocolo}</code></td>
-            <td>${e.razao_social}<div class="muted" style="font-size:11px">${e.documento || ''}</div></td>
+            <td>${e.razao_social || e.submetido_por_nome || '—'}<div class="muted" style="font-size:11px">${e.documento || e.submetido_por_documento || ''}</div></td>
             <td>${e.unidade_sigla || ''}</td>
             <td>${e.modalidade_nome}</td>
             <td>${e.competencia}</td>

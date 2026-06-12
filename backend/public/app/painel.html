@@ -1282,7 +1282,7 @@ window.verDetalhes = async (id) => {
     document.getElementById('det-conteudo').innerHTML = `
       <div class="card" style="margin:0 0 12px">
         <div class="row">
-          <div><strong>Fornecedor:</strong> ${envio.razao_social}<div class="muted">${envio.documento}</div></div>
+          <div><strong>Fornecedor:</strong> ${envio.razao_social || envio.submetido_por_nome || '—'}<div class="muted">${envio.documento || envio.submetido_por_documento || ''}</div></div>
           <div><strong>Unidade:</strong> ${envio.unidade_sigla}<div class="muted">${envio.unidade_nome||''}</div></div>
           <div><strong>Modalidade:</strong> ${envio.modalidade_nome}</div>
           <div><strong>Competência:</strong> ${envio.competencia}</div>

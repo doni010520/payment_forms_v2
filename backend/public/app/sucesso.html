@@ -102,8 +102,8 @@ else {
     const { envio, documentos, form_data } = await api.envio(id);
     document.getElementById('protocolo').textContent = envio.protocolo;
     document.getElementById('unidade-nome').textContent = envio.unidade_sigla + (envio.unidade_nome ? ' · ' + envio.unidade_nome : '');
-    document.getElementById('r-forn').textContent = envio.razao_social;
-    document.getElementById('r-doc').textContent = envio.documento;
+    document.getElementById('r-forn').textContent = envio.razao_social || envio.submetido_por_nome || '—';
+    document.getElementById('r-doc').textContent = envio.documento || envio.submetido_por_documento || '';
     document.getElementById('r-uni').textContent = envio.unidade_sigla + ' · ' + (envio.unidade_nome || '');
     document.getElementById('r-mod').textContent = envio.modalidade_nome;
     document.getElementById('r-comp').textContent = envio.competencia;

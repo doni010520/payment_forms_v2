@@ -120,7 +120,7 @@ try {
         `<table><thead><tr><th>Protocolo</th><th>Fornecedor</th><th>Modalidade</th><th>Comp.</th><th>Origem</th><th>Status</th><th>Valor</th><th>Em</th></tr></thead><tbody>
           ${d.ultimos_envios.map(e => `<tr>
             <td><a href="/app/envio.html?id=${e.id}" style="font-family:ui-monospace,monospace;font-size:12px"><code>${e.protocolo}</code></a></td>
-            <td>${e.razao_social}</td>
+            <td>${e.razao_social || e.submetido_por_nome || '—'}</td>
             <td>${e.modalidade_nome}</td>
             <td>${e.competencia}</td>
             <td><span class="origin ${e.origem}">${statusLabel(e.origem)}</span></td>
