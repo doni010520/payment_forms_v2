@@ -216,19 +216,19 @@ async function carregarMetricas() {
     document.getElementById('metricas-sub').textContent =
       `Pagamentos da rede FESF · ${unidadesAtivas} de ${m.por_unidade.length} unidades ativas · ${totalEnvios} envio${totalEnvios !== 1 ? 's' : ''} + ${totalPend} pendência${totalPend !== 1 ? 's' : ''} ${m.competencia ? 'em ' + m.competencia : 'em todas as competências'}`;
 
-    // V251: KPIs alinhados ao mockup — Em análise / Aguardando ret / Aprovados (mês) / Pendências críticas
-    const byStatus = Object.fromEntries((m.por_status||[]).map(s => [s.status, s.n]));
-    const emAnalise = byStatus.em_analise || 0;
-    const aguardRet = byStatus.aguardando_ret || byStatus.aguardando_retificacao || 0;
-    const aprovados = (byStatus.aprovado || 0) + (byStatus.pago || 0);
-    const atrasadas = (m.pendencias.find(p=>p.status==='atrasada')||{n:0}).n;
-    const semResp = (m.pendencias.find(p=>p.status==='sem_resposta')||{n:0}).n;
-    const criticas = atrasadas + semResp;
+    const statusMap = Object.fromEntries((m.por_status||[]).map(s => [s.status, s]));
+    const emAnalise = (statusMap.em_analise||{n:0}).n;
+    const emAnaliseValor = (statusMap.em_analise||{total_centavos:0}).total_centavos;
+    const aguardRet = ((statusMap.aguardando_ret||{n:0}).n) + ((statusMap.aguardando_retificacao||{n:0}).n);
+    const aprovados = (statusMap.aprovado||{n:0}).n;
+    const aprovadosValor = (statusMap.aprovado||{total_centavos:0}).total_centavos;
+    const pagos = (statusMap.pago||{n:0}).n;
+    const pagosValor = (statusMap.pago||{total_centavos:0}).total_centavos;
     document.getElementById('kpis-totais').innerHTML = `
-      <a class="kpi" href="/app/painel.html?status=em_analise" style="text-decoration:none;cursor:pointer;display:block" title="Ver envios em análise"><div class="label">Em análise</div><div class="value">${emAnalise}</div><div class="sub">${brl(m.totais.total_centavos)} movimento total</div></a>
-      <a class="kpi warn" href="/app/painel.html?status=aguardando_ret" style="text-decoration:none;cursor:pointer;display:block" title="Ver aguardando retificação"><div class="label">Aguardando ret.</div><div class="value">${aguardRet}</div><div class="sub">${aguardRet > 0 ? 'esperando fornecedor' : '— sem pendências'}</div></a>
-      <a class="kpi accent" href="/app/admin-pagamentos.html" style="text-decoration:none;cursor:pointer;display:block" title="Ver aprovados para pagamento"><div class="label">Aprovados (mês)</div><div class="value">${aprovados}</div><div class="sub">${aprovados > 0 ? 'incluindo pagos' : '— ainda nenhum'}</div></a>
-      <a class="kpi ${criticas > 0 ? 'danger' : 'warn'}" href="/app/painel.html?tab=pendencias" style="text-decoration:none;cursor:pointer;display:block" title="Ver pendências críticas"><div class="label">Pendências críticas</div><div class="value">${criticas}</div><div class="sub">${criticas > 0 ? `${atrasadas} atrasada${atrasadas !== 1 ? 's' : ''} · ${semResp} sem resposta` : '— sem pendências'}</div></a>
+      <a class="kpi ${emAnalise > 0 ? 'warn' : ''}" href="/app/painel.html?status=em_analise" style="text-decoration:none;cursor:pointer;display:block" title="Ver envios em analise"><div class="label">Em analise</div><div class="value">${emAnalise}</div><div class="sub">${emAnalise > 0 ? brl(emAnaliseValor) + ' aguardando decisao' : '— nenhum pendente'}</div></a>
+      <a class="kpi ${aguardRet > 0 ? 'warn' : ''}" href="/app/painel.html?status=aguardando_ret" style="text-decoration:none;cursor:pointer;display:block" title="Ver aguardando retificacao"><div class="label">Aguardando retificacao</div><div class="value">${aguardRet}</div><div class="sub">${aguardRet > 0 ? 'esperando fornecedor' : '— nenhum'}</div></a>
+      <a class="kpi accent" href="/app/admin-pagamentos.html" style="text-decoration:none;cursor:pointer;display:block" title="Ver aprovados para pagamento"><div class="label">Aprovados</div><div class="value">${aprovados}</div><div class="sub">${aprovados > 0 ? brl(aprovadosValor) + ' a pagar' : '— nenhum'}</div></a>
+      <a class="kpi" href="/app/admin-pagamentos.html" style="text-decoration:none;cursor:pointer;display:block" title="Ver pagos"><div class="label">Pagos</div><div class="value">${pagos}</div><div class="sub">${pagos > 0 ? brl(pagosValor) + ' liquidados' : '— nenhum'}</div></a>
     `;
     // V273: labels mais legíveis nos bar charts — origem usa statusLabel para mostrar "Portal", "Link público", "Manual"
     renderBar(document.getElementById('bars-unidade'), m.por_unidade.map(u => ({ label: u.sigla + (u.cidade?` · ${u.cidade}`:''), n: u.total_envios })), 'label', 'n');
