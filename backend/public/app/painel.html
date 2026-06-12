@@ -897,28 +897,32 @@ async function carregarKPIs() {
     api.envios(filtroComp),
   ]);
   const porOrigem = Object.fromEntries((por_origem||[]).map(r => [r.origem, r]));
+  const emAnalise = envios.filter(e => e.status === 'em_analise');
+  const emAnaliseValor = emAnalise.reduce((a, e) => a + Number(e.valor_centavos||0), 0);
+  const aguardRet = envios.filter(e => e.status === 'aguardando_ret' || e.status === 'aguardando_retificacao');
+  const aguardValor = aguardRet.reduce((a, e) => a + Number(e.valor_centavos||0), 0);
+  const aprovados = envios.filter(e => e.status === 'aprovado');
+  const aprovValor = aprovados.reduce((a, e) => a + Number(e.valor_centavos||0), 0);
+  const pagos = envios.filter(e => e.status === 'pago');
+  const pagosValor = pagos.reduce((a, e) => a + Number(e.valor_centavos||0), 0);
   const totalEnvios = envios.length;
   const totalValor = envios.reduce((a, e) => a + Number(e.valor_centavos||0), 0);
-  const aguardRet = envios.filter(e => e.status === 'aguardando_ret');
-  const aguardValor = aguardRet.reduce((a, e) => a + Number(e.valor_centavos||0), 0);
-  const aprovados = envios.filter(e => ['aprovado','pago'].includes(e.status));
-  const aprovValor = aprovados.reduce((a, e) => a + Number(e.valor_centavos||0), 0);
   const fornUnicos = new Set(envios.map(e => e.fornecedor_id)).size;
   const criticas = (expectativas||[]).filter(e => ['atrasada','sem_resposta'].includes(e.status));
   const criticasN = criticas.length;
   const atrasadas = criticas.filter(e => e.status === 'atrasada').length;
   const semResp = criticas.filter(e => e.status === 'sem_resposta').length;
   document.getElementById('kpis').innerHTML = `
-    <div class="kpi"><div class="label">Recebidos · ${c || 'todas comp.'}</div><div class="value">${totalEnvios}</div><div class="sub">${brl(totalValor)}${fornUnicos > 0 ? ' · ' + fornUnicos + ' fornecedor' + (fornUnicos > 1 ? 'es' : '') : ''}</div></div>
-    <div class="kpi warn"><div class="label">Aguardando ret.</div><div class="value">${aguardRet.length}</div><div class="sub">${aguardRet.length > 0 ? brl(aguardValor) : '— sem pendências'}</div></div>
-    <div class="kpi ${criticasN > 0 ? 'danger':'warn'}"><div class="label">Pendências críticas</div><div class="value">${criticasN}</div><div class="sub">${criticasN > 0 ? atrasadas + ' atrasada' + (atrasadas !== 1 ? 's' : '') + ' · ' + semResp + ' sem resposta' : '— sem pendências'}</div></div>
-    <div class="kpi accent"><div class="label">Aprovados (mês)</div><div class="value">${aprovados.length}</div><div class="sub">${aprovados.length > 0 ? brl(aprovValor) + ' liberados' : '— ainda nenhum'}</div></div>
+    <div class="kpi ${emAnalise.length > 0 ? 'warn' : ''}"><div class="label">Em analise</div><div class="value">${emAnalise.length}</div><div class="sub">${emAnalise.length > 0 ? brl(emAnaliseValor) + ' aguardando decisao' : '— nenhum pendente'}</div></div>
+    <div class="kpi ${aguardRet.length > 0 ? 'warn' : ''}"><div class="label">Aguardando retificacao</div><div class="value">${aguardRet.length}</div><div class="sub">${aguardRet.length > 0 ? brl(aguardValor) : '— nenhum'}</div></div>
+    <div class="kpi accent"><div class="label">Aprovados</div><div class="value">${aprovados.length}</div><div class="sub">${aprovados.length > 0 ? brl(aprovValor) + ' a pagar' : '— nenhum'}</div></div>
+    <div class="kpi ${pagos.length > 0 ? '' : ''}"><div class="label">Pagos</div><div class="value">${pagos.length}</div><div class="sub">${pagos.length > 0 ? brl(pagosValor) + ' liquidados' : '— nenhum'}</div></div>
   `;
 
   // V244: page subtitle dinâmico (mockup-alike)
   const subtitle = document.getElementById('page-subtitle');
   if (subtitle) {
-    subtitle.textContent = `${c || 'todas competências'} · ${totalEnvios} envio${totalEnvios !== 1 ? 's' : ''} recebido${totalEnvios !== 1 ? 's' : ''} · ${expectativas.length} pendência${expectativas.length !== 1 ? 's' : ''} · ${brl(totalValor)} movimentados`;
+    subtitle.textContent = `${c || 'todas competências'} · ${totalEnvios} envio${totalEnvios !== 1 ? 's' : ''} · ${emAnalise.length} em analise · ${brl(totalValor)} movimentados`;
   }
   const badge = document.getElementById('badge-pend');
   if (criticasN > 0) { badge.style.display = 'inline-block'; badge.textContent = criticasN; } else { badge.style.display = 'none'; }
