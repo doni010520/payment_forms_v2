@@ -3,18 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Fila de pagamento · FESF Sede</title>
+<title>Pagamentos · FESF Sede</title>
 <link rel="stylesheet" href="/app/style.css">
 <style>
-  /* V284: bar-total com border-left + sombra; pay-row selecionado com ring */
   .pay-row{cursor:pointer;transition:background .12s ease}
+  .pay-row:hover{background:var(--surface-2)}
   .pay-row.sel{background:var(--primary-soft);box-shadow:inset 4px 0 0 var(--primary)}
-  .pay-row.sel td:first-child{font-weight:600}
   .pay-row input[type=checkbox]{width:auto;cursor:pointer;accent-color:var(--primary)}
   .bar-total{display:flex;justify-content:space-between;background:linear-gradient(90deg,var(--accent-soft) 0%,rgba(79,165,144,.08) 100%);padding:16px 22px;border-radius:12px;margin-bottom:16px;align-items:center;border-left:4px solid var(--accent);box-shadow:0 1px 2px rgba(20,20,30,.04)}
   .bar-total .esq{font-size:14px;font-weight:500;color:var(--text)}
   .bar-total .esq strong{font-weight:700}
   .bar-total .dir{font-size:20px;font-weight:700;font-family:ui-monospace,monospace;color:var(--accent);letter-spacing:-.3px}
+  .tab-bar{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px}
+  .tab-bar button{background:none;border:none;padding:10px 20px;font-size:13px;font-weight:600;color:var(--text-3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+  .tab-bar button:hover{color:var(--text)}
+  .tab-bar button.active{color:var(--primary);border-bottom-color:var(--primary)}
+  .btn-ver{background:var(--surface-2);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;transition:all .12s}
+  .btn-ver:hover{background:var(--primary-soft);border-color:var(--primary);color:var(--primary)}
 </style>
 </head>
 <body>
@@ -22,21 +27,21 @@
 <nav class="topnav">
   <div class="brand">
     <div style="width:32px;height:32px;background:var(--primary);color:#fff;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px">FESF</div>
-    <div><strong>FESF Sede · Fila de pagamento</strong><span class="muted" style="font-size:11px;display:block">Envios aprovados aguardando liberação financeira</span></div>
+    <div><strong>FESF Sede · Pagamentos</strong><span class="muted" style="font-size:11px;display:block">Gestao financeira dos envios</span></div>
   </div>
   <div class="tabs">
     <a href="/app/admin.html">Dashboard</a>
     <a class="active">Pagamentos</a>
     <a href="/app/admin-unidades.html">Unidades</a>
     <a href="/app/admin-fornecedores.html">Fornecedores</a>
-    <a href="/app/admin-usuarios.html">Usuários</a>
-    <a href="/app/admin-relatorios.html">Relatórios</a>
+    <a href="/app/admin-usuarios.html">Usuarios</a>
+    <a href="/app/admin-relatorios.html">Relatorios</a>
     <a href="/app/admin-auditoria.html">Auditoria</a>
     <a href="/app/admin-emails.html">E-mails</a>
     <a href="/app/admin-smtp.html">SMTP</a>
     <a href="/app/admin-status.html">Status</a>
     <a href="/app/admin-api.html">API</a>
-    <a href="/app/admin-config.html">Configurações</a>
+    <a href="/app/admin-config.html">Configuracoes</a>
   </div>
   <div class="userbox">
     <div><strong id="userNome">—</strong><span class="muted" style="font-size:11px;display:block">FESF Sede · Admin</span></div>
@@ -48,8 +53,8 @@
 <div class="page">
   <div class="between">
     <div>
-      <h1>Fila de pagamento</h1>
-      <p class="muted">Envios <strong>aprovados</strong> pelas unidades, aguardando processamento financeiro pela FESF Sede. Use a coluna <strong>Registrar</strong> em cada linha para informar dados estruturados (TED, banco, comprovante).</p>
+      <h1>Pagamentos</h1>
+      <p class="muted" id="page-sub">Envios aprovados pelas unidades, aguardando processamento financeiro.</p>
     </div>
     <div class="filters">
       <select id="f-unidade"><option value="">Todas unidades</option></select>
@@ -57,19 +62,25 @@
     </div>
   </div>
 
-  <div class="bar-total">
-    <div class="esq"><strong id="sel-count">0</strong> envios selecionados · <span id="sel-detalhe" class="muted">—</span></div>
-    <div class="dir" id="sel-total">R$ 0,00</div>
+  <div class="tab-bar">
+    <button class="active" data-tab="aprovados">Aprovados</button>
+    <button data-tab="pagos">Pagos</button>
+  </div>
+
+  <!-- Barra de selecao (so aparece na aba Aprovados) -->
+  <div id="secao-selecao" style="display:none">
+    <div class="bar-total">
+      <div class="esq"><strong id="sel-count">0</strong> selecionados · <span id="sel-detalhe" class="muted">—</span></div>
+      <div class="dir" id="sel-total">R$ 0,00</div>
+    </div>
   </div>
 
   <div class="card">
     <div class="between" style="margin-bottom:10px">
-      <div>
-        <span id="todos-count" class="muted">—</span>
-      </div>
-      <div>
-        <button onclick="toggleTodos()">Marcar todos visíveis</button>
-        <button class="success" id="btn-pagar" onclick="pagarSelecionados()" disabled title="Marca status como pago em lote. Dados estruturados (TED/banco/comprovante) NAO sao registrados — use coluna Registrar para cada envio">💰 Marcar lote como pagos (sem dados estruturados)</button>
+      <div><span id="todos-count" class="muted">—</span></div>
+      <div id="acoes-lote">
+        <button onclick="toggleTodos()">Marcar todos</button>
+        <button class="success" id="btn-pagar" onclick="pagarSelecionados()" disabled>Marcar selecionados como pagos</button>
       </div>
     </div>
     <div id="lista"></div>
@@ -86,55 +97,87 @@ window.sair = () => { clearSession(); location.href = '/app/login.html'; };
 
 let envios = [];
 let unidades = [];
+let abaAtual = 'aprovados';
 
 async function inicializar() {
   const u = await api.unidades();
   unidades = u.unidades;
   document.getElementById('f-unidade').innerHTML = '<option value="">Todas unidades</option>' + unidades.map(x => `<option value="${x.id}">${x.sigla}</option>`).join('');
+  document.querySelectorAll('.tab-bar button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      abaAtual = btn.dataset.tab;
+      carregar();
+    });
+  });
   await carregar();
 }
 
 async function carregar() {
   const uid = document.getElementById('f-unidade').value;
-  const r = await api.envios({ status: 'aprovado', ...(uid ? { unidade_id: uid } : {}) });
+  const status = abaAtual === 'pagos' ? 'pago' : 'aprovado';
+  const r = await api.envios({ status, ...(uid ? { unidade_id: uid } : {}) });
   envios = r.envios;
-  document.getElementById('todos-count').textContent = `${envios.length} envio(s) aprovado(s) · ${brl(envios.reduce((a,e)=>a+Number(e.valor_centavos||0),0))} no total`;
+
+  const isAprovados = abaAtual === 'aprovados';
+  document.getElementById('secao-selecao').style.display = isAprovados ? '' : 'none';
+  document.getElementById('acoes-lote').style.display = isAprovados ? '' : 'none';
+
+  const totalValor = envios.reduce((a,e) => a + Number(e.valor_centavos||0), 0);
+
+  if (isAprovados) {
+    document.getElementById('todos-count').textContent = `${envios.length} envio(s) aprovado(s) · ${brl(totalValor)} no total`;
+    document.getElementById('page-sub').textContent = 'Envios aprovados pelas unidades, aguardando processamento financeiro.';
+  } else {
+    document.getElementById('todos-count').textContent = `${envios.length} envio(s) pago(s) · ${brl(totalValor)} liquidados`;
+    document.getElementById('page-sub').textContent = 'Envios ja pagos pela FESF Sede.';
+  }
+
   if (envios.length === 0) {
-    document.getElementById('lista').innerHTML = '<div class="empty"><div style="text-align:center;padding:48px 20px;color:var(--muted)"><div style="font-size:40px">✓</div><h3>Nada na fila</h3><p>Não há envios aprovados aguardando pagamento.</p></div></div>';
-    document.getElementById('btn-pagar').disabled = true;
+    document.getElementById('lista').innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--muted)">
+      <div style="font-size:40px">${isAprovados ? '✓' : '—'}</div>
+      <h3>${isAprovados ? 'Nada na fila' : 'Nenhum pagamento registrado'}</h3>
+      <p>${isAprovados ? 'Nao ha envios aprovados aguardando pagamento.' : 'Nenhum envio foi marcado como pago ainda.'}</p>
+    </div>`;
+    if (isAprovados) document.getElementById('btn-pagar').disabled = true;
     return;
   }
+
   document.getElementById('lista').innerHTML = `
     <table>
       <thead><tr>
-        <th style="width:30px"><input type="checkbox" id="check-todos"></th>
+        ${isAprovados ? '<th style="width:30px"><input type="checkbox" id="check-todos"></th>' : ''}
         <th>Protocolo</th><th>Fornecedor</th><th>Unidade</th><th>Modalidade</th><th>Comp.</th>
-        <th style="text-align:right">Valor</th><th>Origem</th><th>Aprovado em</th><th></th>
+        <th style="text-align:right">Valor</th><th>Origem</th>
+        <th>${isAprovados ? 'Aprovado em' : 'Pago em'}</th>
+        <th></th>
       </tr></thead>
       <tbody>
         ${envios.map(e => `
-          <tr class="pay-row" data-id="${e.id}" data-valor="${e.valor_centavos}">
-            <td><input type="checkbox" data-check="${e.id}"></td>
+          <tr class="pay-row" data-id="${e.id}" data-valor="${e.valor_centavos}" onclick="window.open('/app/envio.html?id=${e.id}', '_blank')">
+            ${isAprovados ? `<td onclick="event.stopPropagation()"><input type="checkbox" data-check="${e.id}"></td>` : ''}
             <td><code>${e.protocolo}</code></td>
             <td>${e.razao_social || e.submetido_por_nome || '—'}<div class="muted" style="font-size:11px">${e.documento || e.submetido_por_documento || ''}</div></td>
             <td>${e.unidade_sigla || ''}</td>
-            <td>${e.modalidade_nome}</td>
+            <td style="font-size:12px">${e.modalidade_nome}</td>
             <td>${e.competencia}</td>
             <td style="text-align:right;font-family:ui-monospace,monospace;white-space:nowrap">${brl(e.valor_centavos)}</td>
             <td><span class="origin ${e.origem}">${statusLabel(e.origem)}</span></td>
             <td>${dataBR(e.atualizado_em || e.criado_em)}</td>
-            <td><button class="success" onclick="event.stopPropagation();window.open('/app/envio.html?id=${e.id}', '_blank')" title="Abre envio para registrar pagamento com TED/banco/comprovante">💰 Registrar →</button></td>
+            <td onclick="event.stopPropagation()"><button class="btn-ver" onclick="window.open('/app/envio.html?id=${e.id}', '_blank')">Abrir →</button></td>
           </tr>
         `).join('')}
       </tbody>
     </table>`;
 
-  // Wire selecao
-  document.querySelectorAll('[data-check]').forEach(cb => cb.addEventListener('change', atualizarSelecao));
-  document.getElementById('check-todos').addEventListener('change', e => {
-    document.querySelectorAll('[data-check]').forEach(cb => cb.checked = e.target.checked);
-    atualizarSelecao();
-  });
+  if (isAprovados) {
+    document.querySelectorAll('[data-check]').forEach(cb => cb.addEventListener('change', atualizarSelecao));
+    document.getElementById('check-todos').addEventListener('change', e => {
+      document.querySelectorAll('[data-check]').forEach(cb => cb.checked = e.target.checked);
+      atualizarSelecao();
+    });
+  }
 }
 window.carregar = carregar;
 document.getElementById('f-unidade').addEventListener('change', carregar);
@@ -157,7 +200,7 @@ function atualizarSelecao() {
 window.toggleTodos = () => {
   const allChecked = document.querySelectorAll('[data-check]:checked').length === document.querySelectorAll('[data-check]').length;
   document.querySelectorAll('[data-check]').forEach(cb => cb.checked = !allChecked);
-  document.getElementById('check-todos').checked = !allChecked;
+  if (document.getElementById('check-todos')) document.getElementById('check-todos').checked = !allChecked;
   atualizarSelecao();
 };
 
@@ -165,11 +208,11 @@ window.pagarSelecionados = async () => {
   const ids = selecionados();
   if (ids.length === 0) return;
   const total = envios.filter(e => ids.includes(e.id)).reduce((a,e)=>a+Number(e.valor_centavos||0), 0);
-  const obs = prompt(`Marcar ${ids.length} envio(s) como pagos\nTotal: ${brl(total)}\n\nObservação do pagamento (lote, nº fatura etc):`);
+  const obs = prompt(`Marcar ${ids.length} envio(s) como pagos\nTotal: ${brl(total)}\n\nObservacao (opcional):`);
   if (obs === null) return;
   try {
     const r = await api.marcarPagoLote(ids, obs);
-    toast(`${r.pagos.length} pagos · ${r.erros.length} erros`, 'sucesso');
+    toast(`${r.pagos.length} marcados como pagos`, 'sucesso');
     if (r.erros.length > 0) console.warn('Erros:', r.erros);
     carregar();
   } catch (e) { toast(e.message, 'erro'); }
