@@ -336,7 +336,6 @@ async function processarDocumento(docId, tabela = 'documentos') {
     if (ehCampoNF(doc.campo, doc.mime_type)) {
       resultado = await parsearNFeXML(buffer, contexto);
       resultado.tipo = 'nfe';
-      statusValidade = 'ok'; // NFs não têm validade
 
     // --- Rota 2: PDF (certidão) ---
     } else if (
@@ -362,17 +361,15 @@ async function processarDocumento(docId, tabela = 'documentos') {
         const validade = extrairValidadeCertidao(texto, doc.campo);
         if (validade) {
           dataExpiracao = validade.data_expiracao_iso;
-          statusValidade = calcularStatusValidade(dataExpiracao);
           resultado.data_expiracao = dataExpiracao;
           resultado.padrao_encontrado = validade.padrao_encontrado;
+          resultado.status_expiracao = calcularStatusValidade(dataExpiracao);
         } else {
           resultado.data_expiracao = null;
           resultado.aviso = 'data_validade_nao_encontrada';
-          statusValidade = 'pendente';
         }
       } else {
         resultado.tipo = 'pdf_generico';
-        statusValidade = 'ok';
       }
 
     // --- Rota 3: Imagem (JPEG/PNG) ---
@@ -386,14 +383,11 @@ async function processarDocumento(docId, tabela = 'documentos') {
         const validade = extrairValidadeCertidao(ocr.texto, doc.campo);
         if (validade) {
           dataExpiracao = validade.data_expiracao_iso;
-          statusValidade = calcularStatusValidade(dataExpiracao);
           resultado.data_expiracao = dataExpiracao;
+          resultado.status_expiracao = calcularStatusValidade(dataExpiracao);
         } else {
           resultado.aviso = 'data_validade_nao_encontrada';
-          statusValidade = 'pendente';
         }
-      } else {
-        statusValidade = 'ok';
       }
     }
   } catch (err) {
@@ -410,7 +404,7 @@ async function processarDocumento(docId, tabela = 'documentos') {
     competencia: doc.competencia,
     valor_centavos: doc.valor_centavos, numero_nf: doc.numero_nf,
   };
-  resultado.alertas = gerarAlertasValidacao(resultado, statusValidade, dataExpiracao, envioCtx);
+  resultado.alertas = gerarAlertasValidacao(resultado, resultado.status_expiracao || null, dataExpiracao, envioCtx);
 
   // Persiste resultado no banco
   await query(
