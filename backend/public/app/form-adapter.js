@@ -156,6 +156,39 @@
     };
   }
 
+  // ------------------- Barra de progresso do envio -------------------
+  let _progressEl = null;
+  function showProgress(step, total, label) {
+    if (!_progressEl) {
+      _progressEl = document.createElement('div');
+      _progressEl.id = 'fesf-progress-overlay';
+      _progressEl.innerHTML = `
+        <div class="fesf-prog-card">
+          <div class="fesf-prog-label"></div>
+          <div class="fesf-prog-bar-track"><div class="fesf-prog-bar-fill"></div></div>
+          <div class="fesf-prog-detail"></div>
+        </div>`;
+      const s = document.createElement('style');
+      s.textContent = `
+        #fesf-progress-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(2px)}
+        .fesf-prog-card{background:#fff;border-radius:14px;padding:32px 36px;width:420px;max-width:90vw;box-shadow:0 12px 40px rgba(0,0,0,.25);text-align:center;animation:fpIn .25s ease}
+        @keyframes fpIn{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
+        .fesf-prog-label{font-size:15px;font-weight:600;color:#1c1c1c;margin-bottom:16px}
+        .fesf-prog-bar-track{height:10px;background:#e8e6df;border-radius:6px;overflow:hidden}
+        .fesf-prog-bar-fill{height:100%;background:linear-gradient(90deg,#5B5499,#4FA590);border-radius:6px;transition:width .35s ease;width:0%}
+        .fesf-prog-detail{font-size:12px;color:#888;margin-top:10px}`;
+      document.head.appendChild(s);
+      document.body.appendChild(_progressEl);
+    }
+    const pct = total > 0 ? Math.round((step / total) * 100) : 0;
+    _progressEl.querySelector('.fesf-prog-label').textContent = label || 'Processando…';
+    _progressEl.querySelector('.fesf-prog-bar-fill').style.width = pct + '%';
+    _progressEl.querySelector('.fesf-prog-detail').textContent = total > 0 ? `${step} de ${total} · ${pct}%` : '';
+  }
+  function hideProgress() {
+    if (_progressEl) { _progressEl.remove(); _progressEl = null; }
+  }
+
   // ------------------- V221: Upload de arquivos -------------------
   async function uploadArquivo(envio, campo, file) {
     const fd = new FormData();
@@ -270,40 +303,40 @@
       }
       const txt = clone.textContent;
       clone.disabled = true;
-      clone.textContent = 'Enviando ao FESF…';
+      clone.textContent = 'Enviando…';
+
+      const filesPorCampo = window._fesfFiles || {};
+      const aceitos = getStateFiles();
+      const arquivosParaEnviar = [];
+      for (const [campo, fileList] of Object.entries(filesPorCampo)) {
+        const aceitosCampo = aceitos[campo] || [];
+        if (aceitosCampo.length === 0) continue;
+        const aceitosNomes = aceitosCampo.map(f => f.name);
+        for (const file of fileList) {
+          if (aceitosNomes.includes(file.name)) arquivosParaEnviar.push({ campo, file });
+        }
+      }
+      const totalSteps = 1 + arquivosParaEnviar.length;
+      showProgress(0, totalSteps, 'Criando processo de pagamento…');
+
       try {
         const envio = await submitToBackend();
+        showProgress(1, totalSteps, arquivosParaEnviar.length > 0 ? 'Processo criado! Enviando documentos…' : 'Finalizando…');
 
-        // V221: upload de arquivos REAL apos criar envio.
-        // window._fesfFiles foi populado em capture-phase. Para cada campo,
-        // intersectamos com state.files (filtro do form) por nome — assim
-        // arquivos rejeitados pela validacao do form nao sao enviados.
-        // V299: guarda STRICT — se aceitos[campo] for vazio/undefined, pula
-        // o campo inteiro (evita vazamento de arquivos de envios anteriores
-        // ainda presentes em window._fesfFiles).
-        const filesPorCampo = window._fesfFiles || {};
-        const aceitos = getStateFiles();
-        const totais = Object.keys(filesPorCampo).reduce((a, k) => a + filesPorCampo[k].length, 0);
         const uploaded = []; const falhas = [];
-        if (totais > 0) {
-          clone.textContent = 'Enviando ' + totais + ' arquivo(s)…';
-          for (const [campo, fileList] of Object.entries(filesPorCampo)) {
-            // V299: se o usuário não anexou nada neste campo no envio atual, pula
-            const aceitosCampo = aceitos[campo] || [];
-            if (aceitosCampo.length === 0) continue;
-            const aceitosNomes = aceitosCampo.map(f => f.name);
-            for (const file of fileList) {
-              // Só envia arquivos que estão na lista de aceitos do envio atual
-              if (!aceitosNomes.includes(file.name)) continue;
-              try {
-                await uploadArquivo(envio, campo, file);
-                uploaded.push({ campo, name: file.name });
-              } catch (uerr) {
-                falhas.push({ campo, name: file.name, erro: uerr.message });
-                console.warn('[form-adapter] upload falhou:', campo, file.name, uerr);
-              }
+        if (arquivosParaEnviar.length > 0) {
+          for (let i = 0; i < arquivosParaEnviar.length; i++) {
+            const { campo, file } = arquivosParaEnviar[i];
+            showProgress(1 + i, totalSteps, `Enviando documento ${i + 1} de ${arquivosParaEnviar.length}: ${file.name}`);
+            try {
+              await uploadArquivo(envio, campo, file);
+              uploaded.push({ campo, name: file.name });
+            } catch (uerr) {
+              falhas.push({ campo, name: file.name, erro: uerr.message });
+              console.warn('[form-adapter] upload falhou:', campo, file.name, uerr);
             }
           }
+          showProgress(totalSteps, totalSteps, 'Todos os documentos enviados!');
         }
         // V299: limpa cache de arquivos após upload completo. Próximo envio
         // começa com slate limpo — mesmo se usuário não recarregar a página.
@@ -335,6 +368,7 @@
         // V220: redireciona para sucesso.html SO se o usuario tiver token (cenario portal).
         // Para link publico (anonimo) sucesso.html quebra porque chama api.envio() autenticado —
         // entao usamos a view-success local do form, populando com o protocolo REAL do backend.
+        hideProgress();
         if (getToken() && envio.id) {
           location.href = `/app/sucesso.html?id=${envio.id}`;
           return;
@@ -358,6 +392,7 @@
                 '\n\nGuarde este número — você pode consultar em /app/consulta.html');
         }
       } catch (err) {
+        hideProgress();
         const msg = err.message + (err.body ? '\n\n' + JSON.stringify(err.body) : '');
         alert('Não foi possível enviar à FESF: ' + msg);
         clone.disabled = false;
