@@ -16,6 +16,15 @@ export function clearSession() {
   localStorage.removeItem(USR_KEY);
 }
 
+function handleUnauthorized(status) {
+  if (status === 401 && !location.pathname.endsWith('/login.html')) {
+    clearSession();
+    location.href = '/app/login.html';
+    return true;
+  }
+  return false;
+}
+
 async function req(method, path, body, { authenticated = true } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (authenticated) {
@@ -30,8 +39,7 @@ async function req(method, path, body, { authenticated = true } = {}) {
   const text = await r.text();
   let json = null; try { json = JSON.parse(text); } catch {}
   if (!r.ok) {
-    // V226/F1.4: se backend bloqueou por senha temporária, redireciona para a tela
-    // de troca de senha — exceto se já estiver nela (evita loop).
+    if (authenticated && handleUnauthorized(r.status)) return;
     if (json && json.code === 'PASSWORD_CHANGE_REQUIRED'
         && !location.pathname.endsWith('/trocar-senha.html')) {
       location.href = '/app/trocar-senha.html';
@@ -156,11 +164,12 @@ export const api = {
   // retorna 'Token ausente'). Faz fetch autenticado, vira blob, click sintético.
   downloadDocumento: async (envioId, docId) => {
     const t = getToken();
-    if (!t) throw new Error('Sessão expirada — faça login novamente');
+    if (!t) { handleUnauthorized(401); throw new Error('Sessão expirada'); }
     const r = await fetch(`/api/envios/${envioId}/documentos/${docId}/download`, {
       headers: { Authorization: `Bearer ${t}` }
     });
     if (!r.ok) {
+      if (handleUnauthorized(r.status)) return;
       let msg = `HTTP ${r.status}`;
       try { const j = await r.json(); if (j.error) msg = j.error; } catch {}
       throw new Error(msg);
@@ -189,6 +198,7 @@ export const api = {
     const text = await r.text();
     let json = null; try { json = JSON.parse(text); } catch {}
     if (!r.ok) {
+      if (handleUnauthorized(r.status)) return;
       const err = new Error((json && json.error) || `HTTP ${r.status}`);
       err.status = r.status; throw err;
     }
@@ -237,7 +247,7 @@ export const api = {
   // LGPD: fornecedor exporta próprios dados (Art. 18)
   baixarMeusDados: async () => {
     const r = await fetch('/api/me/dados-pessoais', { headers: { Authorization: `Bearer ${getToken()}` } });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (!r.ok) { if (handleUnauthorized(r.status)) return; throw new Error('HTTP ' + r.status); }
     const blob = await r.blob();
     // V211: anexa ao DOM + revoga URL (mesmo padrao de baixarBackup)
     const url = URL.createObjectURL(blob);
@@ -252,7 +262,7 @@ export const api = {
   // admin backup
   baixarBackup: async () => {
     const r = await fetch('/api/admin/backup', { headers: { Authorization: `Bearer ${getToken()}` } });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+    if (!r.ok) { if (handleUnauthorized(r.status)) return; throw new Error('HTTP ' + r.status); }
     const blob = await r.blob();
     // V211: anexa ao DOM (Firefox exige p/ a.click() funcionar) + revoga URL (anti-leak)
     const url = URL.createObjectURL(blob);
@@ -273,7 +283,7 @@ export const api = {
       method: 'POST', headers: { Authorization: `Bearer ${getToken()}` }, body: fd,
     });
     const text = await r.text(); let json = null; try { json = JSON.parse(text); } catch {}
-    if (!r.ok) { const err = new Error((json && json.error) || `HTTP ${r.status}`); err.status = r.status; throw err; }
+    if (!r.ok) { if (handleUnauthorized(r.status)) return; const err = new Error((json && json.error) || `HTTP ${r.status}`); err.status = r.status; throw err; }
     return json;
   },
   // ---- documentos fixos do fornecedor ----
